@@ -112,3 +112,18 @@ If any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`, do not call the change acce
 
 - `scripts/create_validation_run.py`: create the immutable run directory and initial manifest/report.
 - `scripts/preflight_unity_project.py`: check required Unity project structure, `.meta` integrity, duplicate GUIDs, and serialized Missing Script markers.
+- `scripts/run_unity_validation.py`: resolve the matching Unity Editor, run preflight, EditMode, and PlayMode checks, and finalize one evidence run.
+- `scripts/finalize_validation_run.py`: calculate the final result, write the report, and record artifact hashes.
+
+Run the complete local path with automated AC IDs only:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+  --project-root "$UNITY_PROJECT_ROOT" \
+  --design-id MECH-001 \
+  --ac-id MECH-001-AC01
+```
+
+On macOS, the runner resolves the Unity Hub Editor matching
+`ProjectSettings/ProjectVersion.txt`. On other platforms, or for a custom
+installation, pass `--unity-editor` or set `UNITY_EDITOR_PATH`.

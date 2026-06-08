@@ -2,3 +2,8 @@
 Artifacts/
 __pycache__/
 *.pyc
+tests/fixtures/**/Library/
+tests/fixtures/**/Logs/
+tests/fixtures/**/Temp/
+tests/fixtures/**/UserSettings/
+tests/fixtures/**/obj/

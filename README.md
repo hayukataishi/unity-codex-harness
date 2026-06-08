@@ -96,6 +96,28 @@ python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
   --project-root /path/to/YourUnityProject
 ```
 
+Unity Editorのコンパイル、EditMode、PlayModeを一つのValidation Runへ保存:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+  --project-root /path/to/YourUnityProject \
+  --design-id MECH-001 \
+  --ac-id MECH-001-AC01
+```
+
+`--ac-id`には、この実行全体で検証する自動受け入れ条件だけを指定します。
+macOSでは`ProjectVersion.txt`と一致するUnity Hub Editorを自動検出します。
+他の環境では`--unity-editor`または`UNITY_EDITOR_PATH`を指定します。
+
+ハーネス自身のUnity 6.4 fixtureを検証:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+  --project-root tests/fixtures/UnityValidationFixture \
+  --design-id HARNESS-001 \
+  --ac-id HARNESS-001-AC01
+```
+
 ## ライセンス
 
 [MIT License](./LICENSE)

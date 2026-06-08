@@ -1,0 +1,19 @@
+{
+  "name": "UnityCodexHarness.Fixture.Tests.PlayMode",
+  "rootNamespace": "UnityCodexHarness.Fixture.Tests.PlayMode",
+  "references": [
+    "UnityCodexHarness.Fixture.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

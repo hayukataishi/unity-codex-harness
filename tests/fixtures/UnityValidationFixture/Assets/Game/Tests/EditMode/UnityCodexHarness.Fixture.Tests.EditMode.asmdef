@@ -1,0 +1,21 @@
+{
+  "name": "UnityCodexHarness.Fixture.Tests.EditMode",
+  "rootNamespace": "UnityCodexHarness.Fixture.Tests.EditMode",
+  "references": [
+    "UnityCodexHarness.Fixture.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

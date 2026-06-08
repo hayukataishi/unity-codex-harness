@@ -683,7 +683,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [x] 設計書へ受け入れ条件を記述する形式
 - [x] Unity EditorをCodexから操作する方法
 - [x] 採用するMCPサーバーとAgent Skill
-- [ ] Unity Test Frameworkのテスト分類
+- [x] Unity Test Frameworkのテスト分類
 - [ ] CIで実行する検証項目
 - [ ] Scene / Prefab / ScriptableObjectの自動検査方法
 - [ ] ゲームレビュー結果の記録形式

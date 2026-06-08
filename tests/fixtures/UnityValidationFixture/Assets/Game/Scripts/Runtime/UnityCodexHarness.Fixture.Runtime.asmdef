@@ -1,0 +1,14 @@
+{
+  "name": "UnityCodexHarness.Fixture.Runtime",
+  "rootNamespace": "UnityCodexHarness.Fixture",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
