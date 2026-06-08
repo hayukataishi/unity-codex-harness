@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -30,6 +31,14 @@ finalize = load_module(
 runner = load_module(
     "run_unity_validation",
     SCRIPTS / "run_unity_validation.py",
+)
+ci_secrets = load_module(
+    "check_unity_ci_secrets",
+    ROOT / "scripts" / "check_unity_ci_secrets.py",
+)
+repository_validator = load_module(
+    "validate_repository",
+    ROOT / "scripts" / "validate_repository.py",
 )
 
 
@@ -72,6 +81,77 @@ class UnityVersionTests(unittest.TestCase):
         self.assertIn("<UNITY_PROJECT_ROOT>", rendered)
         self.assertIn("<UNITY_EDITOR>", rendered)
         self.assertNotIn(str(ROOT), rendered)
+
+
+class UnityCiSecretTests(unittest.TestCase):
+    def test_accepts_license_file_credentials(self):
+        environment = {
+            "UNITY_EMAIL": "developer@example.com",
+            "UNITY_PASSWORD": "secret",
+            "UNITY_LICENSE": "<license />",
+        }
+
+        self.assertEqual(ci_secrets.missing_license_values(environment), [])
+
+    def test_accepts_serial_credentials(self):
+        environment = {
+            "UNITY_EMAIL": "developer@example.com",
+            "UNITY_PASSWORD": "secret",
+            "UNITY_SERIAL": "XX-XXXX-XXXX-XXXX-XXXX-XXXX",
+        }
+
+        self.assertEqual(ci_secrets.missing_license_values(environment), [])
+
+    def test_reports_missing_values_without_secret_contents(self):
+        missing = ci_secrets.missing_license_values({})
+
+        self.assertEqual(
+            missing,
+            [
+                "UNITY_EMAIL",
+                "UNITY_PASSWORD",
+                "UNITY_LICENSE or UNITY_SERIAL",
+            ],
+        )
+
+
+class GithubActionsValidationTests(unittest.TestCase):
+    def test_accepts_commit_sha_and_local_action(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "validate.yml").write_text(
+                "\n".join(
+                    [
+                        "steps:",
+                        "  - uses: actions/checkout@"
+                        "34e114876b0b11c390a56381ad16ebd13914f8d5",
+                        "  - uses: ./local-action",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                repository_validator.validate_github_actions(root),
+                [],
+            )
+
+    def test_rejects_mutable_action_tag(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "validate.yml").write_text(
+                "steps:\n  - uses: actions/checkout@v4\n",
+                encoding="utf-8",
+            )
+
+            errors = repository_validator.validate_github_actions(root)
+
+            self.assertEqual(len(errors), 1)
+            self.assertIn("actions/checkout@v4", errors[0])
 
 
 if __name__ == "__main__":

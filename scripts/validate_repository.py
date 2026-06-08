@@ -10,6 +10,11 @@ from pathlib import Path
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 LEGACY_PATTERNS = ("Unityハーネスエンジニアリング/", "[[")
+GITHUB_ACTION_RE = re.compile(
+    r"^\s*(?:-\s*)?uses:\s*([^\s#]+)",
+    re.MULTILINE,
+)
+PINNED_ACTION_RE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
 
 
 def frontmatter_value(frontmatter: str, key: str) -> str | None:
@@ -79,9 +84,39 @@ def validate_markdown(root: Path) -> list[str]:
     return errors
 
 
+def validate_github_actions(root: Path) -> list[str]:
+    errors: list[str] = []
+    workflows_root = root / ".github" / "workflows"
+    if not workflows_root.is_dir():
+        return errors
+
+    for workflow in sorted(
+        [
+            *workflows_root.glob("*.yml"),
+            *workflows_root.glob("*.yaml"),
+        ]
+    ):
+        text = workflow.read_text(encoding="utf-8")
+        if "\t" in text:
+            errors.append(f"tab in workflow: {workflow.relative_to(root)}")
+        for action in GITHUB_ACTION_RE.findall(text):
+            if action.startswith("./"):
+                continue
+            if not PINNED_ACTION_RE.fullmatch(action):
+                errors.append(
+                    f"unpinned GitHub Action: "
+                    f"{workflow.relative_to(root)} -> {action}"
+                )
+    return errors
+
+
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
-    errors = validate_skills(root) + validate_markdown(root)
+    errors = (
+        validate_skills(root)
+        + validate_markdown(root)
+        + validate_github_actions(root)
+    )
     if errors:
         print("\n".join(f"ERROR: {error}" for error in errors))
         return 1

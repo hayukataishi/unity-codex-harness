@@ -118,6 +118,19 @@ python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
   --ac-id HARNESS-001-AC01
 ```
 
+### ハーネス自身のCI
+
+`.github/workflows/validate-harness.yml`は、このハーネスリポジトリを自己検証するためのGitHub Actionsです。
+
+- `Repository`: 文書・Skill構造、Pythonテスト、Python構文、Unity fixtureの静的プリフライト
+- `Unity 6.4 Fixture`: GameCIでfixtureのEditMode / PlayModeテストを実行し、結果をArtifactへ保存
+
+`tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.codex/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
+
+Unity jobにはGitHub Actions Secretsとして`UNITY_EMAIL`、`UNITY_PASSWORD`、および`UNITY_LICENSE`または`UNITY_SERIAL`が必要です。Secretを取得できないfork由来Pull RequestではUnity jobを実行せず、`Repository` jobだけを実行します。
+
+GameCIが正確な`6000.4.10f1` Docker imageを提供していることも実行条件です。2026-06-08の確認時点では該当imageを確認できていないため、ローカルUnity検証はPASS、GitHub上のUnity jobは未実行です。
+
 ## ライセンス
 
 [MIT License](./LICENSE)

@@ -342,6 +342,25 @@ SAVE-001
 | ビルド検証 | 対象プラットフォームでの成立性 | CIまたはローカルのバッチビルド |
 | ゲームレビュー | 操作感、分かりやすさ、楽しさ、演出 | 人間によるプレイ |
 
+### ハーネスリポジトリのCI基準
+
+ハーネス自身は`.github/workflows/validate-harness.yml`で次の2段階を検証する。
+
+| Job | 実行内容 | Unityライセンス |
+|---|---|---|
+| `Repository` | リポジトリ検査、Python回帰テスト、Python構文、fixture静的プリフライト | 不要 |
+| `Unity 6.4 Fixture` | `tests/fixtures/UnityValidationFixture`のEditMode / PlayMode | 必要 |
+
+運用規則:
+
+- このWorkflowとfixtureはハーネス自身の回帰検証専用とし、`scripts/install.py`でゲームプロジェクトへコピーしない。
+- 導入先ゲームは、コピーされた`validate-unity-change` Skillを利用し、対象プラットフォーム、Build Profile、ライセンス方式に合わせたCIを個別に定義する。
+- fork由来Pull RequestではSecretを利用できないため、Unity jobを実行せず、ライセンス不要の`Repository` jobを実行する。
+- 外部GitHub Actionsは、タグではなく40桁のcommit SHAへ固定する。
+- Unity jobの開始前にSecretの存在だけを検証し、値をログへ出力しない。
+- Unityテスト結果とログは、成功・失敗にかかわらずGitHub Actions Artifactへ保存する。
+- Workflowの定義完了と、GitHub上での実行成功は別の状態として扱う。Secret、Runner、GameCI imageなどが未準備なら`NOT RUN`または`BLOCKED`と報告する。
+
 ### 自動化を優先するもの
 
 - コンパイル
@@ -684,7 +703,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [x] Unity EditorをCodexから操作する方法
 - [x] 採用するMCPサーバーとAgent Skill
 - [x] Unity Test Frameworkのテスト分類
-- [ ] CIで実行する検証項目
+- [x] CIで実行する検証項目
 - [ ] Scene / Prefab / ScriptableObjectの自動検査方法
 - [ ] ゲームレビュー結果の記録形式
 - [ ] Definition of Done

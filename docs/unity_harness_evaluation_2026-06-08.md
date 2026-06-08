@@ -10,10 +10,10 @@
 
 現状の最も正確な位置づけは、次の通り。
 
-> 設計・承認・証拠管理の規約がよく整った「Unity AI開発ハーネスの初期基盤」。  
-> 実行可能なUnity Editor側ツール、CI、依存バージョン固定、サンプルプロジェクトを追加すれば、汎用的な実運用テンプレートへ発展できる。
+> 設計・承認・証拠管理に加え、ローカルUnityバッチ検証とハーネス専用CI定義を備えた「Unity AI開発ハーネスの基盤」。
+> Editor APIによる資産検査、ビルド検証、依存バージョン固定を追加すれば、汎用的な実運用テンプレートへ発展できる。
 
-### 総合評価
+### 初回総合評価
 
 | 観点 | 評価 |
 |---|---:|
@@ -41,16 +41,17 @@
 - `.codex/skills/`以下の6 Skill
 - `scripts/install.py`
 - `scripts/validate_repository.py`
-- `validate-unity-change`の2つの補助スクリプト
+- `validate-unity-change`のUnityバッチ検証スクリプト
+- `tests/fixtures/UnityValidationFixture`
+- `.github/workflows/validate-harness.yml`
 
-このリポジトリ自体には`Assets/`、`Packages/`、`ProjectSettings/ProjectVersion.txt`がなく、Unityプロジェクト本体ではない。そのため、以下は未評価である。
+このリポジトリのルート自体はUnityプロジェクトではないが、`tests/fixtures/UnityValidationFixture`に自己検証用の最小Unityプロジェクトがある。fixtureではコンパイル、EditMode、PlayModeをローカル実行したが、以下は未評価である。
 
-- 実Unity Editorでのコンパイル
 - Unity MCPとの実接続
-- EditMode / PlayModeテスト
 - Scene、Prefab、ScriptableObjectのEditor API検査
 - 実プラットフォーム向けビルド
 - Play Modeの操作と映像・Profiler取得
+- GitHub Actions上のUnity job
 
 したがって、本レポートは**テンプレートと自動化コードの評価**であり、実ゲームプロジェクトでのエンドツーエンド合格を示すものではない。
 
@@ -107,22 +108,22 @@ Runを上書きせず、承認済みの比較基準だけを`TestBaselines/`へ�
 
 ## 5. 主要な不足と改善点
 
-### P0: 実行可能なCI・Unityバッチ検証がない
+### P0: 実行可能なCI・Unityバッチ検証がない（改善中）
 
-設計書ではコンパイル、EditMode、PlayMode、アセット検査、ビルドを要求しているが、実装済みスクリプトはRun作成と静的プリフライトだけである。
+初回評価時点では、設計書が要求するコンパイル、EditMode、PlayMode、アセット検査、ビルドに対し、実装済みスクリプトはRun作成と静的プリフライトだけであった。
 
-不足しているもの:
+2026-06-08に、Unity `6000.4.10f1`のfixture、ローカルUnityバッチ検証、Validation Run集計、ハーネス専用GitHub Actionsを追加した。ローカルではCompile、EditMode、PlayModeがPASSしている。
 
-- Unity Editorのバッチ起動ラッパー
-- EditMode / PlayModeテスト実行
-- NUnit XMLの保存
+残っているもの:
+
 - Code Coverage実行
 - Build Profileを指定した検証ビルド
-- Editor.logと終了コードの収集
-- GitHub ActionsなどのCI定義
-- ライセンス認証方式とSecret運用
+- GitHub Actions上でのUnity job実行確認
+- 導入先ゲーム向けCIテンプレート
 
-**改善案:** `scripts/unity/`またはUnity Package内に、`run-tests`、`validate-assets`、`build-player`、`finalize-validation-run`を実装する。CIでは最低でもリポジトリ検査、コンパイル、EditMode、PlayMode、代表Build Profileのビルドを実行する。
+GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供する正確な`6000.4.10f1` imageが必要である。Workflowは定義済みだが、2026-06-08時点では後者を確認できず、リモート実行結果は`NOT RUN`である。
+
+**改善案:** 次にEditor APIの`validate-assets`、Code Coverage、代表Build Profileの`build-player`を追加する。GameCI image公開後にGitHub Actionsを実行し、リモート証拠を確定する。
 
 ### P0: Missing Referenceと必須資産検査が実装されていない
 
@@ -355,23 +356,23 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | インストーラー`--dry-run` | PASS | 一時fixture Unityプロジェクトへ18ファイルを検出 |
 | インストーラー通常実行 | PASS | 一時fixtureへ18ファイルを導入 |
 | Validation Run作成 | PASS | UTC Run ID、Manifest、Report、成果物ディレクトリを生成 |
-| 静的プリフライト | PASS | 最小fixtureで必須パス、`.meta`、GUIDを検査 |
-| Unity Editor compile | NOT RUN | このリポジトリはUnityプロジェクトではない |
-| EditMode / PlayMode | NOT RUN | Unity Editorとテストfixtureがない |
+| 静的プリフライト | PASS | Unity 6.4 fixtureで必須パス、`.meta`、GUIDを検査 |
+| Unity Editor compile | PASS | ローカルUnity `6000.4.10f1` |
+| EditMode / PlayMode | PASS | fixtureで各1件 |
+| GitHub Actions静的job | 定義済み | Workflow構文とローカル相当コマンドはPASS、GitHub上はNOT RUN |
+| GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
 | AssetDatabase参照検査 | NOT RUN | Editor検査コードがない |
 | Build Profile build | NOT RUN | UnityプロジェクトとBuild Profileがない |
 | Unity MCP接続 | NOT RUN | 評価セッションに対象Unity Editorがない |
 
-一時fixtureの`ProjectVersion.txt`にはスクリプト動作確認用として`6000.3.0f1`を記載したが、実Unity Editorを起動したものではない。
+fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000.4.10f1`へ固定している。
 
 ## 9. 設計との整合性
 
 設計文書、AGENTS指示、各Skillの責務は概ね整合している。主な差異は、**文書が要求する検証能力より、同梱スクリプトの実装範囲が狭いこと**である。
 
-特に次は文書上は要求されるが、ハーネス単体では自動実行できない。
+特に次は文書上は要求されるが、ハーネス単体ではまだ自動実行できない。
 
-- Compile
-- EditMode / PlayMode
 - Missing Reference
 - Scene / Prefab / ScriptableObjectの必須参照
 - Build Profile / Scene List
@@ -402,6 +403,9 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
   https://docs.unity3d.com/Manual/com.unity.test-framework.html
 - Code Coverage  
   https://docs.unity3d.com/Manual/com.unity.testtools.codecoverage.html
+- [GameCI Test Runner](https://game.ci/docs/github/test-runner/)
+- [GameCI activation](https://game.ci/docs/github/activation)
+- [game-ci/unity-test-runner v4.3.1](https://github.com/game-ci/unity-test-runner/releases/tag/v4.3.1)
 - Cinemachine package information  
   https://docs.unity3d.com/Manual/com.unity.cinemachine.html
 - Cinemachine Camera component 3.1  
@@ -420,7 +424,7 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 - 設計・承認・安全規約の土台としては採用価値が高い。
 - 小規模な試作やCodexとの共同作業には現状でも利用できる。
 - チーム開発、継続運用、複数プラットフォーム、本番リリースへ使う前に、P0項目を実装する必要がある。
-- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、Unity Editor側検証、CI、Build Profile、依存固定、実動fixtureが不足している。
+- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、Editor API資産検査、CIのリモート実行証拠、Build Profileビルド、依存固定が不足している。
 
 ## 13. 改善進捗
 
@@ -443,9 +447,36 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 - EditMode: `PASS`、1件
 - PlayMode: `PASS`、1件
 
+### 2026-06-08: P0-1 ハーネス専用CI定義
+
+次を追加した。
+
+- GitHub Actionsの`Repository` job
+- Unity 6.4 fixtureを実行する`Unity 6.4 Fixture` job
+- UnityライセンスSecretの事前検査
+- 外部Actionのcommit SHA固定検査
+- Unityテスト結果とログのArtifact保存
+- fork由来Pull RequestでUnity Secretを使用しない実行条件
+
+境界:
+
+- CIとfixtureはハーネス自身の回帰検証専用
+- `scripts/install.py`は`.codex/skills/`、`docs/`、`AGENTS.md`だけを導入先ゲームへコピー
+- 導入先ゲームにはこのWorkflowやfixtureをコピーしない
+
+確認結果:
+
+- Workflow YAML解析: `PASS`
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、10件
+- fixture静的プリフライト: `PASS`
+- GitHub Actions上のUnity job: `NOT RUN`
+
+リモートUnity jobは、Repository Secretsの設定と、GameCIによる正確なUnity `6000.4.10f1` imageの提供を確認してから実行する。
+
 残るP0:
 
 - Editor APIによるMissing Referenceと必須資産検査
-- GitHub ActionsなどのCI
+- GitHub Actions Unity jobのリモート実行確認
 - 外部依存の互換性マニフェスト
 - インストール先プロジェクトの`Artifacts/` Git除外保証

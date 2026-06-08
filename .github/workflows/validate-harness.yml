@@ -1,0 +1,108 @@
+name: Validate Harness
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: validate-harness-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FIXTURE_PROJECT_PATH: tests/fixtures/UnityValidationFixture
+  UNITY_VERSION: 6000.4.10f1
+
+jobs:
+  repository:
+    name: Repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Validate repository
+        run: python3 scripts/validate_repository.py
+
+      - name: Run Python tests
+        run: python3 -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Compile Python scripts
+        run: >-
+          python3 -m py_compile
+          scripts/*.py
+          .codex/skills/validate-unity-change/scripts/*.py
+
+      - name: Run fixture preflight
+        run: >-
+          python3
+          .codex/skills/validate-unity-change/scripts/preflight_unity_project.py
+          --project-root "${FIXTURE_PROJECT_PATH}"
+
+  unity-fixture:
+    name: Unity 6.4 Fixture
+    needs: repository
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Verify Unity license secrets
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        run: python3 scripts/check_unity_ci_secrets.py
+
+      - name: Cache Unity Library
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.FIXTURE_PROJECT_PATH }}/Library
+          key: >-
+            unity-${{ runner.os }}-${{ env.UNITY_VERSION }}-
+            ${{ hashFiles('tests/fixtures/UnityValidationFixture/Packages/**',
+            'tests/fixtures/UnityValidationFixture/ProjectSettings/**') }}
+          restore-keys: |
+            unity-${{ runner.os }}-${{ env.UNITY_VERSION }}-
+
+      - name: Run Unity tests
+        id: unity-tests
+        uses: game-ci/unity-test-runner@0ff419b913a3630032cbe0de48a0099b5a9f0ed9 # v4.3.1
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: ${{ env.FIXTURE_PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          testMode: all
+          artifactsPath: artifacts/unity-tests
+          runAsHostUser: true
+
+      - name: Upload Unity test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unity-validation-${{ github.run_id }}
+          path: |
+            artifacts/unity-tests
+            ${{ env.FIXTURE_PROJECT_PATH }}/Logs
+          if-no-files-found: warn
+          retention-days: 14
