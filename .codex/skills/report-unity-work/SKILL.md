@@ -1,0 +1,74 @@
+---
+name: report-unity-work
+description: Produce a concise human-reviewable report of Unity design and implementation work, including design IDs, changed files and assets, acceptance-criterion results, validation evidence, manual Editor or play checks, assumptions, rollback notes, and remaining risks. Use at the end of Unity design, implementation, validation, or gameplay-review tasks.
+---
+
+# Report Unity Work
+
+## Collect facts
+
+Before writing:
+
+1. Read the relevant design items and active ACs.
+2. Inspect the actual diff and Unity asset changes.
+3. Read test XML, Console logs, screenshots, videos, build logs, and `RunManifest.json`.
+4. Distinguish executed evidence from inference.
+5. List manual criteria that still require human judgment.
+6. Check for high-impact operations, rollback considerations, temporary assumptions, and unrelated changes.
+
+Do not state that a test, build, scene, or play path passed unless it ran and has evidence. Use project-relative paths such as `Artifacts/ValidationRuns/<RunId>/...`; omit machine-specific absolute paths from shared reports.
+
+## Required report
+
+```markdown
+## 実施内容
+
+- 目的と変更範囲
+- 対象設計ID・AC ID
+
+## 更新した設計
+
+- 更新箇所、確定事項、要確認事項
+- 変更なしの場合は「変更なし」と理由
+
+## 更新した実装
+
+- コード、Scene、Prefab、ScriptableObject、設定、テスト
+- 重要な設計判断と依存関係
+
+## 実行した検証と結果
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+
+- コンパイル、EditMode、PlayMode、アセット検査、ビルドの実行範囲
+- 未実行項目と理由
+
+## 検証成果物
+
+- `Artifacts/ValidationRuns/<RunId>/...`
+
+## Unity Editorで確認してほしいこと
+
+- Scene、操作手順、期待結果、見るべき感覚・表示
+
+## 設計との整合性
+
+- 設計、実装、テストの対応
+- 意図的な差異または差異なし
+
+## 残課題・仮定・リスク
+
+- `仮定`、`要確認`、回帰リスク、ロールバック方法
+```
+
+## Reporting rules
+
+- Prefer exact filenames, asset names, test names, design IDs, and AC IDs.
+- Summarize large diffs; do not paste generated logs.
+- Separate warnings from blockers.
+- Label subjective criteria as human review, not automated success.
+- State `実装完了候補・人間レビュー待ち` when only manual criteria remain.
+- State that acceptance is incomplete when any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`.
+- Mention package, platform, build, serialized data, GUID, or baseline changes prominently.
+- Report no-op investigations honestly when no files changed.

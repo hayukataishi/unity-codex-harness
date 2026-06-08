@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Gameplay"
+  short_description: "Play Modeを観察し受け入れ条件別の証拠と確認事項を整理"
+  default_prompt: "Use $review-gameplay to execute this play path and prepare evidence for human gameplay review."

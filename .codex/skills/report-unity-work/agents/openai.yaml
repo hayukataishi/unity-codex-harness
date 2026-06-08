@@ -1,0 +1,4 @@
+interface:
+  display_name: "Report Unity Work"
+  short_description: "Unity作業結果を設計ID・検証証拠・残課題付きで簡潔に報告"
+  default_prompt: "Use $report-unity-work to summarize the completed Unity work for human review."

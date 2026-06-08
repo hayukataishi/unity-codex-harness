@@ -1,0 +1,4 @@
+interface:
+  display_name: "Integrate 2D Assets"
+  short_description: "生成済み2D素材を承認済みプロファイルに沿ってUnityへ統合"
+  default_prompt: "Use $integrate-2d-assets to import and connect these generated 2D assets in Unity."

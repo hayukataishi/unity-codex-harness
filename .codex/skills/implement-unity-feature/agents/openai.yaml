@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement Unity Feature"
+  short_description: "確定設計に沿ってUnity機能を安全かつ小さく実装"
+  default_prompt: "Use $implement-unity-feature to implement the approved Unity design item with minimal safe changes."

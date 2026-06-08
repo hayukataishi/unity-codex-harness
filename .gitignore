@@ -1,0 +1,4 @@
+.DS_Store
+Artifacts/
+__pycache__/
+*.pyc

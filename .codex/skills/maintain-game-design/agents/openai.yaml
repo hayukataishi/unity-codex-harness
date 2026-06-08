@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Game Design"
+  short_description: "要求とレビューを追跡可能なUnityゲーム設計へ整理"
+  default_prompt: "Use $maintain-game-design to convert this request into traceable game-design updates."

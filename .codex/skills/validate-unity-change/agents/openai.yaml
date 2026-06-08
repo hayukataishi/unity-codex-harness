@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validate Unity Change"
+  short_description: "Unity変更をコンパイル・テスト・参照検査で検証"
+  default_prompt: "Use $validate-unity-change to verify this Unity change and collect evidence by acceptance criterion."
