@@ -60,6 +60,29 @@ def parse_nunit_result(path: Path, exit_code: int) -> tuple[str, str]:
     return "FAIL", f"exit={exit_code}, total={total}, failed={failed}, result={result}"
 
 
+def parse_asset_validation_result(path: Path, exit_code: int) -> tuple[str, str]:
+    if not path.is_file():
+        return (
+            "FAIL",
+            f"Unity exited {exit_code}; asset validation JSON was not created",
+        )
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return "FAIL", f"Invalid asset validation JSON: {error}"
+
+    status = report.get("status", "FAIL")
+    summary = report.get("summary", {})
+    errors = summary.get("errors", len(report.get("errors", [])))
+    warnings = summary.get("warnings", len(report.get("warnings", [])))
+    if exit_code == 0 and status == "PASS" and errors == 0:
+        return "PASS", f"errors=0, warnings={warnings}"
+    return (
+        "FAIL",
+        f"exit={exit_code}, status={status}, errors={errors}, warnings={warnings}",
+    )
+
+
 def display_command(command: list[str], unity_editor: Path, project_root: Path) -> str:
     scripts_dir = Path(__file__).resolve().parent
     python_paths = {
@@ -97,6 +120,10 @@ def parse_args() -> argparse.Namespace:
         help="Automated AC validated by the complete check set; repeat as needed",
     )
     parser.add_argument("--platform", default="Editor")
+    parser.add_argument(
+        "--asset-config",
+        default="ProjectSettings/UnityCodexHarnessAssetValidation.json",
+    )
     parser.add_argument("--timeout-seconds", type=int, default=1800)
     return parser.parse_args()
 
@@ -200,6 +227,49 @@ def main() -> int:
             log_path.read_text(encoding="utf-8", errors="replace")
         ):
             compiler_error = True
+
+    asset_result_relative = f"{run_relative}/Logs/AssetValidation.json"
+    asset_log_relative = f"{run_relative}/Logs/AssetValidation.log"
+    asset_command = [
+        str(unity_editor),
+        "-batchmode",
+        "-nographics",
+        "-projectPath",
+        str(project_root),
+        "-executeMethod",
+        "UnityCodexHarness.Validation.Editor.AssetValidationBatch.Run",
+        "-harnessAssetValidationConfig",
+        args.asset_config,
+        "-harnessAssetValidationOutput",
+        str(project_root / asset_result_relative),
+        "-logFile",
+        str(project_root / asset_log_relative),
+    ]
+    asset_exit = run_command(asset_command, args.timeout_seconds)
+    commands.append(
+        {
+            "name": "Asset validation",
+            "command": display_command(asset_command, unity_editor, project_root),
+            "exitCode": asset_exit,
+        }
+    )
+    asset_result, asset_notes = parse_asset_validation_result(
+        project_root / asset_result_relative,
+        asset_exit,
+    )
+    checks.append(
+        {
+            "name": "Asset validation",
+            "result": asset_result,
+            "evidence": asset_result_relative,
+            "notes": asset_notes,
+        }
+    )
+    asset_log_path = project_root / asset_log_relative
+    if asset_log_path.is_file() and COMPILER_ERROR_RE.search(
+        asset_log_path.read_text(encoding="utf-8", errors="replace")
+    ):
+        compiler_error = True
 
     checks.insert(
         1,

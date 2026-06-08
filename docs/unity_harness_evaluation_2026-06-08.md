@@ -123,20 +123,20 @@ Runを上書きせず、承認済みの比較基準だけを`TestBaselines/`へ�
 
 GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供する正確な`6000.4.10f1` imageが必要である。Workflowは定義済みだが、2026-06-08時点では後者を確認できず、リモート実行結果は`NOT RUN`である。
 
-**改善案:** 次にEditor APIの`validate-assets`、Code Coverage、代表Build Profileの`build-player`を追加する。GameCI image公開後にGitHub Actionsを実行し、リモート証拠を確定する。
+**改善案:** 次にCode Coverageと代表Build Profileの`build-player`を追加する。GameCI image公開後にGitHub Actionsを実行し、リモート証拠を確定する。
 
-### P0: Missing Referenceと必須資産検査が実装されていない
+### P0: Missing Referenceと必須資産検査が実装されていない（対応済み）
 
-`preflight_unity_project.py`が検出するのは、主に次の項目である。
+初回評価時点の`preflight_unity_project.py`が検出するのは、主に次の項目だけであった。
 
 - 必須パス
 - `.meta`不足・孤立
 - GUID形式・重複
 - YAML上の`m_Script: {fileID: 0}`パターン
 
-一般的なMissing Reference、Prefab/Scene/SOの必須フィールド、Build ProfileのScene、Tag、Layer、Input Action、Addressables設定は検査していない。設計書とSkillが掲げる検証範囲との間に差がある。
+2026-06-08にEditor API検査器を追加し、Prefab、Scene、ScriptableObjectのMissing Script、解決不能なObject参照、設定JSONで宣言した必須アセットと必須参照を検査可能にした。
 
-**改善案:** Unity Editor Assemblyへ検証Packageを追加し、`SerializedObject`、`AssetDatabase`、`PrefabUtility`、Scene API、Build Profile APIを使って検査する。PythonのYAML検査は高速プリフライトに限定し、正式なアセット合格判定はEditor APIへ寄せる。
+引き続き未対応なのは、Build ProfileのScene、Tag、Layer、Input Action、Addressables設定である。PythonのYAML検査は高速プリフライト、正式なオブジェクト参照判定はEditor APIという役割分担になった。
 
 ### P0: 外部依存のバージョンが固定されていない
 
@@ -353,15 +353,15 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| インストーラー`--dry-run` | PASS | 一時fixture Unityプロジェクトへ18ファイルを検出 |
-| インストーラー通常実行 | PASS | 一時fixtureへ18ファイルを導入 |
+| インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
+| インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run作成 | PASS | UTC Run ID、Manifest、Report、成果物ディレクトリを生成 |
 | 静的プリフライト | PASS | Unity 6.4 fixtureで必須パス、`.meta`、GUIDを検査 |
 | Unity Editor compile | PASS | ローカルUnity `6000.4.10f1` |
-| EditMode / PlayMode | PASS | fixtureで各1件 |
+| EditMode / PlayMode | PASS | EditMode 4件、PlayMode 1件 |
 | GitHub Actions静的job | 定義済み | Workflow構文とローカル相当コマンドはPASS、GitHub上はNOT RUN |
 | GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
-| AssetDatabase参照検査 | NOT RUN | Editor検査コードがない |
+| AssetDatabase参照検査 | PASS | Missing Referenceと必須参照の正常系・異常系 |
 | Build Profile build | NOT RUN | UnityプロジェクトとBuild Profileがない |
 | Unity MCP接続 | NOT RUN | 評価セッションに対象Unity Editorがない |
 
@@ -373,8 +373,6 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 
 特に次は文書上は要求されるが、ハーネス単体ではまだ自動実行できない。
 
-- Missing Reference
-- Scene / Prefab / ScriptableObjectの必須参照
 - Build Profile / Scene List
 - Input / Tag / Layer
 - Build
@@ -399,6 +397,9 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
   https://docs.unity3d.com/Manual/build-profiles.html
 - Build Profile scene list  
   https://docs.unity3d.com/Manual/build-profile-scene-list.html
+- [PrefabUtility.LoadPrefabContents](https://docs.unity3d.com/ScriptReference/PrefabUtility.LoadPrefabContents.html)
+- [SerializedObject](https://docs.unity3d.com/ScriptReference/SerializedObject.html)
+- [EditorSceneManager](https://docs.unity3d.com/ScriptReference/SceneManagement.EditorSceneManager.html)
 - Unity Test Framework  
   https://docs.unity3d.com/Manual/com.unity.test-framework.html
 - Code Coverage  
@@ -424,7 +425,7 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 - 設計・承認・安全規約の土台としては採用価値が高い。
 - 小規模な試作やCodexとの共同作業には現状でも利用できる。
 - チーム開発、継続運用、複数プラットフォーム、本番リリースへ使う前に、P0項目を実装する必要がある。
-- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、Editor API資産検査、CIのリモート実行証拠、Build Profileビルド、依存固定が不足している。
+- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、CIのリモート実行証拠、Build Profileビルド、依存固定が不足している。
 
 ## 13. 改善進捗
 
@@ -461,22 +462,57 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 境界:
 
 - CIとfixtureはハーネス自身の回帰検証専用
-- `scripts/install.py`は`.codex/skills/`、`docs/`、`AGENTS.md`だけを導入先ゲームへコピー
+- `scripts/install.py`はSkill、docs、AGENTSに加え、Editor検査器と設定JSONを導入先ゲームへコピー
 - 導入先ゲームにはこのWorkflowやfixtureをコピーしない
 
 確認結果:
 
 - Workflow YAML解析: `PASS`
 - リポジトリ検査: `PASS`
-- Python回帰テスト: `PASS`、10件
+- Python回帰テスト: `PASS`、14件
 - fixture静的プリフライト: `PASS`
 - GitHub Actions上のUnity job: `NOT RUN`
 
 リモートUnity jobは、Repository Secretsの設定と、GameCIによる正確なUnity `6000.4.10f1` imageの提供を確認してから実行する。
 
+未実施:
+
+- GitHub Repository Secretsの`UNITY_EMAIL`、`UNITY_PASSWORD`、`UNITY_LICENSE`または`UNITY_SERIAL`は未設定
+- GameCIの正確なUnity `6000.4.10f1` Docker imageは未確認
+- 上記2点が未完了のため、GitHub Actionsの`Unity 6.4 Fixture` jobは未実行
+
+### 2026-06-08: P0-2 Editor API資産検査
+
+次を追加した。
+
+- Editor専用の`UnityCodexHarness.Validation.Editor` Assembly
+- Prefab、Scene、ScriptableObjectのMissing Script検査
+- 解決不能なSerialized Object参照の検査
+- 必須アセットの存在・型検査
+- Prefab、Scene、ScriptableObjectの必須参照検査
+- `ProjectSettings/UnityCodexHarnessAssetValidation.json`によるゲーム固有ルール
+- `run_unity_validation.py`へのAsset validation checkとJSON証拠
+- インストーラーによるEditor検査器と設定JSONの導入
+
+Unity `6000.4.10f1`実行結果:
+
+- Validation Run: `Artifacts/ValidationRuns/20260608T145026Z`
+- Static preflight: `PASS`
+- Compile: `PASS`
+- EditMode: `PASS`、4件
+- PlayMode: `PASS`、1件
+- Asset validation: `PASS`
+- 必須参照欠落の異常系: 検出テスト`PASS`
+- 参照先Asset削除によるMissing Reference異常系: 検出テスト`PASS`
+
+未対応:
+
+- Tag、Layer、Input Action、Addressables設定
+- Build ProfileのScene Listと必須Build Profile
+- Material、Animator Controllerなど、Scene・Prefab・ScriptableObject以外の専用検査
+
 残るP0:
 
-- Editor APIによるMissing Referenceと必須資産検査
 - GitHub Actions Unity jobのリモート実行確認
 - 外部依存の互換性マニフェスト
 - インストール先プロジェクトの`Artifacts/` Git除外保証

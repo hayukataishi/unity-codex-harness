@@ -31,11 +31,13 @@ python3 scripts/install.py /path/to/YourUnityProject
 ```text
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/skills/
+├─ Assets/UnityCodexHarness/Editor/
 ├─ docs/
+├─ ProjectSettings/UnityCodexHarnessAssetValidation.json
 └─ AGENTS.md
 ```
 
-既存ファイルは標準では上書きしません。
+`Assets/UnityCodexHarness/Editor/`はMissing Script、Missing Reference、必須資産をUnity Editor APIで検査するEditor専用Assemblyです。Player Buildには含まれません。既存ファイルは標準では上書きせず、ゲーム固有に編集する資産検査設定JSONは通常の再導入でも保持します。
 
 ```bash
 # 変更内容だけ確認
@@ -48,7 +50,7 @@ python3 scripts/install.py /path/to/YourUnityProject --skip-agents
 python3 scripts/install.py /path/to/YourUnityProject --force
 ```
 
-手動導入する場合は、`.codex/skills/`、`docs/`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーしてください。Skills内の参照パスはこの配置を前提にしています。
+手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーしてください。Skills内の参照パスはこの配置を前提にしています。
 
 ## Codexでの使い方
 
@@ -96,7 +98,7 @@ python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
   --project-root /path/to/YourUnityProject
 ```
 
-Unity Editorのコンパイル、EditMode、PlayModeを一つのValidation Runへ保存:
+Unity Editorのコンパイル、EditMode、PlayMode、Editor API資産検査を一つのValidation Runへ保存:
 
 ```bash
 python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
@@ -108,6 +110,29 @@ python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
 `--ac-id`には、この実行全体で検証する自動受け入れ条件だけを指定します。
 macOSでは`ProjectVersion.txt`と一致するUnity Hub Editorを自動検出します。
 他の環境では`--unity-editor`または`UNITY_EDITOR_PATH`を指定します。
+
+資産検査は、`Assets`以下のPrefab、Scene、ScriptableObjectにあるMissing Scriptと壊れたObject参照を走査します。ゲーム固有の必須資産・必須参照は`ProjectSettings/UnityCodexHarnessAssetValidation.json`へ追加します。
+
+```json
+{
+  "requiredAssets": [
+    {
+      "path": "Assets/Game/Scenes/Main.unity",
+      "type": "SceneAsset"
+    }
+  ],
+  "requiredReferences": [
+    {
+      "assetPath": "Assets/Game/Prefabs/Player.prefab",
+      "objectPath": "Player",
+      "componentType": "Game.PlayerView",
+      "propertyPath": "healthBar"
+    }
+  ]
+}
+```
+
+`propertyPath`にはUnityのSerializedProperty pathを指定します。必須か任意かはゲーム仕様で異なるため、nullの全フィールドを一律エラーにはしません。
 
 ハーネス自身のUnity 6.4 fixtureを検証:
 
@@ -123,7 +148,7 @@ python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
 `.github/workflows/validate-harness.yml`は、このハーネスリポジトリを自己検証するためのGitHub Actionsです。
 
 - `Repository`: 文書・Skill構造、Pythonテスト、Python構文、Unity fixtureの静的プリフライト
-- `Unity 6.4 Fixture`: GameCIでfixtureのEditMode / PlayModeテストを実行し、結果をArtifactへ保存
+- `Unity 6.4 Fixture`: GameCIでfixtureのEditMode / PlayModeと資産検査回帰テストを実行し、結果をArtifactへ保存
 
 `tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.codex/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
 

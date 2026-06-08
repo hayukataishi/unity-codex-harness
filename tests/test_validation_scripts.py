@@ -82,6 +82,28 @@ class UnityVersionTests(unittest.TestCase):
         self.assertIn("<UNITY_EDITOR>", rendered)
         self.assertNotIn(str(ROOT), rendered)
 
+    def test_parses_successful_asset_validation_report(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            report_path = Path(temporary_directory) / "AssetValidation.json"
+            report_path.write_text(
+                '{"status":"PASS","summary":{"errors":0,"warnings":1}}\n',
+                encoding="utf-8",
+            )
+
+            result, notes = runner.parse_asset_validation_result(report_path, 0)
+
+            self.assertEqual(result, "PASS")
+            self.assertEqual(notes, "errors=0, warnings=1")
+
+    def test_rejects_missing_asset_validation_report(self):
+        result, notes = runner.parse_asset_validation_result(
+            Path("/not-created/AssetValidation.json"),
+            1,
+        )
+
+        self.assertEqual(result, "FAIL")
+        self.assertIn("was not created", notes)
+
 
 class UnityCiSecretTests(unittest.TestCase):
     def test_accepts_license_file_credentials(self):
@@ -152,6 +174,58 @@ class GithubActionsValidationTests(unittest.TestCase):
 
             self.assertEqual(len(errors), 1)
             self.assertIn("actions/checkout@v4", errors[0])
+
+
+class InstallerSourceTests(unittest.TestCase):
+    def test_maps_unity_template_into_project_paths(self):
+        installer = load_module(
+            "install",
+            ROOT / "scripts" / "install.py",
+        )
+
+        sources = installer.source_files(ROOT, skip_agents=False)
+        relative_paths = {item.relative.as_posix() for item in sources}
+
+        self.assertIn(
+            "Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs",
+            relative_paths,
+        )
+        self.assertIn(
+            "ProjectSettings/UnityCodexHarnessAssetValidation.json",
+            relative_paths,
+        )
+        config = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == "ProjectSettings/UnityCodexHarnessAssetValidation.json"
+        )
+        self.assertTrue(config.preserve_existing)
+
+    def test_fixture_validator_matches_install_template(self):
+        template_root = ROOT / "templates" / "unity"
+        fixture_root = ROOT / "tests" / "fixtures" / "UnityValidationFixture"
+        relative_paths = [
+            Path("Assets/UnityCodexHarness.meta"),
+            Path("Assets/UnityCodexHarness/Editor.meta"),
+            Path(
+                "Assets/UnityCodexHarness/Editor/"
+                "UnityCodexHarness.Validation.Editor.asmdef"
+            ),
+            Path(
+                "Assets/UnityCodexHarness/Editor/"
+                "UnityCodexHarness.Validation.Editor.asmdef.meta"
+            ),
+            Path("Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs"),
+            Path("Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs.meta"),
+        ]
+
+        for relative_path in relative_paths:
+            self.assertEqual(
+                (template_root / relative_path).read_bytes(),
+                (fixture_root / relative_path).read_bytes(),
+                relative_path.as_posix(),
+            )
 
 
 if __name__ == "__main__":

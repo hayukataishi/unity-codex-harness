@@ -7,6 +7,7 @@ import argparse
 import filecmp
 import shutil
 from pathlib import Path
+from typing import NamedTuple
 
 
 REQUIRED_UNITY_PATHS = (
@@ -14,6 +15,12 @@ REQUIRED_UNITY_PATHS = (
     Path("Packages"),
     Path("ProjectSettings/ProjectVersion.txt"),
 )
+
+
+class InstallSource(NamedTuple):
+    source: Path
+    relative: Path
+    preserve_existing: bool
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,22 +58,43 @@ def validate_unity_project(project_root: Path) -> None:
         )
 
 
-def source_files(repository_root: Path, skip_agents: bool) -> list[Path]:
-    roots = [
-        repository_root / ".codex" / "skills",
-        repository_root / "docs",
+def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource]:
+    mappings = [
+        (repository_root / ".codex" / "skills", Path(".codex/skills")),
+        (repository_root / "docs", Path("docs")),
+        (repository_root / "templates" / "unity", Path(".")),
     ]
-    files = [
-        path
-        for root in roots
-        for path in root.rglob("*")
-        if path.is_file()
-        and "__pycache__" not in path.parts
-        and path.suffix != ".pyc"
-    ]
+    files: list[InstallSource] = []
+    for source_root, destination_root in mappings:
+        for path in source_root.rglob("*"):
+            if (
+                not path.is_file()
+                or "__pycache__" in path.parts
+                or path.suffix == ".pyc"
+            ):
+                continue
+            files.append(
+                InstallSource(
+                    source=path,
+                    relative=destination_root / path.relative_to(source_root),
+                    preserve_existing=(
+                        destination_root / path.relative_to(source_root)
+                        == Path(
+                            "ProjectSettings/"
+                            "UnityCodexHarnessAssetValidation.json"
+                        )
+                    ),
+                )
+            )
     if not skip_agents:
-        files.append(repository_root / "AGENTS.md")
-    return sorted(files)
+        files.append(
+            InstallSource(
+                source=repository_root / "AGENTS.md",
+                relative=Path("AGENTS.md"),
+                preserve_existing=False,
+            )
+        )
+    return sorted(files, key=lambda item: item.relative.as_posix())
 
 
 def install_file(
@@ -102,10 +130,13 @@ def main() -> int:
     operations: list[tuple[str, Path]] = []
 
     if not args.force:
-        for source in files:
-            relative = source.relative_to(repository_root)
+        for item in files:
+            source = item.source
+            relative = item.relative
             destination = project_root / relative
             if not destination.exists():
+                continue
+            if item.preserve_existing:
                 continue
             if destination.is_file() and filecmp.cmp(
                 source, destination, shallow=False
@@ -121,9 +152,13 @@ def main() -> int:
             "Review them, use --skip-agents where appropriate, or rerun with --force."
         )
 
-    for source in files:
-        relative = source.relative_to(repository_root)
+    for item in files:
+        source = item.source
+        relative = item.relative
         destination = project_root / relative
+        if item.preserve_existing and destination.exists() and not args.force:
+            operations.append(("unchanged", relative))
+            continue
         action = install_file(
             source,
             destination,

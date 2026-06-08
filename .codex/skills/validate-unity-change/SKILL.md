@@ -58,8 +58,14 @@ Run only applicable checks, but explicitly mark omitted checks.
    - Run integration, scene, input, and time-dependent tests.
    - Save NUnit-compatible XML to `Tests/PlayMode.xml`.
 5. **Asset validation**
-   - Check Missing Script and Missing Reference.
-   - Inspect required scene, prefab, ScriptableObject, tag, layer, input, and build-scene references.
+   - Run the installed `UnityCodexHarness.Validation.Editor.AssetValidationBatch.Run`
+     entry point through `run_unity_validation.py`.
+   - Check Missing Script and unresolved serialized object references in scenes,
+     prefabs, and ScriptableObjects.
+   - Read required asset and serialized-reference rules from
+     `ProjectSettings/UnityCodexHarnessAssetValidation.json`.
+   - Inspect tag, layer, input, and build-scene references separately when
+     applicable; they are not yet covered by the generic asset validator.
    - Reopen or reload changed assets when needed to catch serialization issues.
 6. **Build verification**
    - Run when required by an `AUTO:BUILD` AC or when platform/build settings changed.
@@ -113,6 +119,7 @@ If any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`, do not call the change acce
 - `scripts/create_validation_run.py`: create the immutable run directory and initial manifest/report.
 - `scripts/preflight_unity_project.py`: check required Unity project structure, `.meta` integrity, duplicate GUIDs, and serialized Missing Script markers.
 - `scripts/run_unity_validation.py`: resolve the matching Unity Editor, run preflight, EditMode, and PlayMode checks, and finalize one evidence run.
+- `Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs`: scan Unity assets through Editor APIs and write `Logs/AssetValidation.json`.
 - `scripts/finalize_validation_run.py`: calculate the final result, write the report, and record artifact hashes.
 
 Run the complete local path with automated AC IDs only:

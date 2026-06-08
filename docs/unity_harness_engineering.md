@@ -361,6 +361,54 @@ SAVE-001
 - Unityテスト結果とログは、成功・失敗にかかわらずGitHub Actions Artifactへ保存する。
 - Workflowの定義完了と、GitHub上での実行成功は別の状態として扱う。Secret、Runner、GameCI imageなどが未準備なら`NOT RUN`または`BLOCKED`と報告する。
 
+### Scene・Prefab・ScriptableObjectの自動検査
+
+`Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs`をEditor専用Assemblyとして導入し、Unity Editor APIで次を検査する。
+
+- `Assets`以下のPrefabにあるMissing Scriptと解決不能なObject参照
+- `Assets`以下のSceneにあるMissing Scriptと解決不能なObject参照
+- `Assets`以下のScriptableObjectにある解決不能なObject参照
+- 設定JSONへ列挙した必須アセットの存在と型
+- 設定JSONへ列挙したPrefab、Scene、ScriptableObjectの必須参照
+
+設定ファイル:
+
+```text
+ProjectSettings/UnityCodexHarnessAssetValidation.json
+```
+
+設定形式:
+
+```json
+{
+  "requiredAssets": [
+    {
+      "path": "Assets/Game/Scenes/Main.unity",
+      "type": "SceneAsset"
+    }
+  ],
+  "requiredReferences": [
+    {
+      "assetPath": "Assets/Game/Prefabs/Player.prefab",
+      "objectPath": "Player/HudAnchor",
+      "componentType": "Game.PlayerHudBinder",
+      "propertyPath": "healthBar"
+    }
+  ]
+}
+```
+
+運用規則:
+
+- `path`と`assetPath`はUnityプロジェクト相対の`Assets/...`形式とする。
+- `type`と`componentType`は短い型名または完全修飾型名を使用する。
+- `objectPath`はPrefabではルート相対、Sceneではルート名から始まるHierarchy pathとする。
+- `propertyPath`は`SerializedObject.FindProperty`で解決できるpathとする。
+- nullを許容する任意参照は設定へ列挙しない。全null参照を一律エラーにしない。
+- 検査は読み取り専用とし、Missing Componentの削除や参照の自動修復を行わない。
+- 結果は`Artifacts/ValidationRuns/<RunId>/Logs/AssetValidation.json`へ保存する。
+- Tag、Layer、Input Action、Addressables、Build Profile Scene Listは別検査として追加する。
+
 ### 自動化を優先するもの
 
 - コンパイル
@@ -704,7 +752,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [x] 採用するMCPサーバーとAgent Skill
 - [x] Unity Test Frameworkのテスト分類
 - [x] CIで実行する検証項目
-- [ ] Scene / Prefab / ScriptableObjectの自動検査方法
+- [x] Scene / Prefab / ScriptableObjectの自動検査方法
 - [ ] ゲームレビュー結果の記録形式
 - [ ] Definition of Done
 - [x] 変更の承認境界

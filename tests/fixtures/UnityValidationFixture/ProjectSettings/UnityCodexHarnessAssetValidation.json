@@ -1,0 +1,9 @@
+{
+  "requiredAssets": [
+    {
+      "path": "Assets/Game/Scripts/Runtime/CounterBehaviour.cs",
+      "type": "MonoScript"
+    }
+  ],
+  "requiredReferences": []
+}
