@@ -149,16 +149,20 @@ GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供�
 
 **次の改善:** 固定した版を隔離fixtureまたは専用統合プロジェクトへ導入し、接続、基本Editor操作、画像生成、Unity importまでを検証する。定期更新は固定値を自動変更せず、公式情報の検出と人間レビュー付きの回帰検証に分ける。
 
-### P0: インストール後に`Artifacts/`除外が保証されない
+### P0: インストール後に`Artifacts/`除外が保証されない（対応済み）
 
-ハーネス自身の`.gitignore`には`Artifacts/`があるが、インストーラーは対象Unityプロジェクトへ`.gitignore`をコピー・更新しない。そのため、対象側の設定によっては検証ログ、動画、Build、ローカルパスを誤ってGitへ追加できる。
+初回評価時点では、ハーネス自身の`.gitignore`にだけ`Artifacts/`があり、インストーラーは対象Unityプロジェクトの`.gitignore`を更新していなかった。
 
-**改善案:** インストーラーへ次を追加する。
+2026-06-09にインストーラーへ次を追加した。
 
-- `.gitignore`へ`/Artifacts/`を安全に追記するオプション
-- `--check`で除外状態を検証
-- 既存設定を壊さないマーカー付き管理
-- Secretや絶対パスを含む成果物のスキャン
+- 通常インストールで`.gitignore`へ`/Artifacts/`を安全に追記
+- 既存ルール、コメント、LF / CRLF改行を保持するマーカー付き管理
+- 再実行時の冪等更新と、壊れたマーカーの拒否
+- `--dry-run`で更新予定だけを表示
+- `--check`によるGitの実際のignore判定
+- Git追跡済み`Artifacts`ファイルの検出と安全な停止
+
+Secret、個人情報、ローカル絶対パスを含む成果物の内容スキャンは、Git除外とは別の多層防御として未対応である。
 
 ### P1: Unity 6向けBuild Profile記述へ統一されていない
 
@@ -283,7 +287,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 
 ### フェーズ1: 最低限の実運用化
 
-1. `Artifacts/`のGit除外をインストーラーで保証する。
+1. `[完了]` `Artifacts/`のGit除外をインストーラーで保証する。
 2. Unity 6.4 Update用の最小fixtureプロジェクトを追加する。
 3. Unityバッチ実行でCompile、EditMode、PlayModeを自動化する。
 4. Editor APIによるMissing Referenceと必須参照検査を追加する。
@@ -551,4 +555,43 @@ Unity `6000.4.10f1`実行結果:
 残るP0:
 
 - GitHub Actions Unity jobのリモート実行確認
-- インストール先プロジェクトの`Artifacts/` Git除外保証
+
+### 2026-06-09: P0-4 インストール先の`Artifacts/` Git除外保証
+
+次を追加した。
+
+- 通常インストールでの管理マーカー付き`/Artifacts/`ルール
+- 既存`.gitignore`のルール、コメント、LF / CRLF改行の保持
+- 再インストール時に重複しない冪等更新
+- 壊れた管理マーカーの検出と安全な停止
+- `--dry-run`での`.gitignore`更新予定表示
+- `--check`による実際のGit ignore判定
+- Git追跡済み`Artifacts`ファイルがある場合の検出とインストール停止
+- 新規・既存Unityプロジェクトを模したCLI統合テスト
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、31件
+- fixtureの`Artifacts` ignore検査: `PASS`
+- installer CLI導入・再検査: `PASS`
+- dry-run非変更確認: `PASS`
+- 追跡済み`Artifacts`異常系: 検出テスト`PASS`
+- Unity `6000.4.10f1`回帰検証: `PASS`
+- Compile: `PASS`
+- EditMode: `PASS`、4件
+- PlayMode: `PASS`、1件
+- Asset validation: `PASS`
+
+検証成果物:
+
+- `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T003033Z/`
+
+未対応:
+
+- 成果物内のSecret、個人情報、ローカル絶対パスの自動スキャン
+- GitHub Actions Unity jobのリモート実行確認
+
+残るP0:
+
+- GitHub Actions Unity jobのリモート実行確認

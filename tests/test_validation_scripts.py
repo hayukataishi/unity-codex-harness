@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -299,6 +301,261 @@ class InstallerSourceTests(unittest.TestCase):
                 (template_root / relative_path).read_bytes(),
                 (fixture_root / relative_path).read_bytes(),
                 relative_path.as_posix(),
+            )
+
+
+class InstallerGitignoreTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.installer = load_module(
+            "install_gitignore",
+            ROOT / "scripts" / "install.py",
+        )
+
+    def test_appends_managed_block_without_replacing_existing_rules(self):
+        existing = "Library/\n# Local rule\n/Builds/\n"
+
+        updated = self.installer.managed_gitignore_text(existing)
+
+        self.assertTrue(updated.startswith(existing))
+        self.assertIn(self.installer.GITIGNORE_BLOCK, updated)
+
+    def test_managed_block_update_is_idempotent(self):
+        initial = self.installer.managed_gitignore_text("Library/\n")
+
+        updated = self.installer.managed_gitignore_text(initial)
+
+        self.assertEqual(updated, initial)
+        self.assertEqual(updated.count(self.installer.GITIGNORE_BEGIN), 1)
+        self.assertEqual(updated.count(self.installer.GITIGNORE_RULE), 1)
+
+    def test_replaces_only_existing_managed_block(self):
+        existing = "\n".join(
+            (
+                "Library/",
+                self.installer.GITIGNORE_BEGIN,
+                "/OldArtifacts/",
+                self.installer.GITIGNORE_END,
+                "/Builds/",
+                "",
+            )
+        )
+
+        updated = self.installer.managed_gitignore_text(existing)
+
+        self.assertIn("Library/", updated)
+        self.assertIn("/Builds/", updated)
+        self.assertNotIn("/OldArtifacts/", updated)
+        self.assertIn(self.installer.GITIGNORE_BLOCK, updated)
+
+    def test_rejects_unmatched_managed_marker(self):
+        with self.assertRaises(ValueError):
+            self.installer.managed_gitignore_text(
+                self.installer.GITIGNORE_BEGIN + "\n/Artifacts/\n"
+            )
+
+    def test_preserves_crlf_line_endings(self):
+        existing = "Library/\r\n/Builds/\r\n"
+
+        updated = self.installer.managed_gitignore_text(existing)
+
+        self.assertNotIn("\n", updated.replace("\r\n", ""))
+        self.assertTrue(
+            self.installer.has_managed_gitignore_block(updated)
+        )
+
+    def test_plans_create_update_and_unchanged_actions(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+
+            action, updated = self.installer.plan_gitignore_update(project_root)
+            self.assertEqual(action, "create")
+
+            (project_root / ".gitignore").write_text(
+                "Library/\n",
+                encoding="utf-8",
+            )
+            action, updated = self.installer.plan_gitignore_update(project_root)
+            self.assertEqual(action, "update")
+
+            (project_root / ".gitignore").write_text(
+                updated,
+                encoding="utf-8",
+            )
+            action, _ = self.installer.plan_gitignore_update(project_root)
+            self.assertEqual(action, "unchanged")
+
+    def test_check_accepts_managed_rule_without_git_repository(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            (project_root / ".gitignore").write_text(
+                self.installer.GITIGNORE_BLOCK + "\n",
+                encoding="utf-8",
+            )
+
+            ignored, detail = self.installer.git_ignores_artifacts(project_root)
+
+            self.assertTrue(ignored, detail)
+
+    def test_check_rejects_missing_rule_without_git_repository(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            (project_root / ".gitignore").write_text(
+                "Library/\n",
+                encoding="utf-8",
+            )
+
+            ignored, _ = self.installer.git_ignores_artifacts(project_root)
+
+            self.assertFalse(ignored)
+
+    def test_check_rejects_artifacts_already_tracked_by_git(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            artifacts = project_root / "Artifacts"
+            artifacts.mkdir()
+            evidence = artifacts / "evidence.log"
+            evidence.write_text("tracked\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "init", "--quiet", str(project_root)],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(project_root), "add", "Artifacts/evidence.log"],
+                check=True,
+            )
+            (project_root / ".gitignore").write_text(
+                self.installer.GITIGNORE_BLOCK + "\n",
+                encoding="utf-8",
+            )
+
+            ignored, detail = self.installer.git_ignores_artifacts(project_root)
+
+            self.assertFalse(ignored)
+            self.assertIn("already tracked", detail)
+
+    def create_minimal_unity_project(self, project_root: Path) -> None:
+        (project_root / "Assets").mkdir()
+        (project_root / "Packages").mkdir()
+        (project_root / "ProjectSettings").mkdir()
+        (project_root / "ProjectSettings" / "ProjectVersion.txt").write_text(
+            "m_EditorVersion: 6000.4.10f1\n",
+            encoding="utf-8",
+        )
+
+    def test_cli_install_updates_and_checks_gitignore(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.create_minimal_unity_project(project_root)
+            (project_root / ".gitignore").write_text(
+                "Library/\n",
+                encoding="utf-8",
+            )
+
+            install = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "install.py"),
+                    str(project_root),
+                    "--skip-agents",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            check = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "install.py"),
+                    str(project_root),
+                    "--check",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(install.returncode, 0, install.stderr)
+            self.assertIn("update: .gitignore", install.stdout)
+            self.assertEqual(check.returncode, 0, check.stderr)
+            self.assertIn("Artifacts ignore check: PASS", check.stdout)
+            self.assertIn(
+                self.installer.GITIGNORE_BLOCK,
+                (project_root / ".gitignore").read_text(encoding="utf-8"),
+            )
+
+    def test_cli_dry_run_does_not_update_gitignore(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.create_minimal_unity_project(project_root)
+            original = "Library/\n"
+            (project_root / ".gitignore").write_text(
+                original,
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "install.py"),
+                    str(project_root),
+                    "--dry-run",
+                    "--skip-agents",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("would update: .gitignore", result.stdout)
+            self.assertEqual(
+                (project_root / ".gitignore").read_text(encoding="utf-8"),
+                original,
+            )
+
+    def test_cli_stops_before_changes_when_artifacts_are_tracked(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.create_minimal_unity_project(project_root)
+            artifacts = project_root / "Artifacts"
+            artifacts.mkdir()
+            (artifacts / "evidence.log").write_text(
+                "tracked\n",
+                encoding="utf-8",
+            )
+            original = "Library/\n"
+            (project_root / ".gitignore").write_text(
+                original,
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ["git", "init", "--quiet", str(project_root)],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(project_root), "add", "Artifacts/evidence.log"],
+                check=True,
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "install.py"),
+                    str(project_root),
+                    "--skip-agents",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("already tracked by Git", result.stderr)
+            self.assertFalse((project_root / ".codex").exists())
+            self.assertEqual(
+                (project_root / ".gitignore").read_text(encoding="utf-8"),
+                original,
             )
 
 

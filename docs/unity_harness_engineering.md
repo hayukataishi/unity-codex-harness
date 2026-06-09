@@ -496,6 +496,11 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 #### 運用規則
 
 - `Artifacts`は生成物としてGit管理対象から除外する。
+- ハーネスの通常インストールでは、プロジェクトルートの`.gitignore`末尾へ管理マーカー付きの`/Artifacts/`ルールを追加する。
+- インストーラーは既存`.gitignore`を置換せず、既存ルール、コメント、LFまたはCRLFの改行形式を保持する。
+- 再インストールでは管理ブロックだけを正規化し、重複を作らない。マーカーが壊れている場合は自動修復せず停止する。
+- `python3 scripts/install.py <UNITY_PROJECT_ROOT> --check`で、Gitの実際のignore判定と追跡済み`Artifacts`ファイルの有無を検査する。
+- `Artifacts`内のファイルがすでにGit追跡済みの場合、インストーラーはindexからの削除を自動実行しない。対象を確認して追跡解除した後に再実行する。
 - 同じRunディレクトリを再利用・上書きしない。再実行は新しいRun IDで保存する。
 - 作業報告では、絶対パスではなく`Artifacts/ValidationRuns/<RunId>/...`形式の相対パスを記載する。
 - ACごとの証拠は`Evidence/<AcceptanceCriterionIdWithoutHyphens>`へまとめる。例：`MECH001AC01`

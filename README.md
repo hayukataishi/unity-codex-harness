@@ -32,6 +32,7 @@ python3 scripts/install.py /path/to/YourUnityProject
 ```text
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/skills/
+├─ .gitignore
 ├─ Assets/UnityCodexHarness/Editor/
 ├─ docs/
 ├─ harness.lock.json
@@ -40,6 +41,8 @@ python3 scripts/install.py /path/to/YourUnityProject
 ```
 
 `Assets/UnityCodexHarness/Editor/`はMissing Script、Missing Reference、必須資産をUnity Editor APIで検査するEditor専用Assemblyです。Player Buildには含まれません。既存ファイルは標準では上書きせず、ゲーム固有に編集する資産検査設定JSONは通常の再導入でも保持します。
+
+インストーラーは既存`.gitignore`の末尾へ、管理マーカー付きの`/Artifacts/`ルールを追加します。既存ルールと改行形式は保持し、再実行してもブロックは重複しません。`Artifacts`内にGit追跡済みファイルがある場合は、自動削除せずインストールを停止します。
 
 ```bash
 # 変更内容だけ確認
@@ -50,9 +53,12 @@ python3 scripts/install.py /path/to/YourUnityProject --skip-agents
 
 # 内容を確認したうえで既存ファイルを置換
 python3 scripts/install.py /path/to/YourUnityProject --force
+
+# ファイルを変更せずArtifactsのGit除外状態を検査
+python3 scripts/install.py /path/to/YourUnityProject --check
 ```
 
-手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーしてください。Skills内の参照パスはこの配置を前提にしています。
+手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーし、ルートの`.gitignore`へ`/Artifacts/`を追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 ## Codexでの使い方
 

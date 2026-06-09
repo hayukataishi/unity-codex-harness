@@ -1,4 +1,6 @@
+# >>> Unity Codex Harness managed Artifacts ignore >>>
 /Artifacts/
+# <<< Unity Codex Harness managed Artifacts ignore <<<
 /Library/
 /Logs/
 /Temp/
