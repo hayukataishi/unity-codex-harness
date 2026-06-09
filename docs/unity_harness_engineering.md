@@ -129,6 +129,21 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 横断採否に反する実装または設定を検出した場合、勝手にマトリクスを`採用`へ変更せず、設計差異として停止・報告する。
 
+<a id="architecture-profile-policy"></a>
+
+### アーキテクチャプロファイル決定ゲート
+
+新規ゲームは機能実装前に、[ARCH-001](./unity_design_sheet.md#architecture-profile-gate)の`Small`、`Standard`、`Large`から現在の制約を満たす最小のプロファイルを選び、理由と移行条件を記録する。`Standard`や4層構造を暗黙の既定値にしない。
+
+- `Small`ではUnity既定Assemblyまたは単一Runtime asmdef、直接参照、手動Composition、局所的なイベントを許容し、DI Container、Manager群、Event Busを要求しない。
+- `Standard`ではRuntime / Editor / Testsを必要な範囲で分離し、実在するFeature境界、Pure C#ロジック、Composition Root、依存方向を明示する。
+- `Large`ではFeature / Module asmdefまたはUPM Package、Pure C# Assembly、公開API、所有者、Architecture Testを承認済み境界へ導入する。
+- asmdef、抽象化、DI、Singleton、Manager、ScriptableObject Event Channelは規模だけで自動採用せず、解決する問題、代替案、生存期間、テスト方法を記録する。
+- Service Locatorは規模別の推奨方式にしない。Legacy隔離または段階移行で残す場合は、利用範囲、置換計画、回帰テストを記録する。
+- 既存ゲームは現在の構造と依存を記録し、テンプレートへ合わせるためだけの一括再編を行わない。
+
+Profile変更はアーキテクチャ変更として人間の承認を得る。依存図、公開API、serialized reference、Package、テスト、Build Profileへの影響を確認し、機能またはModule単位で段階的に移行する。
+
 <a id="build-profile-policy"></a>
 
 ### Unity 6 Build Profile運用方針
@@ -255,7 +270,7 @@ OpenAI Codex
 
 1. 対応する確定仕様を特定する。
 2. 受け入れ条件を列挙する。
-3. 既存アーキテクチャと関連テストを確認する。
+3. 選択済みアーキテクチャプロファイル、既存アーキテクチャ、関連テストを確認する。
 4. 必要最小限の実装計画を作る。
 5. コード、Prefab、Scene、設定、テストを変更する。
 6. 自動検証を実行する。
@@ -637,14 +652,16 @@ Codexは最低限、次を確認する。
 6. Unityバージョン・対象プラットフォーム決定ゲートの完了状態
 7. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
 8. 対象機能に関係する横断機能採否ゲートの状態
-9. 関連コード、Scene、Prefab、テスト
+9. アーキテクチャプロファイルの選択、理由、移行条件
+10. 関連コード、Scene、Prefab、テスト
 
 ### 作業中
 
 - 既存設計と既存パターンを優先する。
 - 新規作成・名称変更では[標準命名規則](./unity_design_sheet.md#naming-rules)を使用する。
 - 新規ファイルの配置では[標準フォルダ構成](./unity_design_sheet.md#folder-layout)を使用する。
-- Assemblyの作成・参照変更では[最小asmdef構成](./unity_design_sheet.md#asmdef-layout)を使用する。
+- Assemblyの作成・参照変更では[プロファイル別asmdef構成](./unity_design_sheet.md#asmdef-layout)を使用する。
+- DI Container、Singleton、Manager、Event Channel、Feature Packageを追加する前に[アーキテクチャプロファイル決定ゲート](./unity_design_sheet.md#architecture-profile-gate)と採用理由を確認する。
 - 2Dアセットの生成・取込前に[2Dアートプロファイル決定ゲート](./unity_design_sheet.md#art-profile-gate)を確認する。
 - Package、外部Service、通信、収集データ、課金、広告、UGC、XRを扱う前に[横断機能採否ゲート](./unity_design_sheet.md#cross-cutting-gate)を確認する。
 - 検証成果物は[検証成果物の保存規則](#validation-artifacts)へ保存する。
@@ -798,7 +815,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - `force=true`による依存Packageの強制削除
 - Unity Editor Versionの変更・Upgrade
 - Render Pipelineの切替
-- 最小構成を越えるasmdef分割や依存方向の変更
+- 選択済みProfileの境界を変えるasmdef分割、Package化、依存方向、DI方式の変更
 - Unity MCP Package自体のDeploy・Restore
 
 #### 既存資産の破壊・広範囲変更
@@ -858,7 +875,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [x] Unityバージョン・対象プラットフォームの決定プロセス
 - [x] Unityプロジェクトの命名規則
 - [x] Unityプロジェクト内のフォルダ構成
-- [x] asmdefの分割・依存規則
+- [x] Small / Standard / Largeアーキテクチャプロファイルとasmdefの分割・依存規則
 - [x] 2Dアートプロファイルの決定プロセス
 - [x] 横断機能の採否・再評価プロセス
 - [ ] Codex向け指示ファイルの配置と内容

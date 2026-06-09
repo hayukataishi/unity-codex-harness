@@ -224,6 +224,18 @@ $validate-unity-change で検証してください。
 
 Packageや外部Service、通信、データ収集、課金・広告・UGCを追加する前に該当行を確認してください。
 
+### 規模に合うアーキテクチャを選ぶ
+
+実装開始前に[ARCH-001](docs/unity_design_sheet.md#architecture-profile-gate)で、現在の制約を満たす最小のProfileを選びます。
+
+| Profile | 目安 | 基本方針 |
+|---|---|---|
+| `Small` | Game Jam、試作、小規模・少人数 | Unity既定Assemblyまたは単一Runtime asmdef、直接参照、手動Composition、局所イベント |
+| `Standard` | 継続開発、複数Feature・複数人 | 必要なRuntime / Editor / Tests分離、Feature境界、明示的な依存方向 |
+| `Large` | 複数チーム、長期運用、Module再利用 | Feature Package、Pure C# Assembly、公開API、所有者、Architecture Test |
+
+4層、4 Assembly、DI Container、Manager群、ScriptableObject Event Channelは必須セットではありません。選択理由、採用しない仕組み、次Profileへの移行条件を設計書へ記録し、観測可能な問題が生じた時だけ人間の承認を得て段階的に移行します。Service Locatorは規模別の推奨方式として新規採用しません。
+
 ## 外部ツールと互換性マニフェスト
 
 | ツール | 固定参照 | 用途 | ハーネスでの実行状態 |

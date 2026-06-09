@@ -466,6 +466,67 @@ class CrossCuttingDocumentationTests(unittest.TestCase):
             )
 
 
+class ArchitectureProfileDocumentationTests(unittest.TestCase):
+    def test_repository_defines_scale_appropriate_architecture_profiles(self):
+        self.assertEqual(
+            repository_validator.validate_architecture_profile_documentation(
+                ROOT
+            ),
+            [],
+        )
+
+    def test_rejects_missing_large_profile_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.ARCHITECTURE_PROFILE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = [
+                    value
+                    for value in required_values
+                    if value != "| `Large` |"
+                ]
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_architecture_profile_documentation(root)
+            )
+
+            self.assertTrue(
+                any("| `Large` |" in error for error in errors),
+                errors,
+            )
+
+    def test_rejects_service_locator_as_medium_scale_default(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.ARCHITECTURE_PROFILE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += "\n| ServiceLocator | ☐ | 中規模向け |"
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_architecture_profile_documentation(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "overprescriptive architecture guidance" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class CinemachineDocumentationTests(unittest.TestCase):
     def test_repository_uses_cinemachine_3_guidance(self):
         self.assertEqual(

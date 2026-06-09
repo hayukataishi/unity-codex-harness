@@ -260,13 +260,20 @@ Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Python
 
 テンプレートのマトリクスは意図的に空欄で配布する。これは「不採用」を意味せず、導入先ゲームが実装開始前に判断すべき未決定事項を可視化するためである。
 
-### P2: アーキテクチャ例が規模に対して強すぎる
+### P2: アーキテクチャ例が規模に対して強すぎる（対応済み）
 
-4層アーキテクチャ、4 asmdef、Manager群、ScriptableObject Event Channel、DI候補が標準形として読める。中・大規模案件には有用だが、小規模ゲームやGame Jamでは過剰であり、大規模案件ではFeature PackageやPure C# Assemblyの分離が不足する場合がある。
+初回評価時点では、4層アーキテクチャ、4 asmdef、Manager群、ScriptableObject Event Channel、DI候補が標準形として読めた。中・大規模案件には有用だが、小規模ゲームやGame Jamでは過剰であり、大規模案件ではFeature PackageやPure C# Assemblyの分離が不足する状態だった。
 
-また、`ServiceLocator`を中規模向けとする表現は、依存の不可視化を招くため推奨表現としては弱い。
+2026-06-09に`ARCH-001`として、`Small`、`Standard`、`Large`の3プロファイル、選択理由、採用しない仕組み、観測可能な移行条件、人間承認、段階移行を正式な実装前ゲートへ追加した。
 
-**改善案:** Small / Standard / Largeの3プロファイルに分け、選択理由と移行条件を記録する。
+- `Small`: Unity既定Assemblyまたは単一Runtime asmdef、直接参照、手動Composition、局所イベントを許容する。
+- `Standard`: 必要なRuntime / Editor / Tests分離、Feature境界、Pure C#ロジック、Composition Root、依存方向を明示する。
+- `Large`: Feature / Module asmdefまたはUPM Package、`No Engine References`を使うPure C# Assembly、公開API、所有者、Architecture Testを扱う。
+- 4層、4 Assembly、DI Container、Manager群、ScriptableObject Event Channelを必須セットにしない。
+- `Service Locator`は中規模向けの推奨方式から外し、Legacy隔離または段階移行の境界に限定する。
+- 既存プロジェクトはテンプレートへ合わせる全面移行をせず、現在の構造を記録して段階的に改善する。
+
+設計、Engineering、実装・検証・報告Skill、README、MCP・Skill一覧を同じ契約へ統一し、旧固定例への回帰をPythonテストで検出する。
 
 ### P2: セーブ設計が最低限に留まる
 
@@ -317,7 +324,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 ### フェーズ3: 汎用ゲーム開発の拡張
 
 1. `[完了]` Accessibility、Localization、Multiplayer、Privacy、LiveOpsを含む14領域の採否ゲートを追加する。
-2. Small / Standard / Largeのアーキテクチャプロファイルを追加する。
+2. `[完了]` Small / Standard / Largeのアーキテクチャプロファイルを追加する。
 3. 2Dに加えて3Dアセット、Shader、Lighting、性能予算の統合Skillを追加する。
 4. 対象デバイスProfiler、Memory Profiler、ロード時間、Build sizeをACへ接続する。
 5. Release前検査、署名、Store提出は別Skillとして承認境界付きで実装する。
@@ -359,8 +366,9 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| テンプレート自己回帰 | PASS | Python `unittest` 66件。Installer、preflight、Validation Run、fixture、横断設計、文書・CI規約 |
+| テンプレート自己回帰 | PASS | Python `unittest` 69件。Installer、preflight、Validation Run、fixture、横断設計、アーキテクチャProfile、文書・CI規約 |
 | 横断機能採否ゲート | PASS | `PROJECT-001`、14領域、3状態、承認・停止・再評価規則 |
+| アーキテクチャProfile | PASS | `ARCH-001`、Small / Standard / Large、Service Locator非推奨、移行条件 |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
@@ -882,3 +890,45 @@ Unity `6000.4.10f1`実行結果:
 - テンプレートの空欄は未決定を表すため、実装開始前に全14行を埋める
 - `採用`を選んだ領域はゲーム固有の設計ID・ACへ接続する
 - Privacy、課金、広告、Online、Account、Analytics、UGC、Moderationは対象地域・Store・年齢区分に応じて専門レビューを行う
+
+### 2026-06-09: P2-1 規模別アーキテクチャプロファイル
+
+固定的な4層・4 Assembly・Manager群・DI・Event Channel例を、プロジェクト規模と観測された複雑さに応じて選ぶゲートへ変更した。
+
+追加・更新内容:
+
+- `ARCH-001`と3つの静的AC
+- `Small`、`Standard`、`Large`の適用状況、構造、非必須事項
+- 選択Profile、理由、現在の複雑さ、採用境界、採用しない仕組み、移行条件、承認の記録欄
+- `Small`から`Standard`、`Standard`から`Large`への観測可能な再評価条件
+- Profile変更時の人間承認、依存図、公開API、serialized reference、Package、テスト、Build Profile影響の確認
+- 4 Assemblyを`Standard`の基準例へ変更し、`Small`ではUnity既定Assemblyも許容
+- `Large`でFeature / Module asmdef、UPM Package、Pure C# Assembly、`No Engine References`、Architecture Testを選択可能にした
+- Service Locatorを規模別推奨から外し、Legacy隔離または段階移行へ限定
+- Manager、Singleton、DI Container、ScriptableObject Event Channelを用途と生存期間が明確な場合だけ採用する規則
+- Engineering、実装・検証・報告Skill、README、MCP・Skill一覧へのゲート接続
+- Large Profile欠落とService Locator中規模推奨への回帰を検出するPythonテスト3件
+
+`ARCH-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `ARCH-001-AC01` | `PASS` | 3 Profileの適用状況、構造、非必須事項、選択記録を静的検査で確認 |
+| `ARCH-001-AC02` | `PASS` | asmdef、Layer、DI、Manager、イベントを選択事項とし、Service Locatorの規模別推奨を除去 |
+| `ARCH-001-AC03` | `PASS` | 観測可能な再評価条件、人間承認、影響調査、段階移行を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、69件
+- Python構文コンパイル: `PASS`
+- アーキテクチャProfile必須記述検査: `PASS`
+- Large Profile欠落の異常系: 検出テスト`PASS`
+- Service Locator中規模推奨の異常系: 検出テスト`PASS`
+- Unity fixture: 非該当。Unityコード、Scene、Prefab、Package、ProjectSettingsは変更していない
+
+導入先ゲームで必要な作業:
+
+- 新規ゲームは実装開始前に`Small`、`Standard`、`Large`のいずれかと選択理由を記録する
+- 既存ゲームは現在の構造を調査し、テンプレートへ合わせる全面移行を行わない
+- 移行条件が観測された場合だけ、影響範囲と段階計画を作成して人間承認を得る

@@ -19,8 +19,11 @@ description: Implement an approved Unity design item with minimal, architecture-
    monetization, ads, UGC, moderation, accessibility, localization,
    performance budgets, diagnostics, or XR. Stop if the affected row is
    `保留` or contradicts the requested implementation.
-5. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-6. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+5. Read the selected architecture profile and its reason. If it is empty, keep
+   the existing architecture for a narrow change and use
+   `$maintain-game-design` before introducing new boundaries or global patterns.
+6. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+7. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 
@@ -38,10 +41,20 @@ description: Implement an approved Unity design item with minimal, architecture-
 - Follow the naming, folder, and asmdef rules in the design sheet.
 - Place custom assets under `Assets/Game` unless the existing project has an approved structure.
 - Keep runtime code independent from `UnityEditor` and test assemblies.
-- Preserve layer direction: Presentation → Application → Domain, with Infrastructure serving I/O concerns.
-- Prefer pure C# for rules and calculations; keep MonoBehaviours focused on Unity lifecycle and presentation integration.
+- Follow the selected `Small`, `Standard`, or `Large` profile. Do not create
+  four layers or four assemblies merely because the template documents them.
+- In `Small`, prefer direct ownership, serialized references, manual
+  composition, and local events while dependencies remain clear.
+- In `Standard` or `Large`, preserve the approved dependency direction and use
+  Pure C# assemblies, feature boundaries, or packages only where the design
+  records their value.
+- Prefer pure C# for rules and calculations when it reduces Unity lifecycle
+  coupling; keep MonoBehaviours focused on Unity integration.
+- Do not introduce a DI container, Service Locator, singleton, manager fleet,
+  or event bus without an approved problem statement, lifetime, and test plan.
 - Use one public type per C# file and match the filename to the type.
-- Do not add packages, change Unity versions, split assemblies beyond the approved minimum, or change architecture without approval.
+- Do not add packages, change Unity versions, change the selected architecture
+  profile, or alter approved assembly and dependency boundaries without approval.
 
 ### Unity assets
 

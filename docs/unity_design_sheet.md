@@ -146,7 +146,7 @@
 **🏗️ Phase 2: 技術選定（並行可）**
 - [3. プロジェクト構造 — 階層 / フォルダ / 命名](#3-プロジェクト構造--階層--フォルダ--命名)
 - [4. グラフィック方針 — 2D/3D / Render Pipeline / カメラ / ライト](#4-グラフィック方針--2d3d--render-pipeline--カメラ--ライト)
-- [5. アーキテクチャ — クラス依存 / DI / イベント設計](#5-アーキテクチャ--クラス依存--di--イベント設計)
+- [5. アーキテクチャ — 規模 / 依存 / DI / イベント設計](#architecture-profile-gate)
 
 **🔄 Phase 3: フロー設計（並行可）**
 - [6. ゲーム進行ステートマシン](#6-ゲーム進行ステートマシン)
@@ -573,9 +573,17 @@ Artifacts/                        テスト・ログ・画像などの生成物�
 
 <a id="asmdef-layout"></a>
 
-### 3.3 最小asmdef構成
+### 3.3 アーキテクチャプロファイル別asmdef構成
 
-新規プロジェクトは次の4 Assemblyから開始する。機能単位のasmdefは、必要性が確認されるまで追加しない。
+asmdefは[ARCH-001](#architecture-profile-gate)で選択したプロファイルに合わせる。新規プロジェクトは将来の規模を先取りせず、現在の制約を満たす最小の構成から開始する。既存プロジェクトは現在のAssembly境界を調査し、プロファイルへ合わせるためだけの一括再編を行わない。
+
+| Profile | 開始構成 | 追加する条件 |
+|---|---|---|
+| `Small` | Unity既定Assemblyまたは単一の`<RootNamespace>.Runtime`を基本とする | Editorコードまたはテストが実在する時だけ、対応するEditor / Test Assemblyを追加する |
+| `Standard` | Runtime、Editor、EditMode Tests、PlayMode Testsを、各種類のコードまたはテストが存在する範囲で分離する | 計測されたコンパイル時間、依存境界、Platform差、再利用単位、チーム所有境界が必要になった時だけ機能別asmdefを追加する |
+| `Large` | Feature / Module単位のAssemblyまたはUPM Package、必要に応じたPure C# Assembly | 明示した公開API、所有者、依存図、テスト戦略を持つ境界だけを追加する |
+
+次の4 Assemblyは`Standard`プロファイルの基準例であり、全プロジェクトへ強制する固定構成ではない。
 
 ```text
 <RootNamespace>.Editor             ──→ <RootNamespace>.Runtime
@@ -610,7 +618,7 @@ Tests.PlayMode     → Runtime
 - プロジェクト内asmdefへの参照は、名称変更に強いGUID参照を使用する。
 - `Allow Unsafe Code`は無効とし、必要な場合だけ理由と対象範囲を記録して有効化する。
 - `Override References`は無効から開始する。
-- `No Engine References`は無効から開始する。Pure C# Assemblyへの分離を行う場合にのみ再検討する。
+- `No Engine References`は通常のUnity Runtime Assemblyでは無効から開始する。`Large`または必要性が確認された`Standard`で、Unity APIへ依存しないルールや計算をPure C# Assemblyへ分離する場合に有効化を検討する。
 - `Auto Referenced`はRuntimeとEditorで有効とする。テストAssemblyは本番コードから参照しない。
 - Test Framework Packageを導入し、テストasmdefでは`Test Assemblies`を有効にする。
 - Package参照やDefine Constraintsは、実際に必要になった時だけ追加する。
@@ -634,7 +642,7 @@ Tests.PlayMode     → Runtime
 - 対応プラットフォームやDefine Constraintsが他のコードと異なる。
 - チーム所有範囲が明確に分かれ、独立した公開APIが存在する。
 
-単にフォルダが増えた、ファイル数が多いという理由だけでは分割しない。分割時は人間の承認を得て、依存図、参照先、テストAssemblyへの影響を更新する。
+単にフォルダが増えた、ファイル数が多い、将来大きくなるかもしれないという理由だけでは分割しない。分割時は人間の承認を得て、選択プロファイル、依存図、公開API、所有者、参照先、テストAssemblyへの影響を更新する。
 
 ---
 
@@ -824,62 +832,119 @@ Reflection Probe      : 使用 / 不使用
 
 ---
 
-## 5. アーキテクチャ — クラス依存 / DI / イベント設計
+## 5. アーキテクチャ — 規模 / 依存 / DI / イベント設計
 
-> 「Manager / Singleton / イベント駆動」を **具体的に何で実装するか** を決める層。ここを曖昧にすると、後でスパゲッティ化する。
+> アーキテクチャは機能数の予想ではなく、現在のチーム、寿命、依存、再利用、プラットフォーム制約に合わせる。最小の十分な構成を選び、複雑さが観測された時に段階的に移行する。
 
-### 5.1 レイヤー分離方針
+<a id="architecture-profile-gate"></a>
 
-```
-┌─────────────────────────────────────────┐
-│ Presentation 層 （View / UI / Animation）│ ← MonoBehaviour
-├─────────────────────────────────────────┤
-│ Application 層 （ユースケース / Manager）│ ← C# クラス
-├─────────────────────────────────────────┤
-│ Domain 層     （ロジック / ルール）       │ ← Pure C#
-├─────────────────────────────────────────┤
-│ Infrastructure層（Save / Net / Asset）   │ ← I/O 担当
-└─────────────────────────────────────────┘
-```
+### ARCH-001: プロジェクト規模に合うアーキテクチャプロファイルを選択する
 
-### 5.2 DI / Manager 方針
+**仕様**
 
-| 方式 | 採用 | 備考 |
-|---|---|---|
-| 素の Singleton | ☐ | 小規模向け |
-| ServiceLocator | ☐ | 中規模向け |
-| **VContainer** | ☐ | 軽量。採用Unityバージョンとの互換性を確認 |
-| Zenject | ☐ | 機能豊富・重め |
+新規プロジェクトは実装開始前に`Small`、`Standard`、`Large`のいずれかを選択する。`Standard`を暗黙の既定値にせず、現在の制約を満たす最小のプロファイルを採用する。既存プロジェクトでは、実装済みの依存構造を調査した上で現在のプロファイルを記録し、テンプレートへ合わせるためだけの全面移行を行わない。
 
-### ▼ 記入テンプレート（主要 Manager 一覧）
-
-| Manager 名 | 責務 | 生存期間 | 依存先 |
+| Profile | 主な適用状況 | 構造と依存の基準 | 採用しないもの |
 |---|---|---|---|
-| `GameManager` | 進行ステート管理 | DontDestroyOnLoad | SceneLoader, SaveManager |
-| `SceneLoader` | シーンの非同期ロード | DontDestroyOnLoad | — |
-| `SaveManager` | ディスク I/O | DontDestroyOnLoad | — |
-| `AudioManager` | BGM/SE 再生 | DontDestroyOnLoad | AudioMixer |
-| `InputManager` | Input System ラッパー | DontDestroyOnLoad | — |
-| `________` | `________` | `________` | `________` |
+| `Small` | Game Jam、試作、小規模作品、少人数で短い反復 | Unity既定Assemblyまたは単一Runtime asmdefを基本とし、Featureフォルダ、Inspector参照、直接メソッド呼び出し、局所的なC#イベント、手動Compositionを使う | 4層分離、DI Container、全局Manager群、Event Busを必須にしない |
+| `Standard` | 継続運用する中規模作品、複数の機能領域、複数人開発 | Runtime / Editor / Testsを必要な範囲で分離し、Feature境界、Pure C#ロジック、明示的なComposition Root、依存方向を設計する | ファイル数だけを理由にしたAssembly分割、用途のない抽象化を行わない |
+| `Large` | 複数チーム、長期運用、複数Platform、再利用Module、独立Release境界 | Feature / Module asmdefまたはUPM Package、`No Engine References`を使うPure C# Assembly、明示した公開APIと所有者、Architecture Testを使用する | 全体を一度に再編せず、承認済み境界ごとに移行する |
+
+#### 選択記録
+
+| 項目 | 記入内容 |
+|---|---|
+| 選択Profile | `Small` / `Standard` / `Large` |
+| 選択理由 | 現在のチーム、予定寿命、機能境界、Platform、再利用要件 |
+| 現在の複雑さ | 依存、コンパイル時間、Scene跨ぎService、テスト隔離、所有境界 |
+| 採用する境界 | Assembly、Package、Pure C#、Composition Root、公開API |
+| 採用しない仕組み | DI Container、Singleton、Manager、Event Channelなど |
+| 移行条件 | 次のProfileを再評価する観測可能な条件 |
+| 承認 | 承認者 / 日付 |
+
+空欄のままアーキテクチャを新設しない。既存プロジェクトの小さな機能修正では、現在の構造を維持できるならProfile変更を要求しない。
+
+#### 移行条件
+
+`Small`から`Standard`への再評価条件:
+
+- 複数Feature間の直接参照が増え、変更影響を局所化できない。
+- Sceneを跨ぐ状態やServiceの生成・破棄順序を手作業で安全に管理できない。
+- EditMode / PlayModeやEditorコードの分離、コンパイル範囲の縮小が実測上必要になった。
+- 複数人が同じRuntime境界へ継続的に変更し、所有範囲と公開契約が必要になった。
+
+`Standard`から`Large`への再評価条件:
+
+- 複数チームまたはModuleごとの独立所有、再利用、Release境界が必要になった。
+- Platform別実装、外部SDK Adapter、Package配布、厳格な公開API管理が必要になった。
+- 計測したコンパイル時間、テスト時間、依存違反が、Feature / Package分離で改善できる根拠を持つ。
+- Unity APIから独立したDomainをPure C# Assemblyとして検証・再利用する明確な価値がある。
+
+移行は人間の承認を得て、依存図、公開API、serialized reference、Package、テスト、Build Profileへの影響を記録し、機能またはModule単位で段階的に行う。規模縮小も可能だが、Assembly統合やPackage廃止による参照・GUID・API影響を同様に検査する。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `ARCH-001-AC01` | `有効` | `AUTO:STATIC` | `Small`、`Standard`、`Large`の適用状況、構造、非必須事項と選択記録が定義されている | リポジトリ文書検査 |
+| `ARCH-001-AC02` | `有効` | `AUTO:STATIC` | asmdef、Layer、DI、Manager、イベント方式がProfile別の選択事項であり、Service Locatorを規模別の推奨方式にしていない | リポジトリ文書検査 |
+| `ARCH-001-AC03` | `有効` | `AUTO:STATIC` | Profile間の観測可能な再評価条件、人間承認、影響調査、段階移行が規定されている | リポジトリ文書検査 |
+
+### 5.1 レイヤーと依存方向
+
+`Small`では、Feature内のMonoBehaviourとPure C#ロジックを分けるだけで十分な場合がある。形式上の層ごとにフォルダ、Interface、Assemblyを増やさない。
+
+`Standard`と`Large`では、複雑さがある部分に次の依存方向を採用できる。これは論理的な責務の例であり、必ず4 Assemblyへ分割する指示ではない。
+
+```text
+Presentation / Unity Integration
+              ↓
+Application / Use Case
+              ↓
+Domain / Rules
+
+Infrastructure / I/O ──→ ApplicationまたはDomainが定義するPort
+```
+
+- Domainは`UnityEngine`、Scene、Prefab、保存先、通信SDKへ直接依存させない。
+- Applicationはユースケースと実行順序を扱い、表示やI/Oの具体実装を所有しない。
+- PresentationとInfrastructureはComposition Rootで接続する。
+- 依存方向をAssemblyで強制するのは、選択Profileと実測上の価値が一致する場合だけにする。
+
+### 5.2 依存の組み立て / DI / Manager
+
+| 方式 | 主な適用 | 規則 |
+|---|---|---|
+| Inspector参照 / 直接生成 | `Small`、局所的なUnity連携 | 所有者と生存期間が明確なら最初の選択肢にできる |
+| 手動Composition Root / Constructor Injection | `Small`から`Standard` | 依存を明示し、Packageを増やさずテスト可能性を確保する |
+| VContainerなどのDI Container | 複雑な`Standard`または`Large` | Package互換性、Composition Root、Lifetime、テスト方法を記録してから採用する |
+| Singleton | Unity lifecycle上で一つである必要が証明された狭い責務 | 小規模向けの既定方式にせず、可変なゲーム状態と暗黙依存を集約しない |
+| Service Locator | Legacy隔離または段階移行の境界 | 規模別の推奨方式にしない。新規の一般依存解決へ使用せず、利用箇所、置換計画、テストを明示する |
+
+`Manager`という名前は、複数の処理を順序付けるSubsystem Orchestratorに限定する。単一責務なら`SaveRepository`、`SceneTransitionService`、`AudioPlayer`、`InputReader`のように具体的な名前を使う。`DontDestroyOnLoad`を既定にせず、生存期間と破棄責任を設計する。
+
+主要な長寿命ObjectまたはServiceが実在する場合だけ、次の表へ追加する。
+
+| 型またはObject | 責務 | 生存期間 / 所有者 | 依存先 | 採用理由 |
+|---|---|---|---|---|
+| `________` | `________` | `________` | `________` | `________` |
 
 ### 5.3 イベント・メッセージング設計
 
-| 方式 | 用途 |
+| 方式 | 適用条件 |
 |---|---|
-| **C# `event` / `Action`** | 同一アセンブリ内の通知 |
-| **UnityEvent** | Inspector で接続したい時 |
-| **ScriptableObject Event Channel** | シーン跨ぎ・疎結合な通知（推奨） |
-| **R3 / UniRx** | 値の変化を購読・非同期合成したい時 |
+| 直接メソッド呼び出し | 呼び出し元と所有者が明確で、即時の結果や失敗を扱う |
+| C# `event` / `Action` | 局所的な1対多通知。購読解除と生存期間を管理できる |
+| UnityEvent | Inspector接続が人間の編集作業として価値を持つ |
+| ScriptableObject Event Channel | Sceneを跨ぐ疎結合通知をAssetとして設定する明確な理由がある。全体Event Busや既定方式にはしない |
+| R3 / UniRx | Packageが承認済みで、値ストリームや非同期合成が直接必要な範囲だけに使う |
 
-### ▼ 記入テンプレート（主要イベント）
+イベント名、発火元、購読者、ペイロード、生存期間が明確なイベントだけを記録する。
 
-| イベント名 | 発火元 | 購読者 | ペイロード |
-|---|---|---|---|
-| 例）`OnPlayerDamaged` | PlayerHealth | UI / SE / Camera Shake | `int damage` |
-| 例）`OnStageCleared` | StageController | GameManager / SaveManager | `int stageId` |
-| 例）`OnCardPlayed` | HandManager | BoardManager / UI | `CardData` |
-| 例）`OnChoiceSelected` | DialogueSystem | StoryFlagManager | `int choiceId` |
-| `________` | `________` | `________` | `________` |
+| イベント名 | 発火元 | 購読者 | ペイロード | 購読期間 / 解除 |
+|---|---|---|---|---|
+| 例）`OnPlayerDamaged` | `PlayerHealth` | HUD / SE / Camera Shake | `int damage` | Gameplay Scene / `OnDisable` |
+| `________` | `________` | `________` | `________` | `________` |
 
 ---
 
@@ -889,7 +954,7 @@ Reflection Probe      : 使用 / 不使用
 
 ## 6. ゲーム進行ステートマシン
 
-> シーン遷移とは別の **「ゲーム全体の状態」** を管理する。`GameManager` が保持する。ジャンルによりステート構成は変わる。
+> シーン遷移とは別の **「ゲーム全体の状態」** を管理する。保持場所と生存期間は選択したアーキテクチャプロファイルに合わせ、常設`GameManager`を必須としない。ジャンルによりステート構成は変わる。
 
 ### 6.1 汎用ステート遷移図（テキスト版）
 

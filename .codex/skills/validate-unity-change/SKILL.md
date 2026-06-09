@@ -15,7 +15,11 @@ description: Validate Unity changes against design IDs and acceptance criteria u
    service settings, network behavior, collected data, and user-facing flows
    with the adoption matrix. Treat implementation under `不採用` or `保留` as
    a design mismatch, not a passing validation.
-6. Build an AC matrix before testing:
+6. Compare asmdefs, package boundaries, dependency direction, composition,
+   long-lived objects, and messaging with the selected architecture profile.
+   Treat an unapproved DI container, Service Locator, manager fleet, event bus,
+   or feature package as a design mismatch.
+7. Build an AC matrix before testing:
 
 ```markdown
 | AC ID | Verification type | Planned check | Evidence target |
@@ -82,6 +86,10 @@ separately when Unity-facing behavior can be affected.
      applicable; they are not yet covered by the generic asset validator.
    - Reopen or reload changed assets when needed to catch serialization issues.
    - For Cinemachine changes, record the installed Package version. On 3.x, inspect `CinemachineBrain`, `CinemachineCamera`, Tracking Target, optional Look At Target, Position / Rotation Control components, and Channels. After a 2.x migration, also inspect Scene, Prefab, Timeline, Animation, code references, obsolete warnings, and missing serialized references.
+   - For architecture changes, inspect asmdef references for cycles and reverse
+     dependencies, verify `No Engine References` assemblies do not use Unity
+     APIs, and confirm public APIs, composition roots, and tests match the
+     approved profile and migration plan.
 6. **Build verification**
    - Run when required by an `AUTO:BUILD` AC or when Build Profile or platform settings changed.
    - On Unity 6, record the saved Build Profile asset path and inspect its target, purpose, Scene List, Scripting Defines, Player Settings overrides, and debugging options.

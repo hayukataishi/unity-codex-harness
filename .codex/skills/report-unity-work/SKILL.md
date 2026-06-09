@@ -71,6 +71,9 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
 - For cross-cutting changes, report the matrix row, adoption state, linked
   design and AC IDs, dependencies or services, data handling, required human
   approval, and reevaluation trigger.
+- For architecture work, report the selected profile, selection reason,
+  affected assembly or package boundaries, dependency direction, migration trigger,
+  approval state, and whether the change is incremental.
 - For build work, report the exact Build Profile asset path, output path, clean or incremental mode, and target platform.
 - For Cinemachine work, report the exact Package version, major-version API used, affected cameras and procedural components, and whether a 2.x migration was performed.
 - Summarize large diffs; do not paste generated logs.

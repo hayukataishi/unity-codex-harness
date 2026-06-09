@@ -83,7 +83,8 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - [Unityプロジェクトの命名規則](./unity_design_sheet.md#naming-rules)
 - [Unityプロジェクトのフォルダ規則](./unity_design_sheet.md#folder-layout)
 - [asmdefの分割・依存規則](./unity_design_sheet.md#asmdef-layout)
-- レイヤー分離と依存方向
+- [Small / Standard / Largeアーキテクチャプロファイル](./unity_design_sheet.md#architecture-profile-gate)
+- 選択Profileに応じたレイヤー分離と依存方向
 - Scene・Prefab・ScriptableObjectの編集方針
 - `.meta`とGUIDを壊さないための制約
 - 新規パッケージ導入時の承認条件
@@ -253,7 +254,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - [x] Unityバージョンと対象プラットフォームの決定プロセス — 既存は検出、新規は互換性調査後に人間が承認
 - [x] プロジェクトの命名規則 — 英語ASCII、意味を優先したPascalCase/camelCase、永続IDは`lower-kebab-case`
 - [x] プロジェクトのフォルダ構成 — 自作物は`Assets/Game`、種類別の上位構成と機能別Runtimeコード
-- [x] asmdefの分割・依存規則 — Runtime、Editor、EditMode Tests、PlayMode Testsの4 Assembly
+- [x] アーキテクチャとasmdefの分割・依存規則 — Small / Standard / Largeから最小の十分なProfileを選び、4 AssemblyはStandardの基準例として扱う
 - [x] 2Dアセット設定の決定プロセス — アート方式とカテゴリ別プロファイルを代表アセットで検証し、人間が承認
 - [x] 横断機能の採否ゲート — 14領域を採用・不採用・保留へ分類し、依存・データ・AC・再評価条件を記録
 - [x] テスト結果、ログ、スクリーンショットの保存先 — 実行成果物は`Artifacts/ValidationRuns/<RunId>`、承認済み基準は`TestBaselines`

@@ -29,10 +29,26 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
 5. Check the cross-cutting adoption matrix for affected services, data, online,
    monetization, accessibility, localization, performance, diagnostics, UGC,
    and XR concerns.
-6. Update the smallest coherent design section.
-7. Add or revise design item IDs and acceptance criteria.
-8. Separate changes that require approval from changes safe to implement immediately.
-9. Report the edited sections, unresolved questions, and the next implementable unit.
+6. Check the active `Small`, `Standard`, or `Large` architecture profile,
+   its recorded reason, and migration triggers. Do not infer `Standard` as the
+   default or add future-scale abstractions without an observed need.
+7. Update the smallest coherent design section.
+8. Add or revise design item IDs and acceptance criteria.
+9. Separate changes that require approval from changes safe to implement immediately.
+10. Report the edited sections, unresolved questions, and the next implementable unit.
+
+## Architecture profile gate
+
+- Use the smallest profile that satisfies current team, lifetime, dependency,
+  platform, reuse, and ownership constraints.
+- Treat asmdef splits, feature packages, DI containers, long-lived managers,
+  singletons, and event channels as explicit decisions rather than profile
+  decorations.
+- Do not recommend Service Locator as a medium-scale pattern. When inherited
+  code uses one, record its boundary, replacement plan, and regression tests.
+- Reevaluate the profile only when migration triggers are observed. Record the
+  dependency, public API, serialized-reference, package, test, and build impact
+  before requesting approval for a profile change.
 
 ## Cross-cutting adoption gate
 
