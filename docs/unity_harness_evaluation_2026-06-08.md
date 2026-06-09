@@ -293,11 +293,23 @@ Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Python
 
 設計、Engineering、実装・検証・報告Skill、README、MCP・Skill一覧を同じ契約へ統一し、旧い最小記述への回帰をPythonテストで検出する。
 
-### P2: Gitと大容量アセット方針が固定例に寄りすぎる
+### P2: Gitと大容量アセット方針が固定例に寄りすぎる（対応済み）
 
-`main / develop / feature/*`や`.png`を一律Git LFS対象にする記述は、チーム規模やリポジトリ特性によって適否が変わる。
+初回評価時点では、`main / develop / feature/*`と`.psd .png .fbx .wav`の一律Git LFS化が記入例になっており、チーム規模、Release方式、Repository容量、Hosting quota、Assetの変更頻度とMerge可否を考慮できなかった。
 
-**改善案:** ブランチ戦略、LFS閾値、UnityYAMLMerge、Force Text、Visible Meta Files、シーン・Prefab競合の所有ルールを選択式にする。
+2026-06-10に`PROJECT-002`として、次を選択・記録する実装前ゲートへ変更した。
+
+- Trunk-based、Short-lived PR branch、Release branch併用、Long-lived integration branchの選択条件
+- Default branch、Branch寿命、Required CI、Review、Merge方式、Release / hotfix経路
+- Repository容量、増加量、Clone / CI時間、LFS quotaとBandwidth
+- 拡張子一律ではなくPath、実測size、変更頻度、Merge可否、再生成可否で決めるLFS基準
+- `.meta`をLFSへ入れずAssetと同じ変更へ含め、Generated fileはGit除外する規則
+- `Visible Meta Files`、`Force Text`、UnityYAMLMerge、`.gitattributes`、OS別Tool解決
+- Scene、Prefab、ProjectSettings、Merge不能BinaryのOwner、Lock、Single-writer、分割方針
+- Smart Merge後のUnity Editor、参照、Override、Console、Test検証
+- `git lfs migrate`などの履歴rewriteと一括再serializeを承認付きMigrationにする規則
+
+インストーラーはBranch、`.gitattributes`、LFS対象、Serialization modeを自動変更しない。これらは導入先のRepository履歴、Hosting機能、Quota、Team運用を確認した上で決定する。
 
 ## 6. 推奨ロードマップ
 
@@ -368,10 +380,11 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| テンプレート自己回帰 | PASS | Python `unittest` 72件。Installer、preflight、Validation Run、fixture、横断設計、アーキテクチャProfile、Save互換性、文書・CI規約 |
+| テンプレート自己回帰 | PASS | Python `unittest` 75件。Installer、preflight、Validation Run、fixture、横断設計、アーキテクチャProfile、Save互換性、Git・LFS規約、文書・CI規約 |
 | 横断機能採否ゲート | PASS | `PROJECT-001`、14領域、3状態、承認・停止・再評価規則 |
 | アーキテクチャProfile | PASS | `ARCH-001`、Small / Standard / Large、Service Locator非推奨、移行条件 |
 | セーブ耐障害性・互換性 | PASS | `SAVE-001`、Atomic write、Backup、Migration、Cloud競合、旧Version fixture |
+| Git・大容量アセット運用 | PASS | `PROJECT-002`、Branch選択、LFS基準、Force Text、UnityYAMLMerge、Ownership |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
@@ -977,3 +990,47 @@ Unity `6000.4.10f1`実行結果:
 - `SAVE-001`の決定表をゲーム固有のSchema、Platform、Slot、Cloud採否で埋める
 - 対応する旧Schemaの匿名fixtureを作成し、Migrationと中断・破損・失敗注入テストを実装する
 - Cloud Save採用時はAccount、Privacy、Securityの横断機能行を承認し、競合規則をゲーム固有に決定する
+
+### 2026-06-10: P2-3 Git・大容量アセット・Unity Merge方針
+
+固定的なBranch名と拡張子一律LFS例を、Repository特性とTeam運用に応じて選ぶ`PROJECT-002`へ変更した。
+
+追加・更新内容:
+
+- `PROJECT-002`と4つの静的AC
+- Git hosting、Default branch、Branch strategy、Branch lifetime、Merge policy、Release / hotfixの選択記録
+- Repository容量、増加量、Clone時間、CI checkout / cache、LFS quotaの予算
+- Path、実測size、変更頻度、Merge可否、Source / Generated区分によるLFS criteria
+- Git attributesがsize条件を直接表現しないため、閾値をpre-commitまたはCIで検査する規則
+- `.meta`の通常Git管理、LFS object取得、pointer、`git lfs fsck`検査
+- `Visible Meta Files`と`Force Text`、既存Projectの承認付き再serialize移行
+- UnityYAMLMerge、`.gitattributes`、Binary fallback、Merge後のEditor検証
+- Scene、Prefab、ProjectSettings、Lighting、NavMesh、Timeline、TerrainなどのOwner / Lock / Single-writer規則
+- `git lfs migrate`やfilter-repoによる履歴rewriteのBackup、承認、全Clone再同期
+- Engineering、実装・検証・報告Skill、README、MCP・Skill一覧へのゲート接続
+- Visible Meta Files欠落と固定Branch・拡張子一律LFSへの回帰を検出するPythonテスト3件
+
+`PROJECT-002`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `PROJECT-002-AC01` | `PASS` | Branch strategy、Default branch、CI、Review、Release / hotfix、再評価条件を静的検査で確認 |
+| `PROJECT-002-AC02` | `PASS` | size・変更頻度・Merge可否・QuotaによるLFS判断、`.meta`、Generated file、履歴rewrite規則を確認 |
+| `PROJECT-002-AC03` | `PASS` | Visible Meta Files、Force Text、UnityYAMLMerge、`.gitattributes`、既存Project移行を確認 |
+| `PROJECT-002-AC04` | `PASS` | Scene、Prefab、ProjectSettings、Binary AssetのOwnership、Lock、分割、競合後検証を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、75件
+- Python構文コンパイル: `PASS`
+- Git・LFS方針必須記述検査: `PASS`
+- Visible Meta Files欠落の異常系: 検出テスト`PASS`
+- 固定Branch・拡張子一律LFSの異常系: 検出テスト`PASS`
+- Unity fixture: 非該当。Unityコード、Scene、Prefab、Package、ProjectSettings、`.gitattributes`は変更していない
+
+導入先ゲームで必要な作業:
+
+- `PROJECT-002`へ実際のHosting、Branch、LFS quota、size閾値、Owner、Serialization modeを記録する
+- 採用したPathだけを`.gitattributes`へ追加し、CI / Build machineでLFS object取得とpointer検査を行う
+- 既存ProjectをForce TextまたはLFSへ移行する場合は、通常機能変更と分離して人間承認を得る

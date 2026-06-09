@@ -35,10 +35,13 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
 7. For saved fields, stable IDs, account state, or cloud synchronization, check
    `SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
    rules before approving a change.
-8. Update the smallest coherent design section.
-9. Add or revise design item IDs and acceptance criteria.
-10. Separate changes that require approval from changes safe to implement immediately.
-11. Report the edited sections, unresolved questions, and the next implementable unit.
+8. For large assets, scenes, prefabs, project settings, or repository policy,
+   check `PROJECT-002`, LFS criteria, serialization, merge, ownership, and
+   history-migration decisions.
+9. Update the smallest coherent design section.
+10. Add or revise design item IDs and acceptance criteria.
+11. Separate changes that require approval from changes safe to implement immediately.
+12. Report the edited sections, unresolved questions, and the next implementable unit.
 
 ## Architecture profile gate
 
@@ -78,6 +81,17 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
 - Link Cloud Save to Account, Privacy, and Security adoption decisions. Record
   unresolved platform, key-management, retention, and conflict rules as
   `要確認`.
+
+## Repository and asset gate
+
+- Choose branch strategy from team size, CI speed, release support, and actual
+  integration needs. Do not prescribe `main / develop / feature/*`.
+- Choose LFS by path, measured size, churn, mergeability, hosting quota, and
+  CI availability. An extension such as `.png` is not sufficient by itself.
+- Require `Visible Meta Files` for Git Unity projects. Record whether `Force
+  Text`, UnityYAMLMerge, LFS locks, and asset ownership are adopted.
+- Treat history rewrites, serialization migrations, and existing LFS-pattern
+  changes as approval-required migrations with rollback and team resync plans.
 
 ## Traceability rules
 

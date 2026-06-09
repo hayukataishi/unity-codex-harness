@@ -25,8 +25,11 @@ description: Implement an approved Unity design item with minimal, architecture-
 6. Before changing saved fields, stable IDs, storage, schema, or cloud state,
    read `SAVE-001`, supported-version fixtures, migration, recovery, downgrade,
    platform, privacy, and conflict rules.
-7. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-8. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+7. Before adding or changing large assets, scenes, prefabs, project settings,
+   Git attributes, or LFS tracking, read `PROJECT-002` and inspect repository
+   size rules, serialization mode, merge driver, ownership, and locks.
+8. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+9. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 
@@ -78,6 +81,15 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 ### Unity assets
 
+- Keep each asset and its `.meta` file together. Do not put `.meta` files in
+  LFS or regenerate them to resolve a merge conflict.
+- Follow the approved LFS path and size policy. Do not LFS-track all files of
+  an extension merely because some files of that type are large.
+- Coordinate ownership before editing a high-contention scene, prefab,
+  ProjectSettings file, or non-mergeable binary. Keep the editing window small.
+- Use UnityYAMLMerge only for supported text-serialized Unity YAML. After a
+  merge, open the asset in Unity and validate references, overrides, Console,
+  and relevant tests.
 - Prefer Unity MCP or Editor APIs for scenes, prefabs, components, ScriptableObjects, import settings, tags, and layers.
 - For Unity 6 build work, use saved Build Profile assets under the approved project path. Do not edit Build Profile YAML directly or rely on the Editor's last active profile.
 - Before Cinemachine work, inspect `Packages/manifest.json` and `packages-lock.json` and record the exact installed major version.

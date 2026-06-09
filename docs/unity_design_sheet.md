@@ -1731,7 +1731,7 @@ Addressables 使用      : する / しない
 - [x] **標準命名規則**（セクション3.1）
 - [x] **標準フォルダ構成**（セクション3.2）
 - [ ] **Audio 設計**（BGM / SE / Voice / Mixer グループ・Snapshot）
-- [ ] **バージョン管理**（Git / `.gitignore` / LFS）とシーンのマージ方針
+- [ ] **バージョン管理**（[PROJECT-002](#project-002)のGit / LFS / Unity Merge / Ownership選択）
 - [ ] **ビルド対象プラットフォームと品質設定**
 - [ ] **ログ規約**（Debug.Log / 本番ストリップ方針）
 
@@ -1744,13 +1744,94 @@ Addressables 使用      : する / しない
 | Sfx | 効果音 | UiSfx / GameplaySfx |
 | Voice | 音声 | — |
 
-### ▼ 記入テンプレート（Git / ビルド）
+<a id="project-002"></a>
 
-```
-Git管理       : する / しない
-.gitignore    : Unity標準テンプレート + Artifacts, Builds を除外
-Git LFS       : .psd .png .fbx .wav 等を対象
-ブランチ運用  : main / develop / feature/*
+### PROJECT-002: リポジトリ特性に合うGit・大容量アセット運用を選択する
+
+**仕様**
+
+ブランチ戦略、Git LFS、Unity serialization、Merge、Asset ownershipは固定テンプレートをそのまま採用せず、チーム規模、Release方式、Asset構成、Repository容量、CI、利用するGit hostingの機能とQuotaに合わせて決定する。
+
+#### 選択記録
+
+| 項目 | 記入内容 |
+|---|---|
+| Git hosting / remote | GitHub、GitLab、社内Serverなど。LFS・Lock・Quota・権限 |
+| Default branch | 実際の名称と役割。`main`を固定しない |
+| Branch strategy | Trunk-based / Short-lived PR branch / Release branch併用 / Custom |
+| Branch lifetime | 目標期間、同期頻度、長期化時の扱い |
+| Merge policy | Merge commit / Squash / Rebase、必須Review、Required CI、Merge queue |
+| Release / hotfix | Tag、Release branch、複数Version保守の有無 |
+| Repository budget | 現在容量、月次増加量、Clone時間、CI checkout / cache制約 |
+| LFS availability | 採否、Hosting quota、Bandwidth、CI・Build machine対応、障害時手順 |
+| LFS criteria | Path、実測size閾値、変更頻度、マージ可否、Source / Generated区分 |
+| LFS lock | `lockable`対象、Lock取得・解除・放置Lockの管理者 |
+| Unity settings | Version Control mode、Asset Serialization mode、変更・移行日 |
+| Merge driver | UnityYAMLMerge採否、対象拡張子、各OSの設定方法、検証責任 |
+| Ownership | Scene、Prefab、ProjectSettings、大容量Source Assetの担当と同時編集規則 |
+| History migration | 既存履歴を維持 / LFSへ将来分だけ移行 / 承認付き履歴rewrite |
+| 再評価条件 | 容量、Clone時間、LFS quota、競合件数、Team・Release方式の変化 |
+
+#### ブランチ戦略
+
+| 戦略 | 適する状況 | 規則 |
+|---|---|---|
+| Trunk-based | 小さな変更、速いCI、Feature flagで未完成機能を隠せる | Default branchを常にRelease可能に保ち、作業branchは短命にする |
+| Short-lived PR branch | ReviewとRequired CIを通してDefault branchへ統合する一般的な開発 | `feature/*`などの接頭辞は任意。長期branchを前提にしない |
+| Release branch併用 | 複数Versionの保守、認証・Store審査中の修正、安定化期間が必要 | Release対象と終了条件を記録し、修正をDefault branchへ戻す |
+| Long-lived integration branch | 複数の未完成系列を長期統合する必要が実在する | `develop`を暗黙に作らず、CI、同期、Release経路、廃止条件を承認する |
+
+- Branch名より、Default branch保護、Required CI、Review、Merge方式、Release tag、Hotfixの戻し先を正とする。
+- Binary AssetやSceneの長期branch間Mergeは競合と履歴肥大を増やすため、変更を小さく統合する。大きなContent dropは担当、期間、分割、検証を先に決める。
+- Branch strategyの変更は進行中PR、Release、CI、Automationへの影響を確認してから行う。
+
+#### Git LFS選択
+
+- `.png`、`.wav`、`.fbx`などの拡張子だけで全ファイルを一律LFS化しない。実測size、変更頻度、差分・Merge可否、再生成可否、Hosting quota、Clone / CI負荷からPath単位で候補を決める。
+- Git attributesはファイルsize条件を直接表現しないため、size閾値はpre-commitまたはCIで検査し、`.gitattributes`は承認済みPath / Patternを追跡する。
+- 高解像度Source Art、Audio master、Video、DCC file、大型Modelなど、Binaryで大きく履歴増加が大きいAssetはLFS候補とする。小さく安定したRuntime Assetは通常Gitの方が単純な場合がある。
+- 自動生成できるBuild、Cache、Imported artifact、`Library`、`Temp`、`Logs`、`Obj`、`Builds`、`Artifacts`をLFSで保存する代わりにGit除外する。
+- `.meta`はTextのまま通常Gitで管理し、対応Assetと同じ変更へ含める。Assetだけ、または`.meta`だけをLFS移行・移動・削除しない。
+- `lockable`はPSD、Blend、動画など同時MergeできないBinaryへ限定できる。Unity YAMLのSceneやPrefabをLock目的だけでLFS化せず、Ownershipと短い編集時間で競合を減らす。
+- CIとBuild machineはLFS objectを取得できることを確認し、LFS pointerだけのAsset、missing object、`git lfs fsck`失敗を検出する。
+- 既存AssetをLFS追跡へ追加しても過去履歴は自動的に縮小しない。`git lfs migrate`などの履歴rewriteはClone、Fork、Open PR、Tag、Release hashを壊し得るため、人間の承認、Backup、全利用者の再同期計画を必要とする。
+
+#### Unity Version Control・Serialization
+
+- Gitを使用するUnityプロジェクトでは`Version Control Mode = Visible Meta Files`とし、`.meta`とGUIDをVersion Controlへ含める。
+- 自作Scene、Prefab、ScriptableObject、Material、AnimationなどUnityがText serializationに対応するAssetは、MergeとReviewが必要なら`Asset Serialization Mode = Force Text`を選ぶ。
+- 既存プロジェクトをForce Textへ切り替えると大量の再serialize差分が発生し得る。Clean worktree、専用branch、Unity Version固定、差分量確認、Compile・Asset・Scene検証、人間承認を伴う独立移行にする。
+- Vendor Asset、Tool生成Asset、対応しないBinary形式をTextへ変換するために直接編集しない。例外Pathと理由を記録する。
+- ProjectSettingsの変更はUnity Editorまたは対応APIから行い、設定YAMLの直接書換えを標準手順にしない。
+
+#### UnityYAMLMergeと`.gitattributes`
+
+- Force TextのUnity YAML Assetには、導入Unity Versionに付属するUnityYAMLMergeをSmart Merge候補として設定する。実行ファイルの絶対PathはOSとEditor Versionごとに解決し、共有ファイルへ特定開発機のPathを固定しない。
+- `.gitattributes`のMerge driverは、自作かつText serialization対象の`.unity`、`.prefab`、`.asset`、`.mat`、`.anim`、`.controller`など、実際にUnity YAMLであるPathへ限定する。
+- UnityYAMLMergeの終了成功だけで内容を承認しない。競合後はUnity Editorで対象Scene / Prefab / Assetを開き、Missing Reference、Hierarchy、Override、Console、関連Testを検証する。
+- Binary AssetにはText mergeを設定しない。必要ならLFS lockまたは一人のOwnerによる編集を使用する。
+- Merge driverが利用できない開発環境とCIでのfallback、設定確認手順、Tool更新時の再検証を記録する。
+
+#### Scene・Prefab・設定の競合所有
+
+- 高頻度で変更するScene、Prefab、ProjectSettingsにはOwnerまたは調整Channelを定め、同時編集前に対象と期間を共有する。
+- Sceneを一人で抱えるのではなく、競合が継続する場合はAdditive Scene、Nested Prefab、Data Assetなど、責務に合う境界へ分割する。ただし競合回避だけを理由に無意味な細分化をしない。
+- Lighting、NavMesh、Timeline、Animator Controller、TerrainなどMergeが難しいAssetは、編集Owner、生成元、再生成方法、LockまたはSingle-writer期間を記録する。
+- Scene / Prefab競合を解消するためにGUID、fileID、YAML blockを推測で編集しない。Unity Editor、Prefab workflow、UnityYAMLMerge、Backupを優先する。
+- `ProjectSettings`、Package manifest、Input Actions、Build ProfileなどProject全体へ影響する変更は、同時作業者と順序を調整し、統合後に対象Platformの検証を行う。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `PROJECT-002-AC01` | `有効` | `AUTO:STATIC` | Branch strategyが選択式で、Default branch、CI、Review、Release / hotfix、再評価条件を記録する | リポジトリ文書検査 |
+| `PROJECT-002-AC02` | `有効` | `AUTO:STATIC` | LFSが拡張子一律ではなくsize・変更頻度・Merge可否・Quotaで判断され、`.meta`、Generated file、履歴rewriteの規則がある | リポジトリ文書検査 |
+| `PROJECT-002-AC03` | `有効` | `AUTO:STATIC` | Visible Meta Files、Force Text、UnityYAMLMerge、`.gitattributes`、既存Project移行規則が定義されている | リポジトリ文書検査 |
+| `PROJECT-002-AC04` | `有効` | `AUTO:STATIC` | Scene、Prefab、ProjectSettings、Binary AssetのOwnership、Lock、分割、競合後検証が定義されている | リポジトリ文書検査 |
+
+### ▼ 記入テンプレート（Build）
+
+```text
 Build Profile保存先:
 主Build Profile:
 検証Build Profile:

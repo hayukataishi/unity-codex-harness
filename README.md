@@ -248,6 +248,19 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 
 `PlayerPrefs`は音量など消失しても進行を失わない設定へ限定します。暗号化しただけ、JSONへ保存しただけ、versionフィールドを追加しただけでは、破損復旧や互換性を保証したことにはなりません。
 
+### Gitと大容量アセット運用を選ぶ
+
+[PROJECT-002](docs/unity_design_sheet.md#project-002)で、Branch、LFS、Unity Merge、Asset ownershipをプロジェクトごとに決めます。
+
+- `main / develop / feature/*`を固定せず、Team、CI、Release保守からBranch戦略を選ぶ
+- `.png`などの拡張子一律ではなく、Path、実測size、変更頻度、Merge可否、LFS quotaで追跡対象を決める
+- Git利用時は`Visible Meta Files`を維持し、Mergeが必要な自作Unity Assetは`Force Text`を基本候補にする
+- UnityYAMLMerge後もUnity EditorでScene、Prefab、参照、Override、Console、Testを確認する
+- Merge不能BinaryにはLFS lockまたはOwner、Scene・Prefabには同時編集ルールを定める
+- 既存履歴のLFS移行や一括再serializeは通常変更ではなく、承認付きMigrationとして扱う
+
+インストーラーはゲーム固有のBranch、`.gitattributes`、LFS対象、Serialization modeを自動変更しません。Repository容量、Hosting quota、既存履歴への影響がプロジェクトごとに異なるためです。
+
 ## 外部ツールと互換性マニフェスト
 
 | ツール | 固定参照 | 用途 | ハーネスでの実行状態 |

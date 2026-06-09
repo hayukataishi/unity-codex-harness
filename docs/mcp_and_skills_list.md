@@ -258,5 +258,6 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - [x] 2Dアセット設定の決定プロセス — アート方式とカテゴリ別プロファイルを代表アセットで検証し、人間が承認
 - [x] 横断機能の採否ゲート — 14領域を採用・不採用・保留へ分類し、依存・データ・AC・再評価条件を記録
 - [x] セーブデータ耐障害性・互換性 — Atomic write、Backup、Integrity、Schema migration、Cloud競合、Platform制約、旧Version fixture
+- [x] Git・大容量アセット運用 — Branch戦略、LFS基準、Visible Meta Files、Force Text、UnityYAMLMerge、Asset ownershipを選択式で記録
 - [x] テスト結果、ログ、スクリーンショットの保存先 — 実行成果物は`Artifacts/ValidationRuns/<RunId>`、承認済み基準は`TestBaselines`
 - [x] Unity MCPで許可する書き込み操作と、人間承認が必要な操作 — 原則MCPへ委任し、依存関係・不可逆削除・Release設定・危険な任意実行のみ追加承認

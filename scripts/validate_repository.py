@@ -240,6 +240,66 @@ OUTDATED_SAVE_GUIDANCE = {
         "バージョン管理 : セーブデータの version フィールドでマイグレーション対応",
     ),
 }
+SOURCE_CONTROL_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="project-002"></a>',
+        "### PROJECT-002:",
+        "| Branch strategy |",
+        "| LFS criteria |",
+        "`.png`、`.wav`、`.fbx`などの拡張子だけで全ファイルを一律LFS化しない",
+        "Git attributesはファイルsize条件を直接表現しない",
+        "Visible Meta Files",
+        "Force Text",
+        "UnityYAMLMerge",
+        "`git lfs migrate`",
+        "PROJECT-002-AC04",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="project-version-control-policy"></a>',
+        "### Git・大容量アセット・Unity Merge決定ゲート",
+        "`main / develop / feature/*`を固定形にしない",
+        "`.png`は自動的なLFS対象ではない",
+        "Visible Meta Files",
+        "履歴rewrite",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "## Repository and asset gate",
+        "Do not prescribe `main / develop / feature/*`",
+        "An extension such as `.png` is not sufficient",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "read `PROJECT-002`",
+        "Do not put `.meta` files in",
+        "Use UnityYAMLMerge only",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "For repository or asset changes",
+        "`git check-attr`",
+        "`git lfs fsck`",
+        "`Visible Meta Files`",
+    ),
+    ".codex/skills/report-unity-work/SKILL.md": (
+        "For repository and large-asset work",
+        "LFS paths and size rule",
+        "history-migration impact",
+    ),
+    "docs/mcp_and_skills_list.md": (
+        "Git・大容量アセット運用",
+        "UnityYAMLMerge",
+    ),
+    "README.md": (
+        "### Gitと大容量アセット運用を選ぶ",
+        "`main / develop / feature/*`を固定せず",
+        "`.png`などの拡張子一律ではなく",
+        "インストーラーはゲーム固有のBranch",
+    ),
+}
+OUTDATED_SOURCE_CONTROL_GUIDANCE = {
+    "docs/unity_design_sheet.md": (
+        "Git LFS       : .psd .png .fbx .wav 等を対象",
+        "ブランチ運用  : main / develop / feature/*",
+    ),
+}
 CINEMACHINE_3_REQUIRED_TEXT = {
     "docs/unity_design_sheet.md": (
         '<a id="graphics-001"></a>',
@@ -592,6 +652,35 @@ def validate_save_compatibility_documentation(root: Path) -> list[str]:
     return errors
 
 
+def validate_source_control_documentation(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in SOURCE_CONTROL_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing source-control document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing source-control guidance: "
+                    f"{relative} -> {required}"
+                )
+
+    for relative, outdated_values in OUTDATED_SOURCE_CONTROL_GUIDANCE.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for outdated in outdated_values:
+            if outdated in text:
+                errors.append(
+                    f"overprescriptive source-control guidance: "
+                    f"{relative} -> {outdated}"
+                )
+    return errors
+
+
 def validate_validation_run_lifecycle(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in VALIDATION_RUN_REQUIRED_TEXT.items():
@@ -824,6 +913,7 @@ def main() -> int:
         + validate_cross_cutting_documentation(root)
         + validate_architecture_profile_documentation(root)
         + validate_save_compatibility_documentation(root)
+        + validate_source_control_documentation(root)
         + validate_cinemachine_documentation(root)
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)

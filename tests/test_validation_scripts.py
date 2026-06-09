@@ -588,6 +588,66 @@ class SaveCompatibilityDocumentationTests(unittest.TestCase):
             )
 
 
+class SourceControlDocumentationTests(unittest.TestCase):
+    def test_repository_defines_selectable_source_control_policy(self):
+        self.assertEqual(
+            repository_validator.validate_source_control_documentation(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_visible_meta_files_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.SOURCE_CONTROL_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = [
+                    value
+                    for value in required_values
+                    if value != "Visible Meta Files"
+                ]
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_source_control_documentation(root)
+            )
+
+            self.assertTrue(
+                any("Visible Meta Files" in error for error in errors),
+                errors,
+            )
+
+    def test_rejects_fixed_branch_and_extension_lfs_template(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.SOURCE_CONTROL_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += (
+                        "\nGit LFS       : .psd .png .fbx .wav 等を対象"
+                        "\nブランチ運用  : main / develop / feature/*"
+                    )
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_source_control_documentation(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "overprescriptive source-control guidance" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class CinemachineDocumentationTests(unittest.TestCase):
     def test_repository_uses_cinemachine_3_guidance(self):
         self.assertEqual(

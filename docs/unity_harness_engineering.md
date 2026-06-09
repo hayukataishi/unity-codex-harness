@@ -161,6 +161,23 @@ Profile変更はアーキテクチャ変更として人間の承認を得る。�
 
 Save形式、対応可能な最古Version、downgrade、Cloud conflict、鍵管理、個人データ、Platform要件が未決定の場合、Codexは推測で実装せず`要確認`として停止・報告する。
 
+<a id="project-version-control-policy"></a>
+
+### Git・大容量アセット・Unity Merge決定ゲート
+
+大容量Asset、Scene、Prefab、ProjectSettings、`.gitattributes`、Git LFS、Branch運用へ影響する作業は、[PROJECT-002](./unity_design_sheet.md#project-002)の選択記録を確認する。
+
+- `main / develop / feature/*`を固定形にしない。Default branch、Branch寿命、Required CI、Review、Merge方式、Release / hotfix経路を実際のTeamとRelease方式から選ぶ。
+- LFSは拡張子一律で決めず、Path、実測size、変更頻度、Merge可否、Hosting quota、CI / Build machine対応から判断する。`.png`は自動的なLFS対象ではない。
+- Git attributesはsize条件を直接表現できないため、承認済みsize閾値はpre-commitまたはCIで検査し、`.gitattributes`はPath / Patternを管理する。
+- Gitを使用するUnityプロジェクトは`Visible Meta Files`を維持する。MergeとReviewが必要な自作Unity Assetでは`Force Text`を基本候補とし、既存Projectの一括再serializeは独立した承認付き移行にする。
+- Force TextのUnity YAMLにはUnityYAMLMergeを使用できるが、Tool成功だけでMerge完了とせず、Unity Editor、Missing Reference、Console、関連Testを確認する。
+- Scene、Prefab、ProjectSettings、Merge不能BinaryにはOwner、LockまたはSingle-writer期間、競合時の復旧手順を決める。YAMLのGUIDやfileIDを推測で修正しない。
+- `.meta`をLFSへ入れず、Assetと同じ変更へ含める。Generated file、Build、Cache、Validation ArtifactをLFSで保存せずGit除外する。
+- `git lfs migrate`などの履歴rewriteは、Open PR、Tag、Release、Fork、CI、全Cloneへ影響する高リスク操作として、Backupと再同期計画を人間が承認した場合だけ実行する。
+
+Codexは既存のBranch、LFS pattern、Merge driver、Serialization mode、Asset ownershipをテンプレートへ合わせる目的だけで変更しない。現在のRepository容量、LFS quota、競合実績、Clone / CI時間を根拠に差分を提案する。
+
 <a id="build-profile-policy"></a>
 
 ### Unity 6 Build Profile運用方針
@@ -671,7 +688,8 @@ Codexは最低限、次を確認する。
 8. 対象機能に関係する横断機能採否ゲートの状態
 9. アーキテクチャプロファイルの選択、理由、移行条件
 10. セーブへ影響する場合は、SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
-11. 関連コード、Scene、Prefab、テスト
+11. 大容量Asset、Scene、Prefab、ProjectSettingsへ影響する場合は、PROJECT-002、LFS、Serialization、Owner
+12. 関連コード、Scene、Prefab、テスト
 
 ### 作業中
 
@@ -681,6 +699,7 @@ Codexは最低限、次を確認する。
 - Assemblyの作成・参照変更では[プロファイル別asmdef構成](./unity_design_sheet.md#asmdef-layout)を使用する。
 - DI Container、Singleton、Manager、Event Channel、Feature Packageを追加する前に[アーキテクチャプロファイル決定ゲート](./unity_design_sheet.md#architecture-profile-gate)と採用理由を確認する。
 - Save対象、Stable ID、Schema、保存先、Cloud同期を変更する前に[セーブデータ耐障害性・互換性ゲート](./unity_design_sheet.md#save-001)と旧Version fixtureを確認する。
+- 大容量Asset、Scene、Prefab、ProjectSettings、Git属性を変更する前に[Git・大容量アセット・Unity Merge決定ゲート](./unity_design_sheet.md#project-002)を確認する。
 - 2Dアセットの生成・取込前に[2Dアートプロファイル決定ゲート](./unity_design_sheet.md#art-profile-gate)を確認する。
 - Package、外部Service、通信、収集データ、課金、広告、UGC、XRを扱う前に[横断機能採否ゲート](./unity_design_sheet.md#cross-cutting-gate)を確認する。
 - 検証成果物は[検証成果物の保存規則](#validation-artifacts)へ保存する。
@@ -835,6 +854,10 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - Unity Editor Versionの変更・Upgrade
 - Render Pipelineの切替
 - 選択済みProfileの境界を変えるasmdef分割、Package化、依存方向、DI方式の変更
+- Default branch、Branch strategy、Merge policy、Required CIの変更
+- Git LFSの導入・廃止、既存追跡Pattern、Lock policy、Hosting storageの変更
+- `git lfs migrate`、filter-repoなどCommit hashを書き換える履歴rewrite
+- Asset Serialization Mode、Version Control Mode、UnityYAMLMerge driverの変更
 - Unity MCP Package自体のDeploy・Restore
 
 #### 既存資産の破壊・広範囲変更
@@ -912,6 +935,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [ ] Definition of Done
 - [x] 変更の承認境界
 - [x] セーブデータ耐障害性・互換性ポリシー
+- [x] Git・LFS・Unity Merge・Asset ownershipの選択プロセス
 - [x] エラー・ログ・スクリーンショットの保存場所
 
 ---
@@ -923,6 +947,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [ ] 対応する設計が確定している
 - [ ] 関連する横断機能の採否が確定している
 - [ ] Saveへ影響する場合は、対応Schema fixture、Migration、破損・中断・失敗時復旧が検証済みである
+- [ ] 大容量AssetまたはUnity YAMLへ影響する場合は、LFS / Meta / Serialization / Ownership / Merge検証が完了している
 - [ ] 受け入れ条件を満たす実装がある
 - [ ] コンパイルが成功する
 - [ ] 必要な自動テストが成功する

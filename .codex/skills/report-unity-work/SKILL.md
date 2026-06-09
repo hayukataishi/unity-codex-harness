@@ -78,6 +78,9 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
   migration and downgrade behavior, atomic-write and backup results, fixture
   coverage, recovery results, platform scope, Cloud conflict policy, and
   whether evidence was checked for personal data or secrets.
+- For repository and large-asset work, report branch and merge policy, affected
+  LFS paths and size rule, `.meta` pairing, serialization mode, merge driver,
+  asset owner or lock, LFS verification, and any history-migration impact.
 - For build work, report the exact Build Profile asset path, output path, clean or incremental mode, and target platform.
 - For Cinemachine work, report the exact Package version, major-version API used, affected cameras and procedural components, and whether a 2.x migration was performed.
 - Summarize large diffs; do not paste generated logs.

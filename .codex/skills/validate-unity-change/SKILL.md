@@ -22,7 +22,10 @@ description: Validate Unity changes against design IDs and acceptance criteria u
 7. For save changes, list supported schemas, fixtures, migration steps,
    recovery order, downgrade behavior, platform storage, and Cloud / Privacy /
    Security decisions. Treat missing fixture coverage as `NOT RUN`.
-8. Build an AC matrix before testing:
+8. For repository or asset changes, inspect branch and merge policy, LFS
+   attributes and object availability, Unity serialization settings, `.meta`
+   pairing, ownership, and conflict-resolution evidence.
+9. Build an AC matrix before testing:
 
 ```markdown
 | AC ID | Verification type | Planned check | Evidence target |
@@ -107,6 +110,13 @@ separately when Unity-facing behavior can be affected.
      dependencies, verify `No Engine References` assemblies do not use Unity
      APIs, and confirm public APIs, composition roots, and tests match the
      approved profile and migration plan.
+   - For repository and large-asset changes, use `git check-attr` for affected
+     paths, verify required LFS objects are present, reject unresolved LFS
+     pointers, and run `git lfs fsck` when LFS is adopted and available.
+   - Confirm changed assets have matching `.meta` files, `Visible Meta Files`
+     remains enabled, and approved text-serialized Unity assets use `Force Text`.
+   - After Scene or Prefab merge resolution, open the result in Unity and
+     inspect hierarchy, references, overrides, Console, and applicable tests.
 7. **Build verification**
    - Run when required by an `AUTO:BUILD` AC or when Build Profile or platform settings changed.
    - On Unity 6, record the saved Build Profile asset path and inspect its target, purpose, Scene List, Scripting Defines, Player Settings overrides, and debugging options.
