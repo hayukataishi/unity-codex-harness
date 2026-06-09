@@ -90,6 +90,42 @@ OUTDATED_CINEMACHINE_EXAMPLE_TEXT = {
         "| `FollowCamera` | プレイヤー追従 | CinemachineVirtualCamera | 10 |",
     ),
 }
+VALIDATION_RUN_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="debug-001"></a>',
+        "### DEBUG-001:",
+        "作成時の`RUNNING`",
+        "finalize後の`COMPLETED`",
+        "RunManifest.sha256",
+        "DEBUG-001-AC03",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "Validation Runのライフサイクル",
+        "schema version 2",
+        "--blocked-reason",
+        "verify_validation_run.py",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "## Finalize and verify",
+        "--blocked-reason",
+        "verify_validation_run.py",
+    ),
+    ".codex/skills/validate-unity-change/scripts/create_validation_run.py": (
+        '"schemaVersion": 2',
+        '"state": "RUNNING"',
+    ),
+    ".codex/skills/validate-unity-change/scripts/finalize_validation_run.py": (
+        'MANIFEST_SCHEMA_VERSION = 2',
+        'MANIFEST_HASH_NAME = "RunManifest.sha256"',
+        "Validation run is already completed",
+    ),
+    ".codex/skills/validate-unity-change/scripts/verify_validation_run.py": (
+        'SCHEMA_VERSION = 2',
+        "artifact SHA-256 mismatch",
+        "missing evidence",
+        "unrecorded artifact",
+    ),
+}
 
 
 def frontmatter_value(frontmatter: str, key: str) -> str | None:
@@ -235,6 +271,23 @@ def validate_cinemachine_documentation(root: Path) -> list[str]:
             if outdated in text:
                 errors.append(
                     f"outdated Cinemachine 2 example: {relative} -> {outdated}"
+                )
+    return errors
+
+
+def validate_validation_run_lifecycle(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in VALIDATION_RUN_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing Validation Run lifecycle file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing Validation Run lifecycle guidance: "
+                    f"{relative} -> {required}"
                 )
     return errors
 
@@ -435,6 +488,7 @@ def main() -> int:
         + validate_github_actions(root)
         + validate_build_profile_documentation(root)
         + validate_cinemachine_documentation(root)
+        + validate_validation_run_lifecycle(root)
         + validate_harness_lock(root)
     )
     if errors:

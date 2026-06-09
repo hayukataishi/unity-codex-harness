@@ -252,6 +252,26 @@ python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
 `--ac-id`には、この実行全体で検証する自動受け入れ条件だけを指定します。
 macOSでは`ProjectVersion.txt`と一致するUnity Hub Editorを自動検出します。
 他の環境では`--unity-editor`または`UNITY_EDITOR_PATH`を指定します。
+このコマンドはRunを`RUNNING`で作成し、検証後に`COMPLETED`へfinalizeして、Manifestと成果物のSHA-256を自動検証します。
+
+手動で開始したRunが継続不能になった場合は、開始状態のまま放置せず、理由付き`BLOCKED`で閉じます。
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+  --project-root /path/to/YourUnityProject \
+  --run-dir "Artifacts/ValidationRuns/<RunId>" \
+  --blocked-reason "Unity Editor license was unavailable"
+```
+
+完了済みRunのManifest sidecar hashと全成果物を再検査:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
+  --project-root /path/to/YourUnityProject \
+  --run-dir "Artifacts/ValidationRuns/<RunId>"
+```
+
+`COMPLETED` Runは再finalize・編集しません。証拠を追加または修正する場合は新しいRunを作成します。
 
 資産検査は、`Assets`以下のPrefab、Scene、ScriptableObjectにあるMissing Scriptと壊れたObject参照を走査します。ゲーム固有の必須資産・必須参照は`ProjectSettings/UnityCodexHarnessAssetValidation.json`へ追加します。
 

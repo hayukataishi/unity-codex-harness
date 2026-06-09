@@ -37,6 +37,10 @@ Artifacts/ValidationRuns/<RunId>/
 
 Keep paths in reports relative to `UNITY_PROJECT_ROOT`.
 
+The new manifest starts with schema version 2 and `state: RUNNING`. Every
+created run must reach `state: COMPLETED`. Prefer `run_unity_validation.py`,
+which finalizes and verifies automatically.
+
 ## Execute checks
 
 Run only applicable checks, but explicitly mark omitted checks.
@@ -81,6 +85,40 @@ Run only applicable checks, but explicitly mark omitted checks.
    - Store AC-specific evidence under `Evidence/<AcceptanceCriterionIdWithoutHyphens>/`.
 
 Prefer Unity MCP for Editor operations and evidence capture. Re-check Editor state, Console, hierarchy, inspector-equivalent data, and saved asset state after MCP changes.
+
+## Finalize and verify
+
+For a manually orchestrated run, write a schema version 1 results JSON with
+`commands`, `checks`, and optional per-AC `acceptanceCriteria`, then run:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+  --project-root "$UNITY_PROJECT_ROOT" \
+  --run-dir "Artifacts/ValidationRuns/<RunId>" \
+  --results "Artifacts/ValidationRuns/<RunId>/Logs/ValidationResults.json"
+```
+
+If the run cannot continue, close it honestly instead of leaving it running:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+  --project-root "$UNITY_PROJECT_ROOT" \
+  --run-dir "Artifacts/ValidationRuns/<RunId>" \
+  --blocked-reason "Unity Editor license was unavailable"
+```
+
+The finalizer returns a non-zero exit code for `FAIL`, `BLOCKED`, and
+`NOT RUN`, even though the run itself has been successfully closed. Verify every
+completed run:
+
+```bash
+python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
+  --project-root "$UNITY_PROJECT_ROOT" \
+  --run-dir "Artifacts/ValidationRuns/<RunId>"
+```
+
+Do not re-finalize or edit a completed run. Create a new run when evidence or
+checks must change.
 
 ## Classify results
 
@@ -127,6 +165,7 @@ If any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`, do not call the change acce
 - `scripts/run_unity_validation.py`: resolve the matching Unity Editor, run preflight, EditMode, and PlayMode checks, and finalize one evidence run.
 - `Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs`: scan Unity assets through Editor APIs and write `Logs/AssetValidation.json`.
 - `scripts/finalize_validation_run.py`: calculate the final result, write the report, and record artifact hashes.
+- `scripts/verify_validation_run.py`: verify the completed state, manifest sidecar hash, and all recorded artifacts.
 
 Run the complete local path with automated AC IDs only:
 

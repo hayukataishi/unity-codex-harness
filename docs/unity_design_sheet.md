@@ -1697,6 +1697,27 @@ CIは保存済みProfileを明示してUnityを起動する。
 | `BUILD-001-AC02` | `有効` | `AUTO:STATIC` | Development / QA / Releaseの用途、Defines、Debug設定、Clean Build条件、保存場所、命名が定義されている | リポジトリ文書検査 |
 | `BUILD-001-AC03` | `有効` | `AUTO:STATIC` | CI手順が`-activeBuildProfile`でProfileアセットを明示し、Editorの前回状態へ依存しない | リポジトリ文書検査 |
 
+<a id="debug-001"></a>
+
+### DEBUG-001: Validation Runは終端状態と検証可能な証拠を持つ
+
+**仕様**
+
+- Validation Runはschema version 2の`RunManifest.json`を持ち、作成時の`RUNNING`からfinalize後の`COMPLETED`へ一方向に遷移する。
+- finalize時は`completedAtUtc`、`durationSeconds`、コマンド終了コード、Check結果、AC別結果、最終結果、成果物の相対パス・サイズ・SHA-256を記録する。
+- CheckまたはACに`FAIL`、`BLOCKED`、`NOT RUN`があれば、Runの最終結果を`PASS`にしない。
+- 継続不能なRunは理由を記録して`BLOCKED`で完了できる。`RUNNING`のまま成功扱いにしない。
+- 完了時に`RunManifest.sha256`を生成し、Manifestと記録済み成果物の改変、欠落、未記録ファイルを検証できるようにする。
+- `COMPLETED` Runは再finalize・上書きせず、追加検証や証拠修正は新しいRunで行う。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-001-AC01` | `有効` | `AUTO:STATIC` | 新規Runがschema version 2の`RUNNING`で始まり、finalize後に完了日時・duration・Check・AC・最終結果を持つ`COMPLETED`になる | Python CLI回帰テスト |
+| `DEBUG-001-AC02` | `有効` | `AUTO:STATIC` | 完了済みRunの再finalizeが拒否され、途中Runを理由付き`BLOCKED`で完了できる | Python CLI回帰テスト |
+| `DEBUG-001-AC03` | `有効` | `AUTO:STATIC` | Manifest sidecar hash、Check・AC証拠パス、成果物のサイズ・SHA-256を検証し、欠落と完了後の変更を検出できる | Python CLI回帰テスト |
+
 ---
 
 ## 付録A：ジャンル別 追加検討項目

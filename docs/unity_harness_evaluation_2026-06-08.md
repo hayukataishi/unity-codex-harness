@@ -198,19 +198,22 @@ Secret、個人情報、ローカル絶対パスを含む成果物の内容ス�
 
 fixtureにはCinemachine PackageとCamera Sceneがないため、実Component作成、2.xから3.xへの移行、Play Mode映像確認は`NOT RUN`である。
 
-### P1: 検証Runが開始状態のまま完結しない
+### P1: 検証Runが開始状態のまま完結しない（対応済み）
 
-`create_validation_run.py`は`result: NOT RUN`のManifestとReportを作るが、終了時刻、コマンド終了コード、AC別結果、成果物一覧、最終結果を確定する処理がない。「immutable」という名称に対して、完了後の整合性や改ざん検知もない。
+初回評価後に基本的な`finalize_validation_run.py`は追加されていたが、状態遷移、再finalize防止、途中Runの閉鎖、完了後の整合性検証が不足していた。
 
-**改善案:** `finalize_validation_run.py`を追加し、次を行う。
+2026-06-09に`DEBUG-001`として次を追加した。
 
-- テストXMLとログを解析
-- AC別結果を確定
-- `completedAtUtc`とdurationを記録
-- コマンドと終了コードを記録
-- 成果物の相対パス、サイズ、SHA-256を記録
-- `FAIL`、`BLOCKED`、`NOT RUN`があれば受け入れ未完了にする
-- Manifest schema versionを記録
+- schema version 2と`RUNNING`から`COMPLETED`への一方向の状態遷移
+- 完了日時、duration、コマンド終了コード、Check・AC別結果、最終結果
+- 成果物の相対パス、サイズ、SHA-256
+- `RunManifest.sha256`によるManifestの改変検知
+- `verify_validation_run.py`による証拠パス、欠落、改変、未記録成果物の検査
+- 完了済みRunの再finalize拒否
+- `--blocked-reason`による継続不能Runの`BLOCKED`完了
+- 不正schema、結果値、AC ID、Run外path、空Checkの拒否
+
+Unity `6000.4.10f1` fixtureでfinalizeとintegrity verificationまで`PASS`した。OS強制終了や電源断はプロセス内で自動finalizeできないため、残った`RUNNING` Runは再開または理由付き`BLOCKED`で閉じる運用とする。
 
 ### P1: テンプレート自身の回帰テストが不足
 
@@ -314,7 +317,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 1. `[完了]` Harness、Unity MCP、agent-sprite-forgeの互換性マニフェストを追加する。
 2. `[完了]` Build Profile中心のビルド設計へ更新する。
 3. `[一部完了: Cinemachine 3]` Cinemachine 3、Input System、Code Coverageの現行例へ更新する。
-4. Validation Runのfinalize処理とschemaを追加する。
+4. `[完了]` Validation Runのfinalize処理、schema、integrity verificationを追加する。
 5. インストーラーへupgrade、backup、diff、version表示を追加する。
 
 ### フェーズ3: 汎用ゲーム開発の拡張
@@ -346,7 +349,8 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 │  │  ├─ run_tests.*
 │  │  ├─ validate_assets.*
 │  │  ├─ build_player.*
-│  │  └─ finalize_validation_run.py
+│  │  ├─ finalize_validation_run.py
+│  │  └─ verify_validation_run.py
 │  └─ harness/
 ├─ .github/workflows/
 ├─ harness.lock.json
@@ -363,7 +367,8 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
-| Validation Run作成 | PASS | UTC Run ID、Manifest、Report、成果物ディレクトリを生成 |
+| Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
+| Validation Run integrity | PASS | Manifest sidecar hash、成果物SHA-256、改変・欠落・未記録検出 |
 | 静的プリフライト | PASS | Unity 6.4 fixtureで必須パス、`.meta`、GUIDを検査 |
 | Unity Editor compile | PASS | ローカルUnity `6000.4.10f1` |
 | EditMode / PlayMode | PASS | EditMode 4件、PlayMode 1件 |
@@ -707,3 +712,49 @@ Unity `6000.4.10f1`実行結果:
 - Cinemachineカメラを使用したPlay Mode映像確認
 
 このP1は「Cinemachineの例を3.xへ統一する」ところまで対応済みである。実Package、Camera Scene、移行検証は、Cinemachineを採用するゲームプロジェクトで行う。
+
+### 2026-06-09: P1-3 Validation Runの完結性と整合性
+
+次を追加・更新した。
+
+- `DEBUG-001`によるValidation Runライフサイクル設計
+- schema version 2の`RUNNING` / `COMPLETED`状態
+- 完了日時、duration、コマンド終了コード、Check・AC別結果、最終結果
+- 原子的なReport・Manifest更新
+- 成果物の相対パス、サイズ、SHA-256
+- `RunManifest.sha256` sidecar
+- 完了済みRunの再finalize拒否
+- `--blocked-reason`による継続不能Runの明示的な終了
+- `verify_validation_run.py`によるManifest、証拠パス、成果物の整合性検査
+- 不正なNUnit数値属性を`FAIL`として完結させる処理
+- 導入先ゲームへfinalizerとverifierをコピーするインストーラー回帰検査
+
+`DEBUG-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-001-AC01` | `PASS` | Python CLI回帰とUnity実Runで`RUNNING`から`COMPLETED`を確認 |
+| `DEBUG-001-AC02` | `PASS` | 再finalize拒否と理由付き`BLOCKED`完了を確認 |
+| `DEBUG-001-AC03` | `PASS` | sidecar hash、成果物SHA-256、完了後の変更検出を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、40件
+- Python構文コンパイル: `PASS`
+- Unity `6000.4.10f1` lifecycle回帰: `PASS`
+  - Run ID: `20260609T045212Z`
+  - State: `COMPLETED`
+  - Result: `PASS`
+  - Compile: `PASS`
+  - EditMode: `PASS`、4件
+  - PlayMode: `PASS`、1件
+  - Asset validation: `PASS`、error 0 / warning 0
+  - Integrity verification: `PASS`
+  - 証拠: `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T045212Z/`
+
+既知の境界:
+
+- OS強制終了、電源断、プロセス強制killでは、そのプロセス自身によるfinalizeはできない
+- その場合は残った`RUNNING` Runを調査し、再開するか`--blocked-reason`で閉じる
+- 暗号署名や外部の改ざん防止ストレージは提供しない。SHA-256は偶発的な変更と成果物不整合の検出を目的とする

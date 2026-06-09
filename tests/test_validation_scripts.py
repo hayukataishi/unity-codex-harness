@@ -35,6 +35,10 @@ runner = load_module(
     "run_unity_validation",
     SCRIPTS / "run_unity_validation.py",
 )
+verify_run = load_module(
+    "verify_validation_run",
+    SCRIPTS / "verify_validation_run.py",
+)
 ci_secrets = load_module(
     "check_unity_ci_secrets",
     ROOT / "scripts" / "check_unity_ci_secrets.py",
@@ -106,6 +110,199 @@ class UnityVersionTests(unittest.TestCase):
 
         self.assertEqual(result, "FAIL")
         self.assertIn("was not created", notes)
+
+    def test_rejects_non_numeric_nunit_attributes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result_path = Path(temporary_directory) / "EditMode.xml"
+            result_path.write_text(
+                '<test-run total="invalid" failed="0" result="Passed" />',
+                encoding="utf-8",
+            )
+
+            result, notes = runner.parse_nunit_result(result_path, 0)
+
+            self.assertEqual(result, "FAIL")
+            self.assertIn("Invalid numeric", notes)
+
+
+class ValidationRunLifecycleTests(unittest.TestCase):
+    def create_project(self, root: Path) -> Path:
+        project = root / "UnityProject"
+        (project / "Assets").mkdir(parents=True)
+        (project / "Packages").mkdir()
+        (project / "ProjectSettings").mkdir()
+        (project / "ProjectSettings" / "ProjectVersion.txt").write_text(
+            "m_EditorVersion: 6000.4.10f1\n",
+            encoding="utf-8",
+        )
+        return project
+
+    def create_validation_run(self, project: Path) -> str:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS / "create_validation_run.py"),
+                "--project-root",
+                str(project),
+                "--design-id",
+                "DEBUG-001",
+                "--ac-id",
+                "DEBUG-001-AC01",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    def test_run_completes_once_and_detects_artifact_changes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            run_relative = self.create_validation_run(project)
+            run_dir = project / run_relative
+            initial = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(initial["schemaVersion"], 2)
+            self.assertEqual(initial["state"], "RUNNING")
+            self.assertEqual(initial["result"], "NOT RUN")
+
+            results_relative = f"{run_relative}/Logs/ValidationResults.json"
+            results_path = project / results_relative
+            (run_dir / "Logs" / "static.json").write_text(
+                '{"status":"PASS"}\n',
+                encoding="utf-8",
+            )
+            results_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "commands": [
+                            {
+                                "name": "Static",
+                                "command": "python3 validate.py",
+                                "exitCode": 0,
+                            }
+                        ],
+                        "checks": [
+                            {
+                                "name": "Static",
+                                "result": "PASS",
+                                "evidence": f"{run_relative}/Logs/static.json",
+                            }
+                        ],
+                        "acceptanceCriteria": [
+                            {
+                                "id": "DEBUG-001-AC01",
+                                "result": "PASS",
+                                "evidence": [results_relative],
+                            }
+                        ],
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            finalized = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "finalize_validation_run.py"),
+                    "--project-root",
+                    str(project),
+                    "--run-dir",
+                    run_relative,
+                    "--results",
+                    results_relative,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(finalized.returncode, 0, finalized.stderr)
+
+            manifest = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["state"], "COMPLETED")
+            self.assertEqual(manifest["result"], "PASS")
+            self.assertIn("completedAtUtc", manifest)
+            self.assertIn("durationSeconds", manifest)
+            self.assertTrue(manifest["artifactFiles"])
+            self.assertTrue((run_dir / "RunManifest.sha256").is_file())
+            self.assertEqual(verify_run.verify_run(project, run_dir), [])
+
+            repeated = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "finalize_validation_run.py"),
+                    "--project-root",
+                    str(project),
+                    "--run-dir",
+                    run_relative,
+                    "--results",
+                    results_relative,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(repeated.returncode, 0)
+            self.assertIn("already completed", repeated.stderr)
+
+            report_path = run_dir / "Report.md"
+            original_report = report_path.read_text(encoding="utf-8")
+            with report_path.open("a", encoding="utf-8") as handle:
+                handle.write("\nchanged after completion\n")
+            errors = verify_run.verify_run(project, run_dir)
+            self.assertTrue(
+                any("artifact" in error and "mismatch" in error for error in errors),
+                errors,
+            )
+            report_path.write_text(original_report, encoding="utf-8")
+
+            manifest["targetPlatform"] = "Changed"
+            (run_dir / "RunManifest.json").write_text(
+                json.dumps(manifest, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            errors = verify_run.verify_run(project, run_dir)
+            self.assertIn("RunManifest.json SHA-256 mismatch", errors)
+
+    def test_unfinished_run_can_be_closed_as_blocked(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            run_relative = self.create_validation_run(project)
+            run_dir = project / run_relative
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "finalize_validation_run.py"),
+                    "--project-root",
+                    str(project),
+                    "--run-dir",
+                    run_relative,
+                    "--blocked-reason",
+                    "Unity Editor was unavailable",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            manifest = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["state"], "COMPLETED")
+            self.assertEqual(manifest["result"], "BLOCKED")
+            self.assertEqual(
+                manifest["acceptanceCriteria"][0]["result"],
+                "BLOCKED",
+            )
+            self.assertEqual(verify_run.verify_run(project, run_dir), [])
 
 
 class UnityCiSecretTests(unittest.TestCase):
@@ -245,6 +442,42 @@ class CinemachineDocumentationTests(unittest.TestCase):
             )
 
 
+class ValidationRunDocumentationTests(unittest.TestCase):
+    def test_repository_defines_completed_validation_runs(self):
+        self.assertEqual(
+            repository_validator.validate_validation_run_lifecycle(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_validation_run_verifier(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.VALIDATION_RUN_REQUIRED_TEXT.items()
+            ):
+                if relative.endswith("verify_validation_run.py"):
+                    continue
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    "\n".join(required_values),
+                    encoding="utf-8",
+                )
+
+            errors = (
+                repository_validator.validate_validation_run_lifecycle(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "missing Validation Run lifecycle file" in error
+                    and "verify_validation_run.py" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(
@@ -333,6 +566,16 @@ class InstallerSourceTests(unittest.TestCase):
         )
         self.assertIn(
             "ProjectSettings/UnityCodexHarnessAssetValidation.json",
+            relative_paths,
+        )
+        self.assertIn(
+            ".codex/skills/validate-unity-change/scripts/"
+            "finalize_validation_run.py",
+            relative_paths,
+        )
+        self.assertIn(
+            ".codex/skills/validate-unity-change/scripts/"
+            "verify_validation_run.py",
             relative_paths,
         )
         self.assertIn("harness.lock.json", relative_paths)

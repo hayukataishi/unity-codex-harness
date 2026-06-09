@@ -103,6 +103,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - Build Profile、Scene List、Tag、Layer、Input設定の確認
 - 対象プラットフォームのビルド検証
 - 設計項目IDとテスト・実装の対応確認
+- Validation Runのfinalize、終端状態、成果物ハッシュ、整合性検証
 
 **持たせるもの**
 

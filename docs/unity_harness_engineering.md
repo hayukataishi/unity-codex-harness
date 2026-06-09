@@ -521,7 +521,20 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 | Run metadata | JSON |
 | 人間向け要約 | Markdown |
 
-`RunManifest.json`には最低限、Run ID、開始日時、Git commit、Unityバージョン、対象プラットフォーム、実行コマンド、対象設計ID・AC ID、結果、成果物の相対パスを記録する。値を取得できない場合は空欄にせず、未取得理由を記録する。
+`RunManifest.json`には最低限、schema version、Run ID、状態、開始・完了日時、duration、Git commit、Unityバージョン、対象プラットフォーム、実行コマンドと終了コード、対象設計ID・AC ID、Check・AC別結果、最終結果、成果物の相対パス・サイズ・SHA-256を記録する。値を取得できない場合は空欄にせず、未取得理由を記録する。
+
+#### Validation Runのライフサイクル
+
+新規Runはschema version 2、`state: RUNNING`、`result: NOT RUN`で開始する。検証終了時は成功・失敗にかかわらずfinalizeし、`state: COMPLETED`、`completedAtUtc`、`durationSeconds`、Check・AC別結果、最終結果を確定する。
+
+- `run_unity_validation.py`はCheck結果を書き出した後に`finalize_validation_run.py`を実行し、続けて`verify_validation_run.py`で完成状態とハッシュを検証する。
+- 手動作成したRunは、機械可読な結果JSONを`--results`へ渡してfinalizeする。
+- Unity Editor、ライセンス、外部SDK、人間レビュー待ちなどで継続不能になったRunは放置せず、`--blocked-reason "<理由>"`で`BLOCKED`として完了させる。
+- finalizerは宣言済みAC以外の結果、不正な結果値、Run外のresults path、空のCheck一覧を拒否する。
+- finalizerは`RunManifest.json`と`Report.md`を確定し、成果物の相対パス、サイズ、SHA-256と`RunManifest.sha256`を生成する。
+- `COMPLETED`になったRunの再finalizeと上書きを禁止する。証拠を追加・修正する必要がある場合は新しいRunを作成する。
+- `verify_validation_run.py`はManifest sidecar hash、Check・AC証拠パス、成果物の存在・サイズ・SHA-256、未記録ファイル、schema、状態、日時を検査する。
+- OS強制終了や電源断で`RUNNING`のまま残ったRunは、再開してfinalizeするか、原因を確認して`BLOCKED`で閉じる。過去Runを成功扱いに書き換えない。
 
 #### 運用規則
 
@@ -532,6 +545,7 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 - `python3 scripts/install.py <UNITY_PROJECT_ROOT> --check`で、Gitの実際のignore判定と追跡済み`Artifacts`ファイルの有無を検査する。
 - `Artifacts`内のファイルがすでにGit追跡済みの場合、インストーラーはindexからの削除を自動実行しない。対象を確認して追跡解除した後に再実行する。
 - 同じRunディレクトリを再利用・上書きしない。再実行は新しいRun IDで保存する。
+- `COMPLETED` Run内のファイルを変更しない。`verify_validation_run.py`が失敗したRunは証拠として信頼せず、新しいRunで再検証する。
 - 作業報告では、絶対パスではなく`Artifacts/ValidationRuns/<RunId>/...`形式の相対パスを記載する。
 - ACごとの証拠は`Evidence/<AcceptanceCriterionIdWithoutHyphens>`へまとめる。例：`MECH001AC01`
 - Console全体を画像だけで保存せず、検索可能なテキストログも残す。

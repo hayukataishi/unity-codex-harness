@@ -52,8 +52,11 @@ def parse_nunit_result(path: Path, exit_code: int) -> tuple[str, str]:
     except ET.ParseError as error:
         return "FAIL", f"Invalid test result XML: {error}"
 
-    total = int(root.attrib.get("total", root.attrib.get("testcasecount", "0")))
-    failed = int(root.attrib.get("failed", "0"))
+    try:
+        total = int(root.attrib.get("total", root.attrib.get("testcasecount", "0")))
+        failed = int(root.attrib.get("failed", "0"))
+    except ValueError as error:
+        return "FAIL", f"Invalid numeric test result attribute: {error}"
     result = root.attrib.get("result", "").lower()
     if exit_code == 0 and total > 0 and failed == 0 and result in {"passed", "success"}:
         return "PASS", f"{total} tests passed"
@@ -106,6 +109,8 @@ def run_command(command: list[str], timeout: int) -> int:
         return completed.returncode
     except subprocess.TimeoutExpired:
         return 124
+    except OSError:
+        return 127
 
 
 def parse_args() -> argparse.Namespace:
@@ -156,6 +161,59 @@ def main() -> int:
 
     checks: list[dict[str, str]] = []
     commands: list[dict[str, object]] = []
+    results_relative = f"{run_relative}/Logs/ValidationResults.json"
+    results_path = project_root / results_relative
+
+    original_excepthook = sys.excepthook
+
+    def finalize_uncaught_exception(
+        exception_type: type[BaseException],
+        exception: BaseException,
+        traceback: object,
+    ) -> None:
+        if not (run_dir / "RunManifest.sha256").exists():
+            emergency_checks = [
+                *checks,
+                {
+                    "name": "Validation runner",
+                    "result": "FAIL",
+                    "notes": (
+                        f"Unhandled {exception_type.__name__}: {exception}"
+                    ),
+                },
+            ]
+            try:
+                results_path.write_text(
+                    json.dumps(
+                        {
+                            "schemaVersion": 1,
+                            "commands": commands,
+                            "checks": emergency_checks,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(scripts_dir / "finalize_validation_run.py"),
+                        "--project-root",
+                        str(project_root),
+                        "--run-dir",
+                        run_relative,
+                        "--results",
+                        results_relative,
+                    ],
+                    check=False,
+                )
+            except Exception:
+                pass
+        original_excepthook(exception_type, exception, traceback)
+
+    sys.excepthook = finalize_uncaught_exception
 
     preflight_relative = f"{run_relative}/Logs/Preflight.json"
     preflight_command = [
@@ -281,11 +339,10 @@ def main() -> int:
         },
     )
 
-    results_relative = f"{run_relative}/Logs/ValidationResults.json"
-    results_path = project_root / results_relative
     results_path.write_text(
         json.dumps(
             {
+                "schemaVersion": 1,
                 "commands": commands,
                 "checks": checks,
             },
@@ -306,8 +363,31 @@ def main() -> int:
         results_relative,
     ]
     completed = subprocess.run(finalize_command, check=False)
+    if not (run_dir / "RunManifest.sha256").is_file():
+        subprocess.run(
+            [
+                sys.executable,
+                str(scripts_dir / "finalize_validation_run.py"),
+                "--project-root",
+                str(project_root),
+                "--run-dir",
+                run_relative,
+                "--blocked-reason",
+                f"Validation finalizer failed with exit code {completed.returncode}",
+            ],
+            check=False,
+        )
+    verify_command = [
+        sys.executable,
+        str(scripts_dir / "verify_validation_run.py"),
+        "--project-root",
+        str(project_root),
+        "--run-dir",
+        run_relative,
+    ]
+    verified = subprocess.run(verify_command, check=False)
     print(run_relative)
-    return completed.returncode
+    return completed.returncode if verified.returncode == 0 else 1
 
 
 if __name__ == "__main__":

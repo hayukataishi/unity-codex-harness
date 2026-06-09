@@ -92,6 +92,7 @@ def main() -> int:
         (run_dir / relative).mkdir(parents=True, exist_ok=True)
 
     manifest = {
+        "schemaVersion": 2,
         "runId": run_id,
         "startedAtUtc": now.isoformat().replace("+00:00", "Z"),
         "gitCommit": git_commit(project_root),
@@ -100,6 +101,7 @@ def main() -> int:
         "commands": args.command,
         "designIds": args.design_id,
         "acceptanceCriterionIds": args.ac_id,
+        "state": "RUNNING",
         "result": "NOT RUN",
         "artifacts": {
             "report": f"Artifacts/ValidationRuns/{run_id}/Report.md",
@@ -117,6 +119,8 @@ def main() -> int:
         f"- Run ID: `{run_id}`\n"
         f"- Unity: `{manifest['unityVersion']}`\n"
         f"- Platform: `{args.platform}`\n"
+        "- State: `RUNNING`\n"
+        "- Result: `NOT RUN`\n"
         f"- Design IDs: {', '.join(args.design_id) or 'NOT RECORDED'}\n"
         f"- AC IDs: {', '.join(args.ac_id) or 'NOT RECORDED'}\n\n"
         "## Acceptance Criteria\n\n"

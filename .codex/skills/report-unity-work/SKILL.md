@@ -12,9 +12,10 @@ Before writing:
 1. Read the relevant design items and active ACs.
 2. Inspect the actual diff and Unity asset changes.
 3. Read test XML, Console logs, screenshots, videos, build logs, and `RunManifest.json`.
-4. Distinguish executed evidence from inference.
-5. List manual criteria that still require human judgment.
-6. Check for high-impact operations, rollback considerations, temporary assumptions, and unrelated changes.
+4. Confirm that the run is `COMPLETED` and passes `verify_validation_run.py`; do not cite a `RUNNING` or integrity-failed run as accepted evidence.
+5. Distinguish executed evidence from inference.
+6. List manual criteria that still require human judgment.
+7. Check for high-impact operations, rollback considerations, temporary assumptions, and unrelated changes.
 
 Do not state that a test, build, scene, or play path passed unless it ran and has evidence. Use project-relative paths such as `Artifacts/ValidationRuns/<RunId>/...`; omit machine-specific absolute paths from shared reports.
 
@@ -65,6 +66,7 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
 ## Reporting rules
 
 - Prefer exact filenames, asset names, test names, design IDs, and AC IDs.
+- Report the Validation Run state, final result, Run ID, and integrity-verification result.
 - For build work, report the exact Build Profile asset path, output path, clean or incremental mode, and target platform.
 - For Cinemachine work, report the exact Package version, major-version API used, affected cameras and procedural components, and whether a 2.x migration was performed.
 - Summarize large diffs; do not paste generated logs.
