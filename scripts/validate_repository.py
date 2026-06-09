@@ -180,6 +180,66 @@ OUTDATED_ARCHITECTURE_GUIDANCE = {
         "Preserve layer direction: Presentation → Application → Domain",
     ),
 }
+SAVE_COMPATIBILITY_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="save-001"></a>',
+        "### SAVE-001:",
+        "| Atomic write |",
+        "| Backup / rollback |",
+        "| Integrity |",
+        "`schemaVersion`",
+        "`N → N+1`",
+        "Cloud conflict",
+        "PlayerPrefs",
+        "Assets/Game/Tests/Fixtures/SaveData/<SchemaVersion>/",
+        "SAVE-001-AC04",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="save-compatibility-policy"></a>',
+        "### セーブデータ耐障害性・互換性ゲート",
+        "Primary Saveを直接truncateして上書きしない",
+        "未来Versionの非破壊拒否",
+        "実在ユーザーのSave",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "## Save compatibility gate",
+        "sequential `N -> N+1` migrations",
+        "anonymous fixtures",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "### Save data",
+        "Never overwrite a valid primary save in place",
+        "unknown future schema",
+        "anonymous synthetic fixtures",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "**Save compatibility**",
+        "migration tests for every",
+        "unknown future schemas",
+        "Cloud Save is adopted",
+    ),
+    ".codex/skills/report-unity-work/SKILL.md": (
+        "For save work",
+        "supported-oldest schema",
+        "atomic-write and backup results",
+    ),
+    "docs/mcp_and_skills_list.md": (
+        "セーブデータ耐障害性・互換性",
+        "対応旧Version fixture",
+    ),
+    "README.md": (
+        "### セーブの破損・Version差を先に設計する",
+        "Primaryを直接上書きせず",
+        "未来Version",
+        "`PlayerPrefs`は音量など",
+    ),
+}
+OUTDATED_SAVE_GUIDANCE = {
+    "docs/unity_design_sheet.md": (
+        "保存方式      : JSON ファイル / PlayerPrefs / 暗号化  （いずれか）",
+        "バージョン管理 : セーブデータの version フィールドでマイグレーション対応",
+    ),
+}
 CINEMACHINE_3_REQUIRED_TEXT = {
     "docs/unity_design_sheet.md": (
         '<a id="graphics-001"></a>',
@@ -504,6 +564,34 @@ def validate_architecture_profile_documentation(root: Path) -> list[str]:
     return errors
 
 
+def validate_save_compatibility_documentation(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in SAVE_COMPATIBILITY_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing save compatibility document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing save compatibility guidance: "
+                    f"{relative} -> {required}"
+                )
+
+    for relative, outdated_values in OUTDATED_SAVE_GUIDANCE.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for outdated in outdated_values:
+            if outdated in text:
+                errors.append(
+                    f"unsafe minimal save guidance: {relative} -> {outdated}"
+                )
+    return errors
+
+
 def validate_validation_run_lifecycle(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in VALIDATION_RUN_REQUIRED_TEXT.items():
@@ -735,6 +823,7 @@ def main() -> int:
         + validate_build_profile_documentation(root)
         + validate_cross_cutting_documentation(root)
         + validate_architecture_profile_documentation(root)
+        + validate_save_compatibility_documentation(root)
         + validate_cinemachine_documentation(root)
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)

@@ -32,10 +32,13 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
 6. Check the active `Small`, `Standard`, or `Large` architecture profile,
    its recorded reason, and migration triggers. Do not infer `Standard` as the
    default or add future-scale abstractions without an observed need.
-7. Update the smallest coherent design section.
-8. Add or revise design item IDs and acceptance criteria.
-9. Separate changes that require approval from changes safe to implement immediately.
-10. Report the edited sections, unresolved questions, and the next implementable unit.
+7. For saved fields, stable IDs, account state, or cloud synchronization, check
+   `SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
+   rules before approving a change.
+8. Update the smallest coherent design section.
+9. Add or revise design item IDs and acceptance criteria.
+10. Separate changes that require approval from changes safe to implement immediately.
+11. Report the edited sections, unresolved questions, and the next implementable unit.
 
 ## Architecture profile gate
 
@@ -63,6 +66,18 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
   analytics, monetization, ads, UGC, moderation, and target-region decisions.
 - Do not present legal, store-policy, child-safety, or security assumptions as
   settled facts. Record them as `要確認` and identify the needed reviewer.
+
+## Save compatibility gate
+
+- Separate serialization format, storage, atomic commit, backup, integrity,
+  confidentiality, and tamper detection instead of treating them as one choice.
+- Require a supported-oldest schema, sequential `N -> N+1` migrations,
+  pre-migration backup, rollback, and non-destructive future-schema behavior.
+- Require anonymous fixtures for every supported schema and for corruption,
+  interrupted writes, storage failures, and cloud conflicts when adopted.
+- Link Cloud Save to Account, Privacy, and Security adoption decisions. Record
+  unresolved platform, key-management, retention, and conflict rules as
+  `要確認`.
 
 ## Traceability rules
 

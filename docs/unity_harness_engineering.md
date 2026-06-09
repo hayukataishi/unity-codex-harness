@@ -144,6 +144,23 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 Profile変更はアーキテクチャ変更として人間の承認を得る。依存図、公開API、serialized reference、Package、テスト、Build Profileへの影響を確認し、機能またはModule単位で段階的に移行する。
 
+<a id="save-compatibility-policy"></a>
+
+### セーブデータ耐障害性・互換性ゲート
+
+進行、設定、Unlock、所持品、永続ID、Cloud Saveへ影響する実装は、[SAVE-001](./unity_design_sheet.md#save-001)の決定と互換テストを先に確認する。
+
+- Primary Saveを直接truncateして上書きしない。Tempへの書込み、flush / close、再読込検証、Primary置換、Backup保持を一つのCommit手順として設計する。
+- `PlayerPrefs`は消失しても進行を失わない端末設定へ限定する。Serialization、暗号化、Integrity、Backupは別の責務として扱う。
+- Schema変更は`N → N+1`の段階Migration、Migration前Backup、失敗時Rollback、未来Versionの非破壊拒否を持つ。
+- 対応する各旧Schema、破損、書込み中断、未来Version、容量・権限失敗の匿名fixtureをVersion Controlへ置き、自動テストする。
+- Cloud Save採用時はRevision、競合判定、Merge禁止Field、Offline再送、Account切替、削除伝播を決める。端末時計だけで候補を上書きしない。
+- 暗号鍵・署名鍵をSource、`PlayerPrefs`、Save本体へhard-codeしない。機密性、偶発的破損検出、改ざん検出の方式を区別する。
+- 主対象Platformごとに保存領域、Quota、ユーザー分離、Suspend / Resume、atomic replace、Cloud API、Certification制約を確認する。
+- 実在ユーザーのSave、Token、秘密鍵、個人データをfixture、Log、Screenshot、Validation Artifactへ含めない。
+
+Save形式、対応可能な最古Version、downgrade、Cloud conflict、鍵管理、個人データ、Platform要件が未決定の場合、Codexは推測で実装せず`要確認`として停止・報告する。
+
 <a id="build-profile-policy"></a>
 
 ### Unity 6 Build Profile運用方針
@@ -653,7 +670,8 @@ Codexは最低限、次を確認する。
 7. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
 8. 対象機能に関係する横断機能採否ゲートの状態
 9. アーキテクチャプロファイルの選択、理由、移行条件
-10. 関連コード、Scene、Prefab、テスト
+10. セーブへ影響する場合は、SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
+11. 関連コード、Scene、Prefab、テスト
 
 ### 作業中
 
@@ -662,6 +680,7 @@ Codexは最低限、次を確認する。
 - 新規ファイルの配置では[標準フォルダ構成](./unity_design_sheet.md#folder-layout)を使用する。
 - Assemblyの作成・参照変更では[プロファイル別asmdef構成](./unity_design_sheet.md#asmdef-layout)を使用する。
 - DI Container、Singleton、Manager、Event Channel、Feature Packageを追加する前に[アーキテクチャプロファイル決定ゲート](./unity_design_sheet.md#architecture-profile-gate)と採用理由を確認する。
+- Save対象、Stable ID、Schema、保存先、Cloud同期を変更する前に[セーブデータ耐障害性・互換性ゲート](./unity_design_sheet.md#save-001)と旧Version fixtureを確認する。
 - 2Dアセットの生成・取込前に[2Dアートプロファイル決定ゲート](./unity_design_sheet.md#art-profile-gate)を確認する。
 - Package、外部Service、通信、収集データ、課金、広告、UGC、XRを扱う前に[横断機能採否ゲート](./unity_design_sheet.md#cross-cutting-gate)を確認する。
 - 検証成果物は[検証成果物の保存規則](#validation-artifacts)へ保存する。
@@ -822,6 +841,9 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 
 - タスク開始前から存在するScene、Prefab、Script、ScriptableObject、Assetの削除
 - 永続ID、Public API、Serialized Field名、Save Data形式を壊す改名・移動
+- Save Schema、対応可能な最古Version、Migration、downgrade、Backup保持数の変更
+- Cloud conflict解決、Account対応、暗号・署名・鍵管理方式の変更
+- 既存Saveの削除、Reset、上書き、互換fixtureまたはMigration経路の廃止
 - 複数機能や多数のAssetへ及ぶ一括削除・一括改名・一括移動
 - Tag・Layerの削除
 - `manage_scene(validate, auto_repair=true)`による既存Missing Componentの自動除去
@@ -889,7 +911,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - [ ] ゲームレビュー結果の記録形式
 - [ ] Definition of Done
 - [x] 変更の承認境界
-- [ ] セーブデータ互換性ポリシー
+- [x] セーブデータ耐障害性・互換性ポリシー
 - [x] エラー・ログ・スクリーンショットの保存場所
 
 ---
@@ -900,6 +922,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 
 - [ ] 対応する設計が確定している
 - [ ] 関連する横断機能の採否が確定している
+- [ ] Saveへ影響する場合は、対応Schema fixture、Migration、破損・中断・失敗時復旧が検証済みである
 - [ ] 受け入れ条件を満たす実装がある
 - [ ] コンパイルが成功する
 - [ ] 必要な自動テストが成功する

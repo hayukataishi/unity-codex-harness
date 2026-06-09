@@ -236,6 +236,18 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 
 4層、4 Assembly、DI Container、Manager群、ScriptableObject Event Channelは必須セットではありません。選択理由、採用しない仕組み、次Profileへの移行条件を設計書へ記録し、観測可能な問題が生じた時だけ人間の承認を得て段階的に移行します。Service Locatorは規模別の推奨方式として新規採用しません。
 
+### セーブの破損・Version差を先に設計する
+
+進行データを保存するゲームは、実装前に[SAVE-001](docs/unity_design_sheet.md#save-001)を埋めます。
+
+- Primaryを直接上書きせず、Temp書込み、flush、検証、置換、Backupを定義する
+- `schemaVersion`、対応可能な最古Version、段階Migration、downgradeを決める
+- 旧Version、破損、書込み中断、未来Version、容量・権限失敗の匿名fixtureを用意する
+- Cloud Save採用時はRevision、競合候補保持、Merge禁止Field、Offline再送、Account切替を決める
+- 暗号化、Integrity、鍵管理、個人データ、Platform制約を別々に確認する
+
+`PlayerPrefs`は音量など消失しても進行を失わない設定へ限定します。暗号化しただけ、JSONへ保存しただけ、versionフィールドを追加しただけでは、破損復旧や互換性を保証したことにはなりません。
+
 ## 外部ツールと互換性マニフェスト
 
 | ツール | 固定参照 | 用途 | ハーネスでの実行状態 |

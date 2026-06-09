@@ -197,7 +197,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 | Skill候補 | 追加条件 |
 |---|---|
 | `balance-gameplay` | パラメータ、評価指標、テレメトリ形式が決まった時 |
-| `migrate-save-data` | セーブ形式と互換性ポリシーが決まった時 |
+| `migrate-save-data` | `SAVE-001`、実Schema、対応旧Version fixture、Rollback方針が決まった時 |
 | `build-release` | 対象プラットフォーム、署名、配布先、CIが決まった時 |
 | `localize-game` | 対象言語とLocalization運用が決まった時 |
 | `profile-unity-game` | FPS、メモリ、ロード時間などの性能予算が決まった時 |
@@ -257,5 +257,6 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - [x] アーキテクチャとasmdefの分割・依存規則 — Small / Standard / Largeから最小の十分なProfileを選び、4 AssemblyはStandardの基準例として扱う
 - [x] 2Dアセット設定の決定プロセス — アート方式とカテゴリ別プロファイルを代表アセットで検証し、人間が承認
 - [x] 横断機能の採否ゲート — 14領域を採用・不採用・保留へ分類し、依存・データ・AC・再評価条件を記録
+- [x] セーブデータ耐障害性・互換性 — Atomic write、Backup、Integrity、Schema migration、Cloud競合、Platform制約、旧Version fixture
 - [x] テスト結果、ログ、スクリーンショットの保存先 — 実行成果物は`Artifacts/ValidationRuns/<RunId>`、承認済み基準は`TestBaselines`
 - [x] Unity MCPで許可する書き込み操作と、人間承認が必要な操作 — 原則MCPへ委任し、依存関係・不可逆削除・Release設定・危険な任意実行のみ追加承認

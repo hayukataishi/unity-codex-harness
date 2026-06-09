@@ -527,6 +527,67 @@ class ArchitectureProfileDocumentationTests(unittest.TestCase):
             )
 
 
+class SaveCompatibilityDocumentationTests(unittest.TestCase):
+    def test_repository_defines_save_compatibility_gate(self):
+        self.assertEqual(
+            repository_validator.validate_save_compatibility_documentation(
+                ROOT
+            ),
+            [],
+        )
+
+    def test_rejects_missing_atomic_write_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.SAVE_COMPATIBILITY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = [
+                    value
+                    for value in required_values
+                    if value != "| Atomic write |"
+                ]
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_save_compatibility_documentation(root)
+            )
+
+            self.assertTrue(
+                any("| Atomic write |" in error for error in errors),
+                errors,
+            )
+
+    def test_rejects_playerprefs_as_primary_save_choice(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.SAVE_COMPATIBILITY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += (
+                        "\n保存方式      : JSON ファイル / PlayerPrefs / "
+                        "暗号化  （いずれか）"
+                    )
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_save_compatibility_documentation(root)
+            )
+
+            self.assertTrue(
+                any("unsafe minimal save guidance" in error for error in errors),
+                errors,
+            )
+
+
 class CinemachineDocumentationTests(unittest.TestCase):
     def test_repository_uses_cinemachine_3_guidance(self):
         self.assertEqual(

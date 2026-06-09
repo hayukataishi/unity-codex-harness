@@ -275,21 +275,23 @@ Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Python
 
 設計、Engineering、実装・検証・報告Skill、README、MCP・Skill一覧を同じ契約へ統一し、旧固定例への回帰をPythonテストで検出する。
 
-### P2: セーブ設計が最低限に留まる
+### P2: セーブ設計が最低限に留まる（対応済み）
 
-JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用で必要な破損対策を扱えない。
+初回評価時点では、JSON、PlayerPrefs、暗号化、versionフィールドだけが例示され、実運用で必要な書込み中断、破損復旧、旧Version移行、未来Version、Cloud競合、鍵管理、Platform差を扱えていなかった。
 
-**改善案:** 次の決定欄を追加する。
+2026-06-09に`SAVE-001`として、次を正式な実装前ゲートへ追加した。
 
-- Atomic writeと一時ファイル
-- Backup / rollback
-- Checksum / integrity
-- Schema migrationとdowngrade方針
-- Cloud conflict resolution
-- 暗号化と鍵管理
-- 個人情報・規制対象データ
-- プラットフォーム別保存制約
-- セーブ互換テストfixture
+- Temp、flush、再読込検証、Primary置換によるAtomic writeと、複数ファイルのTransaction境界
+- 世代Backup、復旧順、破損隔離、容量・権限・強制終了時のlast known-good保持
+- Checksum、認証付き暗号、暗号化の役割分離と鍵管理
+- `schemaVersion`、対応可能な最古Version、`N → N+1` Migration、Migration前Backup、downgrade、未来Versionの非破壊拒否
+- Stable IDの廃止・統合時に使用する置換表、Tombstone、既定値
+- Cloud Revision、競合候補保持、Merge禁止Field、Offline再送、Account切替、削除伝播
+- 個人データ、Log除外、保持・削除、Platform別の保存領域・Quota・Suspend・Certification制約
+- 旧Version、破損、書込み中断、Backup、未来Version、Storage失敗、Cloud競合の匿名fixtureとテスト行列
+- `PlayerPrefs`を非重要な端末設定へ限定し、主セーブやEntitlementの正としない規則
+
+設計、Engineering、実装・検証・報告Skill、README、MCP・Skill一覧を同じ契約へ統一し、旧い最小記述への回帰をPythonテストで検出する。
 
 ### P2: Gitと大容量アセット方針が固定例に寄りすぎる
 
@@ -366,9 +368,10 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| テンプレート自己回帰 | PASS | Python `unittest` 69件。Installer、preflight、Validation Run、fixture、横断設計、アーキテクチャProfile、文書・CI規約 |
+| テンプレート自己回帰 | PASS | Python `unittest` 72件。Installer、preflight、Validation Run、fixture、横断設計、アーキテクチャProfile、Save互換性、文書・CI規約 |
 | 横断機能採否ゲート | PASS | `PROJECT-001`、14領域、3状態、承認・停止・再評価規則 |
 | アーキテクチャProfile | PASS | `ARCH-001`、Small / Standard / Large、Service Locator非推奨、移行条件 |
+| セーブ耐障害性・互換性 | PASS | `SAVE-001`、Atomic write、Backup、Migration、Cloud競合、旧Version fixture |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
@@ -932,3 +935,45 @@ Unity `6000.4.10f1`実行結果:
 - 新規ゲームは実装開始前に`Small`、`Standard`、`Large`のいずれかと選択理由を記録する
 - 既存ゲームは現在の構造を調査し、テンプレートへ合わせる全面移行を行わない
 - 移行条件が観測された場合だけ、影響範囲と段階計画を作成して人間承認を得る
+
+### 2026-06-09: P2-2 セーブデータ耐障害性・互換性
+
+保存形式とversionフィールドだけだったSection 8を、進行データを破損・中断・Version差・Cloud競合から守る実装前ゲートへ変更した。
+
+追加・更新内容:
+
+- `SAVE-001`と4つの静的AC
+- 保存対象、Slot / Profile / Account、Serialization、Data model、保存先、保存契機、Transaction境界の決定表
+- Atomic write、世代Backup、Integrity、復旧順、Save要求直列化、失敗時UX
+- `schemaVersion`、対応可能な最古Version、`N → N+1` Migration、Migration前Rollback、未来Versionとdowngrade
+- 複数ファイルSaveのGeneration / Commit manifestとStable ID Migration
+- Cloud conflict、Revision、Merge禁止Field、Offline retry idempotency、Account切替
+- 暗号・Integrity・改ざん検出の役割分離、鍵管理、Privacy、Platform制約
+- 匿名fixtureとRound trip、Interrupted write、Corruption、Backup、Migration、Future schema、Storage failure、Cloud conflictのテスト行列
+- Engineering、実装・検証・報告Skill、README、MCP・Skill一覧へのゲート接続
+- Atomic write欠落とPlayerPrefs主セーブ化への回帰を検出するPythonテスト3件
+
+`SAVE-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `SAVE-001-AC01` | `PASS` | Atomic write、Backup、Integrity、復旧順、直列化、失敗時UXの決定欄を静的検査で確認 |
+| `SAVE-001-AC02` | `PASS` | Migration、未来Version、downgrade、最古対応Version、Migration前Rollbackを確認 |
+| `SAVE-001-AC03` | `PASS` | Cloud競合、Platform制約、鍵管理、Privacy、PlayerPrefs用途制限を確認 |
+| `SAVE-001-AC04` | `PASS` | 旧Version、書込み中断、破損、Backup、未来Version、失敗処理、Cloud競合のテスト行列を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、72件
+- Python構文コンパイル: `PASS`
+- セーブ互換性必須記述検査: `PASS`
+- Atomic write欠落の異常系: 検出テスト`PASS`
+- PlayerPrefs主セーブ化の異常系: 検出テスト`PASS`
+- Unity fixture: 非該当。Unityコード、Scene、Prefab、Package、ProjectSettingsは変更していない
+
+導入先ゲームで必要な作業:
+
+- `SAVE-001`の決定表をゲーム固有のSchema、Platform、Slot、Cloud採否で埋める
+- 対応する旧Schemaの匿名fixtureを作成し、Migrationと中断・破損・失敗注入テストを実装する
+- Cloud Save採用時はAccount、Privacy、Securityの横断機能行を承認し、競合規則をゲーム固有に決定する

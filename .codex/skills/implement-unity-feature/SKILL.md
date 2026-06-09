@@ -22,8 +22,11 @@ description: Implement an approved Unity design item with minimal, architecture-
 5. Read the selected architecture profile and its reason. If it is empty, keep
    the existing architecture for a narrow change and use
    `$maintain-game-design` before introducing new boundaries or global patterns.
-6. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-7. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+6. Before changing saved fields, stable IDs, storage, schema, or cloud state,
+   read `SAVE-001`, supported-version fixtures, migration, recovery, downgrade,
+   platform, privacy, and conflict rules.
+7. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+8. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 
@@ -56,6 +59,23 @@ description: Implement an approved Unity design item with minimal, architecture-
 - Do not add packages, change Unity versions, change the selected architecture
   profile, or alter approved assembly and dependency boundaries without approval.
 
+### Save data
+
+- Never overwrite a valid primary save in place. Implement the approved temp
+  write, flush, validation, atomic replace or platform fallback, and backup flow.
+- Keep serialization, integrity, encryption, and key management as separate
+  responsibilities. Do not use `PlayerPrefs` as the source of truth for
+  progression, entitlement, credentials, or tamper-sensitive values.
+- Implement schema changes as tested sequential migrations. Preserve the
+  original before migration and never destructively rewrite an unknown future schema.
+- Serialize writes to the same slot and handle quit, suspend, cancellation,
+  full storage, denied access, and serialization failure without losing the
+  last known-good data.
+- Do not log or commit real user saves, tokens, keys, account identifiers, or
+  personal data. Use anonymous synthetic fixtures.
+- Do not change supported-oldest schema, downgrade behavior, cloud conflict
+  resolution, backup retention, or key management without approval.
+
 ### Unity assets
 
 - Prefer Unity MCP or Editor APIs for scenes, prefabs, components, ScriptableObjects, import settings, tags, and layers.
@@ -80,6 +100,9 @@ description: Implement an approved Unity design item with minimal, architecture-
 ## Test while implementing
 
 - Add EditMode tests for pure logic and deterministic data transformations.
+- For save changes, add fixtures for every supported schema plus interrupted
+  writes, corruption, backup recovery, future schemas, and storage failures.
+  Add cloud-conflict and account-switch tests when Cloud Save is adopted.
 - Add PlayMode tests for component integration, scene transitions, input, and time-dependent behavior.
 - Add Editor validation for required assets, serialized references, Build Profile scene lists, tags, layers, or naming constraints.
 - Name tests so the behavior is searchable, and associate relevant tests or reports with design and AC IDs.

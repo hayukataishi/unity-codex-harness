@@ -151,7 +151,7 @@
 **🔄 Phase 3: フロー設計（並行可）**
 - [6. ゲーム進行ステートマシン](#6-ゲーム進行ステートマシン)
 - [7. シーンフロー — 読まれる順番](#7-シーンフロー--読まれる順番)
-- [8. Save / Load — 2種類を分ける](#8-save--load--2種類を分ける)
+- [8. Save / Load — 永続化・復旧・互換性](#save-001)
 
 **🎬 Phase 4: シーン中身を設計する**
 - [9. Scene 一覧](#9-scene-一覧)
@@ -1066,38 +1066,116 @@ Unity 6では各保存済みProfileで`Override Global Scene List`を有効に�
 
 ---
 
-## 8. Save / Load — 2種類を分ける
+## 8. Save / Load — 永続化・復旧・互換性
 
-> 「ロード」は2つの別物。混同しないこと。
+> Sceneのロードとセーブデータのロードは別の処理である。セーブ機能は「書けること」だけでなく、書き込み中断、破損、Version差、Cloud競合、容量不足からプレイヤーの進行を守ることまで設計する。
 
-| | A. シーンのロード | B. セーブデータのロード |
+| | A. Scene load | B. Save-data load |
 |---|---|---|
-| 対象 | シーンファイル（ステージ・画面） | 進行状況（数値・フラグ） |
-| 担当 | `SceneManager` | 自前のファイル保存 |
-| 例 | ステージ2を読む | HP・所持金・章進行・既読フラグを復元 |
+| 対象 | Sceneアセット | 進行、設定、Unlock、所持品などの永続データ |
+| 担当 | `SceneManager`または承認済みAsset配信方式 | ゲーム固有のSave RepositoryとStorage Adapter |
+| 失敗時 | 遷移中止、再試行、Error表示 | Backup復旧、互換判定、競合解決、ユーザー通知 |
 
-### データ保持の2レベル
+### データ保持の分類
 
-| レベル | 手段 | 用途 |
+| 分類 | 主な手段 | 規則 |
 |---|---|---|
-| ① 実行中の保持（シーンまたぎ） | `DontDestroyOnLoad` / Managerシーン常駐 | 進行中のスコア・状態 |
-| ② ディスク永続（電源OFFでも残る） | `PlayerPrefs` / `JSON` / 暗号化 | 本セーブデータ |
+| 実行中のSession state | Scene所有Object、明示的なSession Service | 所有者と生存期間を決め、常設Managerを必須にしない |
+| 非重要な端末設定 | `PlayerPrefs` | 音量、初回表示済みFlagなど、消失しても進行を失わない小さな値に限定する |
+| 主セーブ | Version付きファイル、Platform Save API、承認済みCloud Save | Atomic write、Backup、Integrity、Migration、復旧規則を必須とする |
 
-### ▼ 記入テンプレート（セーブ設計）
+`JSON`やBinaryはSerialization形式、暗号化は保護方式であり、保存の信頼性やIntegrityを単独では保証しない。`PlayerPrefs`を主セーブ、課金Entitlement、秘密情報、改ざん耐性が必要な値の正としない。
 
-```
-保存方式      : JSON ファイル / PlayerPrefs / 暗号化  （いずれか）
-保存先パス    : Application.persistentDataPath + "/save.json"
-保存するデータ : ※ジャンルにより内容は異なる
-  - 例（アクション）: hp / stage / gold / clearedStages[]
-  - 例（カード）   : ownedCards[] / deckPresets[] / playerLevel
-  - 例（ノベル）   : currentScene / flags[] / readLines[]
-  - 例（RPG）     : party[] / inventory[] / questFlags[] / mapPos
-保存タイミング : クリア時 / 手動 / オートセーブ間隔(__分) / 章切替
-ロードタイミング: Title の Continue 押下時
-スロット数    :
-バージョン管理 : セーブデータの version フィールドでマイグレーション対応
-```
+<a id="save-001"></a>
+
+### SAVE-001: 進行データを破損とVersion差から復旧できる
+
+**仕様**
+
+セーブ実装前に、次の決定表を埋める。Cloud Saveを使用する場合は、Section 20の`Account / Authentication / Cloud Save`、`Privacy / Consent / Compliance`、`Security / Abuse Prevention`も`採用`として承認されていなければならない。
+
+| 項目 | 記入内容 |
+|---|---|
+| 保存対象 / 非保存対象 | 進行、設定、Unlock、所持品、生成Seed、Session一時値など |
+| Slot / Profile / Account | Slot数、Local user、Platform user、Game accountとの対応 |
+| Serialization | JSON / Binary / Platform API、型とStable IDの表現 |
+| Data model | 永続DTO、既定値、未知Field、削除・改名したStable IDの扱い |
+| 保存先 | `Application.persistentDataPath`配下またはPlatform指定領域。正確な相対配置 |
+| 保存契機 | 手動、Checkpoint、章切替、Suspend前、終了前。多重要求の直列化規則 |
+| Transaction境界 | 一つのCommitに含めるファイル、Slot、Profile、関連Index |
+| Atomic write | Temp作成、flush / close、再読込検証、Primary置換、失敗時の保持手順 |
+| Backup / rollback | 世代数、作成契機、保持期間、Primary破損時の復旧順 |
+| Integrity | Checksum / Hash / 認証付き暗号、対象範囲、検証失敗時の扱い |
+| Schema | `schemaVersion`、現在Version、対応可能な最古Version、未来Versionの扱い |
+| Migration | `N → N+1`の段階変換、Migration前Backup、失敗時Rollback |
+| Downgrade | 新しいSchemaを旧Buildで開いた時の拒否、Read-only、別Slotなど |
+| Cloud conflict | 採否、Revision、競合判定、Merge可能項目、ユーザー選択、Offline再送 |
+| Security / privacy | 個人・認証・課金関連データ、暗号化範囲、鍵管理、Log除外、削除要求 |
+| Platform制約 | 容量、ユーザー切替、Suspend、同期API、書込み保証、Certification要件 |
+| UX | Save中表示、破損・復旧・競合・容量不足・権限不足時のメッセージと選択肢 |
+| Fixture | 対応する各Schema Version、破損、切断、未来Version、Cloud競合のTest Data |
+
+#### ファイルと書き込みの安全性
+
+- Primaryを直接truncateして上書きしない。Memory上でSnapshotを作り、Tempへ書き、flushしてcloseした後、再読込とSchema / Integrity検証に成功してからPrimaryを置換する。
+- Platformがatomic replaceまたはatomic renameを保証する場合はそれを使用する。保証しない場合は、Platform固有のBackup・Commit marker・復旧手順を記録する。
+- 一つの論理Saveが複数ファイルに分かれる場合は、Generation directoryまたはCommit manifestで同じ世代を識別し、新旧ファイルが混在した状態を正常Commitとして公開しない。
+- 有効なPrimaryがある場合は、置換前後の定義済み時点でBackupを保持する。書込み失敗、容量不足、権限不足、強制終了によって最後の正常データを失わない。
+- 同一SlotへのSave要求は直列化する。並列書込み、Scene終了、Application quit、Suspend、Cancellation時に中間状態をPrimaryとして公開しない。
+- Load時はPrimaryをSchemaとIntegrityの両方で検証し、失敗した場合はBackupを新しい順に検査する。破損ファイルを調査用に隔離する場合は、個人情報と容量方針に従う。
+- 復旧に成功した場合、どの世代から復元したかをユーザーとLogへ通知する。ただしセーブ内容、Token、秘密鍵、個人データをLogへ出力しない。
+- Checksumは偶発的破損の検出に使えるが、攻撃者による改ざん防止にはならない。改ざん耐性が必要な場合は、脅威モデルとPlatform機能に基づき認証付き暗号またはServer authoritativeな検証を選ぶ。
+
+#### Schema migrationとdowngrade
+
+- Save envelopeには少なくとも`schemaVersion`、SlotまたはProfile識別子、Revision、書込み時刻または順序情報、Payload Integrity情報を持たせる。
+- Migrationは旧Schemaから現在Schemaまで`N → N+1`の小さな純粋変換として順番に適用し、途中Versionを飛ばす巨大な条件分岐へ集約しない。
+- Asset名や表示名を永続参照に使わずStable IDを使用する。IDを廃止・統合する場合は、置換表、Tombstone、既定値、復旧不能時の扱いをMigrationへ含める。
+- Migration前に元データをBackupし、各段階で検証する。一段でも失敗した場合は元データを変更せず、復旧またはユーザー選択へ進む。
+- 対応する全旧VersionのfixtureをVersion Controlへ置き、現在VersionへのMigrationと意味上の保持を自動テストする。Fixtureには実在ユーザーのデータを含めない。
+- 現在Buildより新しい`schemaVersion`は未知データとして扱い、破壊的に上書きしない。拒否、Read-only、別Slot作成など承認済みのdowngrade方針へ従う。
+- 対応可能な最古Versionを引き上げる場合は、影響ユーザー、Upgrade経路、Support期間、Release note、Rollbackを人間が承認する。
+
+#### Cloud Saveと競合
+
+Cloud Saveを`不採用`にしたゲームは、この項目を理由付きで省略できる。採用する場合は次を決める。
+
+- LocalとCloudのどちらを正とするか、RevisionまたはETagなど何を競合判定に使うかを記録する。端末時計だけで新旧を決めない。
+- 自動MergeできるFieldとできないFieldを分離する。通貨、消費Item、課金Entitlement、進行分岐を安易な最大値や加算でMergeしない。
+- 自動解決できない競合は、端末名、更新順序、進行要約を表示してユーザーまたは運用ルールに選択させる。選択前に両候補を保持する。
+- Offline Saveの再送、重複Requestのidempotency、削除伝播、Account切替、Sign-out、GuestからAccountへの移行を設計する。
+- Server側データ、Platform Entitlement、認証情報をLocal Saveだけで確定しない。
+
+#### Platform・Security・Privacy
+
+- 主対象Platformごとに保存領域、Quota、ユーザー分離、Suspend / Resume、Cloud同期、atomic replaceの保証、Backup API、Certification要件を確認する。
+- 暗号鍵や署名鍵をSource、`PlayerPrefs`、Save本体へhard-codeしない。Platform secure storage、OS key store、Server管理など採用方式と鍵Rotationを記録する。
+- 暗号化は機密性、Checksumは偶発的破損検出、認証付き暗号や署名は改ざん検出という役割を区別する。
+- 個人データは目的、保持期間、削除・Export、Account削除との連動を記録し、人間のPrivacy / Securityレビューを受ける。
+
+#### 必須互換テスト
+
+ゲーム固有のfixtureは、例えば`Assets/Game/Tests/Fixtures/SaveData/<SchemaVersion>/`へ匿名・合成データとして保存する。実装方式に合わせてEditModeまたは通常のPure C#テストから実行する。
+
+| Test | 合格条件 |
+|---|---|
+| Round trip | 現在SchemaをSaveしてLoadすると、意味上同じ状態へ戻る |
+| Interrupted write | Temp書込み、flush、Primary置換の各中断点で最後の正常PrimaryまたはBackupを復旧できる |
+| Corruption | Truncate、Invalid field、Integrity不一致を検出し、破損データを正常扱いしない |
+| Backup recovery | Primary破損時に定義した順序でBackupを検証し、利用可能な最新世代を選ぶ |
+| Migration | 対応する各旧fixtureを現在Schemaへ移行し、重要な進行・所持・Flagを保持する |
+| Future schema | 未知の新しいSchemaを破壊的に上書きせず、承認済み方針で拒否または隔離する |
+| Failure handling | 容量不足、権限不足、Serialization失敗で既存の正常データを失わない |
+| Cloud conflict | Cloud採用時、競合候補保持、Merge禁止Field、Offline再送、Account切替を検証する |
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `SAVE-001-AC01` | `有効` | `AUTO:STATIC` | Atomic write、Backup、Integrity、復旧順、書込み直列化と失敗時UXの決定欄が存在する | リポジトリ文書検査 |
+| `SAVE-001-AC02` | `有効` | `AUTO:STATIC` | Schema migration、未来Version、downgrade、最古対応Version、Migration前Rollbackが規定されている | リポジトリ文書検査 |
+| `SAVE-001-AC03` | `有効` | `AUTO:STATIC` | Cloud競合、Platform制約、暗号・鍵管理、PrivacyとPlayerPrefsの用途制限が規定されている | リポジトリ文書検査 |
+| `SAVE-001-AC04` | `有効` | `AUTO:STATIC` | 旧Version fixture、書込み中断、破損、Backup、未来Version、失敗処理、Cloud競合のテスト行列が存在する | リポジトリ文書検査 |
 
 ---
 

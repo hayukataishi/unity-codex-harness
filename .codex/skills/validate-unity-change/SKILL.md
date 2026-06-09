@@ -19,7 +19,10 @@ description: Validate Unity changes against design IDs and acceptance criteria u
    long-lived objects, and messaging with the selected architecture profile.
    Treat an unapproved DI container, Service Locator, manager fleet, event bus,
    or feature package as a design mismatch.
-7. Build an AC matrix before testing:
+7. For save changes, list supported schemas, fixtures, migration steps,
+   recovery order, downgrade behavior, platform storage, and Cloud / Privacy /
+   Security decisions. Treat missing fixture coverage as `NOT RUN`.
+8. Build an AC matrix before testing:
 
 ```markdown
 | AC ID | Verification type | Planned check | Evidence target |
@@ -75,7 +78,21 @@ separately when Unity-facing behavior can be affected.
 4. **PlayMode**
    - Run integration, scene, input, and time-dependent tests.
    - Save NUnit-compatible XML to `Tests/PlayMode.xml`.
-5. **Asset validation**
+5. **Save compatibility**
+   - Run round-trip tests for the current schema and migration tests for every
+     supported old-schema fixture.
+   - Inject interruption at temp write, flush, validation, backup, and primary
+     replacement boundaries. Verify the last known-good primary or backup remains.
+   - Test truncation, malformed payloads, integrity mismatch, missing primary,
+     unknown future schemas, full storage, denied access, and serialization failure.
+   - Verify migration is sequential, preserves the original on failure, and
+     follows the approved downgrade policy without destructive overwrite.
+   - When Cloud Save is adopted, test revision conflicts, both-candidate
+     retention, merge-prohibited fields, offline retry idempotency, deletion,
+     sign-out, and account switching.
+   - Inspect logs and artifacts for real user data, tokens, keys, account
+     identifiers, and other personal data before retaining evidence.
+6. **Asset validation**
    - Run the installed `UnityCodexHarness.Validation.Editor.AssetValidationBatch.Run`
      entry point through `run_unity_validation.py`.
    - Check Missing Script and unresolved serialized object references in scenes,
@@ -90,7 +107,7 @@ separately when Unity-facing behavior can be affected.
      dependencies, verify `No Engine References` assemblies do not use Unity
      APIs, and confirm public APIs, composition roots, and tests match the
      approved profile and migration plan.
-6. **Build verification**
+7. **Build verification**
    - Run when required by an `AUTO:BUILD` AC or when Build Profile or platform settings changed.
    - On Unity 6, record the saved Build Profile asset path and inspect its target, purpose, Scene List, Scripting Defines, Player Settings overrides, and debugging options.
    - Start batch builds with `-activeBuildProfile <Assets/...Profile.asset>`; do not rely on the Editor's last active profile.
@@ -98,7 +115,7 @@ separately when Unity-facing behavior can be affected.
    - When a clean build is required in CI, use a custom build method with `BuildOptions.CleanBuildCache`; direct `-build` is incremental after the first build.
    - Use the approved Profile and write output under `Artifacts/ValidationRuns/<RunId>/Builds/<ProfileName>/`.
    - Do not switch targets, change Release settings, sign, upload, or publish without approval.
-7. **Visual evidence**
+8. **Visual evidence**
    - Capture screenshots, videos, and profiler data for relevant ACs.
    - Store AC-specific evidence under `Evidence/<AcceptanceCriterionIdWithoutHyphens>/`.
 
