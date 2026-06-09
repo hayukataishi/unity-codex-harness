@@ -42,6 +42,9 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 - Prefer Unity MCP or Editor APIs for scenes, prefabs, components, ScriptableObjects, import settings, tags, and layers.
 - For Unity 6 build work, use saved Build Profile assets under the approved project path. Do not edit Build Profile YAML directly or rely on the Editor's last active profile.
+- Before Cinemachine work, inspect `Packages/manifest.json` and `packages-lock.json` and record the exact installed major version.
+- For Cinemachine 3.x, use the `Unity.Cinemachine` namespace, `CinemachineCamera`, Tracking Target, and standard Position / Rotation Control components on the same GameObject. Do not introduce Cinemachine 2.x component names into new Unity 6 examples.
+- Treat a Cinemachine 2.x to 3.x upgrade as an approved migration. Back up first, use the Cinemachine Upgrader, and inspect scripts, scenes, prefabs, Timeline, animation bindings, channels, and serialized references instead of editing Unity YAML or performing a blind rename.
 - Inspect an existing asset before modifying it.
 - Preserve `.meta` files and GUIDs. Move or rename assets through Unity-aware tools.
 - Avoid direct YAML edits to scenes and prefabs unless no supported Editor operation exists and the impact is understood.

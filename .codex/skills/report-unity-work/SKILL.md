@@ -66,6 +66,7 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
 
 - Prefer exact filenames, asset names, test names, design IDs, and AC IDs.
 - For build work, report the exact Build Profile asset path, output path, clean or incremental mode, and target platform.
+- For Cinemachine work, report the exact Package version, major-version API used, affected cameras and procedural components, and whether a 2.x migration was performed.
 - Summarize large diffs; do not paste generated logs.
 - Separate warnings from blockers.
 - Label subjective criteria as human review, not automated success.

@@ -172,6 +172,19 @@ Codexは推測を事実として扱わず、次のいずれかに分類する。
 - **仮定**：作業継続のために一時的に置いた前提。
 - **要確認**：人間の判断が必要。
 
+<a id="cinemachine-policy"></a>
+
+### 3.5 Cinemachineバージョン運用方針
+
+Cinemachineを扱う前に`Packages/manifest.json`と`packages-lock.json`を読み、Packageの有無と正確なバージョンを確認する。
+
+- Unity 6の新規案件ではCinemachine 3.xを標準例とし、`Unity.Cinemachine`名前空間、`CinemachineCamera`、Tracking Target、Position Control、Rotation Controlを使用する。
+- Unity Camera側の`CinemachineBrain`は3.xでも継続して使用する。複数Brainの振り分けはCinemachine Channelで行う。
+- 2.xの`CinemachineVirtualCamera`、`CinemachineFreeLook`、Transposer、Composerなどを3.x新規実装へ持ち込まない。
+- 既存の2.x案件は自動的に3.xへ更新しない。3.xはAPIとデータ形式に破壊的変更があるため、Package更新とCinemachine Upgraderの実行は人間の承認、バックアップ、差分確認を伴う移行作業として扱う。
+- Upgrader後はコードの名前空間と型、Scene、Prefab、Timeline、Animation、追従対象、Channel、serialized reference、Console warningを検査する。
+- Cinemachine Packageを追加・更新・削除する操作は、主要Package変更として追加承認の対象にする。
+
 ---
 
 ## 4. ハーネスの全体像

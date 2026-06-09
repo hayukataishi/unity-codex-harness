@@ -67,6 +67,7 @@ Run only applicable checks, but explicitly mark omitted checks.
    - Inspect tag, layer, input, and Build Profile Scene List references separately when
      applicable; they are not yet covered by the generic asset validator.
    - Reopen or reload changed assets when needed to catch serialization issues.
+   - For Cinemachine changes, record the installed Package version. On 3.x, inspect `CinemachineBrain`, `CinemachineCamera`, Tracking Target, optional Look At Target, Position / Rotation Control components, and Channels. After a 2.x migration, also inspect Scene, Prefab, Timeline, Animation, code references, obsolete warnings, and missing serialized references.
 6. **Build verification**
    - Run when required by an `AUTO:BUILD` AC or when Build Profile or platform settings changed.
    - On Unity 6, record the saved Build Profile asset path and inspect its target, purpose, Scene List, Scripting Defines, Player Settings overrides, and debugging options.

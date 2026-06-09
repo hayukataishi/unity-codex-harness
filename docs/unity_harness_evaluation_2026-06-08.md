@@ -183,16 +183,20 @@ Secret、個人情報、ローカル絶対パスを含む成果物の内容ス�
 
 リポジトリ検査へ必須記述と旧表現の回帰検査を追加した。Build Profileアセットの作成とProfile指定Player buildはプロジェクト固有のため、ハーネスfixtureでは引き続き`NOT RUN`である。
 
-### P1: Cinemachineの例が2系の名称
+### P1: Cinemachineの例が2系の名称（記述対応済み・実Package検証未実施）
 
-`docs/unity_design_sheet.md`のカメラ例は`CinemachineVirtualCamera`を使用している。Unity 6向けにリリースされているCinemachine 3.1では、中心コンポーネントは`CinemachineCamera`である。
+旧`docs/unity_design_sheet.md`のカメラ例は`CinemachineVirtualCamera`を使用していた。Unity 6の新規案件向け例をCinemachine 3.xの`CinemachineCamera`へ更新し、Package検出と移行規則を`GRAPHICS-001`として定義した。
 
-**改善案:** Packageバージョンで例を分岐する。
+対応内容:
 
-- Cinemachine 3.x: `CinemachineCamera`
-- Cinemachine 2.x既存案件: `CinemachineVirtualCamera`
+- `Packages/manifest.json`と`packages-lock.json`から正確なPackageバージョンを検出
+- 3.xの`Unity.Cinemachine`名前空間、`CinemachineCamera`、Tracking Targetを標準化
+- `CinemachineFollow`、`CinemachinePositionComposer`などのPosition / Rotation Control Componentを使用
+- 複数BrainはCinemachine Channelで振り分け
+- 2.x既存案件は互換対象として維持し、3.x移行はCinemachine Upgraderと参照検査を伴う独立作業にする
+- 旧`FollowCamera`例の再混入をリポジトリ回帰検査で検出
 
-ハーネスは既存案件も扱うため、単純置換ではなく移行ガイドへのリンクとPackage検出が必要である。
+fixtureにはCinemachine PackageとCamera Sceneがないため、実Component作成、2.xから3.xへの移行、Play Mode映像確認は`NOT RUN`である。
 
 ### P1: 検証Runが開始状態のまま完結しない
 
@@ -309,7 +313,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 
 1. `[完了]` Harness、Unity MCP、agent-sprite-forgeの互換性マニフェストを追加する。
 2. `[完了]` Build Profile中心のビルド設計へ更新する。
-3. Cinemachine 3、Input System、Code Coverageの現行例へ更新する。
+3. `[一部完了: Cinemachine 3]` Cinemachine 3、Input System、Code Coverageの現行例へ更新する。
 4. Validation Runのfinalize処理とschemaを追加する。
 5. インストーラーへupgrade、backup、diff、version表示を追加する。
 
@@ -369,6 +373,8 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | 外部依存マニフェスト | PASS | Unity MCPとagent-sprite-forgeのcommit、要件、`NOT RUN`理由を検査 |
 | Build Profile文書規約 | PASS | `BUILD-001`、3分類、Scene List、Defines、Clean Build、CI指定 |
 | Build Profile build | NOT RUN | fixtureに保存済みBuild ProfileとPlayer Sceneがない |
+| Cinemachine 3文書規約 | PASS | `GRAPHICS-001`、3.x API、Package検出、2.x移行規則 |
+| Cinemachine 3実Component | NOT RUN | fixtureにCinemachine PackageとCamera Sceneがない |
 | Unity MCP接続 | NOT RUN | 固定版MCPをfixtureへ未導入・未接続 |
 
 fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000.4.10f1`へ固定している。
@@ -420,6 +426,8 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
   https://docs.unity3d.com/Manual/com.unity.cinemachine.html
 - Cinemachine Camera component 3.1  
   https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/CinemachineCamera.html
+- Install and upgrade Cinemachine
+  https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/InstallationAndUpgrade.html
 - Input System  
   https://docs.unity3d.com/Manual/com.unity.inputsystem.html
 - CoplayDev/unity-mcp  
@@ -524,6 +532,7 @@ Unity `6000.4.10f1`実行結果:
 残るP0:
 
 - GitHub Actions Unity jobのリモート実行確認
+
 - インストール先プロジェクトの`Artifacts/` Git除外保証
 
 ### 2026-06-09: P0-3 外部依存の互換性マニフェスト
@@ -652,3 +661,49 @@ Unity `6000.4.10f1`実行結果:
 残るP0:
 
 - GitHub Actions Unity jobのリモート実行確認
+
+### 2026-06-09: P1-2 Cinemachine 3.x記述への統一
+
+次を追加・更新した。
+
+- `GRAPHICS-001`によるUnity 6向けCinemachine 3.x設計
+- `CinemachineVirtualCamera`だった追従カメラ例を`CinemachineCamera`へ更新
+- `Unity.Cinemachine`名前空間、Tracking Target、Look At Targetの使い分け
+- `CinemachineFollow`、`CinemachinePositionComposer`などのPosition / Rotation Control Component
+- `CinemachineBrain`とCinemachine Channelの責務
+- `Packages/manifest.json`と`packages-lock.json`による正確なPackageバージョン検出
+- Cinemachine 2.x既存案件を互換対象とする方針
+- 2.xから3.xへの移行でCinemachine UpgraderとScene・Prefab・Timeline・Animation・コード参照を検査する規則
+- 実装、検証、報告SkillのCinemachine 3.x対応
+- 旧2.x追従カメラ例の再混入を検出するリポジトリ回帰検査
+
+`GRAPHICS-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `GRAPHICS-001-AC01` | `PASS` | カメラ例が`CinemachineCamera`と3.x制御Componentを使用 |
+| `GRAPHICS-001-AC02` | `PASS` | Package検出、名前空間、Target、Channelを確認 |
+| `GRAPHICS-001-AC03` | `PASS` | 2.x互換方針とUpgraderを使う移行規則を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、35件
+- Cinemachine 3必須記述検査: `PASS`
+- 旧Cinemachine 2カメラ例の異常系: 検出テスト`PASS`
+- Unity `6000.4.10f1` fixture非回帰: `PASS`
+  - Run ID: `20260609T032827Z`
+  - Compile: `PASS`
+  - EditMode: `PASS`、4件
+  - PlayMode: `PASS`、1件
+  - Asset validation: `PASS`、error 0 / warning 0
+  - 証拠: `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T032827Z/`
+
+未実施:
+
+- fixtureへのCinemachine 3.x Package導入
+- `CinemachineBrain`、`CinemachineCamera`、Tracking Target、ChannelのEditor API検査
+- Cinemachine 2.xから3.xへの実移行
+- Cinemachineカメラを使用したPlay Mode映像確認
+
+このP1は「Cinemachineの例を3.xへ統一する」ところまで対応済みである。実Package、Camera Scene、移行検証は、Cinemachineを採用するゲームプロジェクトで行う。

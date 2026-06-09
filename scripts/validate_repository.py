@@ -56,6 +56,40 @@ OUTDATED_BUILD_SETTINGS_TEXT = {
         "Build Settings、Tag、Layer、Input設定",
     ),
 }
+CINEMACHINE_3_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="graphics-001"></a>',
+        "### GRAPHICS-001:",
+        "CinemachineCamera + CinemachineFollow / CinemachinePositionComposer",
+        "Unity.Cinemachine",
+        "Tracking Target",
+        "Cinemachine Channel",
+        "CINEMACHINE_NO_CM2_SUPPORT",
+        "GRAPHICS-001-AC03",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="cinemachine-policy"></a>',
+        "Cinemachineバージョン運用方針",
+        "Packages/manifest.json",
+        "packages-lock.json",
+        "Cinemachine Upgrader",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "Before Cinemachine work",
+        "Unity.Cinemachine",
+        "CinemachineCamera",
+        "Cinemachine Upgrader",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "For Cinemachine changes",
+        "Position / Rotation Control components",
+    ),
+}
+OUTDATED_CINEMACHINE_EXAMPLE_TEXT = {
+    "docs/unity_design_sheet.md": (
+        "| `FollowCamera` | プレイヤー追従 | CinemachineVirtualCamera | 10 |",
+    ),
+}
 
 
 def frontmatter_value(frontmatter: str, key: str) -> str | None:
@@ -174,6 +208,33 @@ def validate_build_profile_documentation(root: Path) -> list[str]:
             if outdated in text:
                 errors.append(
                     f"outdated Build Settings guidance: {relative} -> {outdated}"
+                )
+    return errors
+
+
+def validate_cinemachine_documentation(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in CINEMACHINE_3_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing Cinemachine document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing Cinemachine 3 guidance: {relative} -> {required}"
+                )
+
+    for relative, outdated_values in OUTDATED_CINEMACHINE_EXAMPLE_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for outdated in outdated_values:
+            if outdated in text:
+                errors.append(
+                    f"outdated Cinemachine 2 example: {relative} -> {outdated}"
                 )
     return errors
 
@@ -373,6 +434,7 @@ def main() -> int:
         + validate_markdown(root)
         + validate_github_actions(root)
         + validate_build_profile_documentation(root)
+        + validate_cinemachine_documentation(root)
         + validate_harness_lock(root)
     )
     if errors:

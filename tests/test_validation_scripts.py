@@ -209,6 +209,42 @@ class BuildProfileDocumentationTests(unittest.TestCase):
             )
 
 
+class CinemachineDocumentationTests(unittest.TestCase):
+    def test_repository_uses_cinemachine_3_guidance(self):
+        self.assertEqual(
+            repository_validator.validate_cinemachine_documentation(ROOT),
+            [],
+        )
+
+    def test_rejects_cinemachine_2_camera_example(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.CINEMACHINE_3_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += (
+                        "\n| `FollowCamera` | プレイヤー追従 | "
+                        "CinemachineVirtualCamera | 10 |"
+                    )
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_cinemachine_documentation(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "outdated Cinemachine 2 example" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(

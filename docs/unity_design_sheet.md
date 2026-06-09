@@ -770,6 +770,7 @@ VFX                   : Particle System / VFX Graph
 | 項目 | 選択肢 |
 |---|---|
 | Cinemachine 使用 | する / しない（固定カメラなら不要） |
+| Cinemachine Package | 未使用 / `com.unity.cinemachine`の正確な導入バージョン |
 | カメラの動き | 固定 / 追従 / 切替 / ズーム / プレイヤー操作 |
 | カメラ視点 | 2D固定 / 2D追従(横スク) / 俯瞰 / トップダウン / 3D追従(TPS) / FPS / 等角投影 |
 | 投影 | Perspective / Orthographic（2D・トップダウンは Orthographic） |
@@ -781,9 +782,32 @@ VFX                   : Particle System / VFX Graph
 | カメラ名 | 用途 | 仕組み | Priority |
 |---|---|---|---|
 | `MainCamera` | 出力先 | Camera + AudioListener (+ CinemachineBrain) | — |
-| `FollowCamera` | プレイヤー追従 | CinemachineVirtualCamera | 10 |
+| `FollowCamera` | プレイヤー追従 | CinemachineCamera + CinemachineFollow / CinemachinePositionComposer | 10 |
 | `BoardCamera` | 盤面俯瞰固定 | Orthographic 固定 | 10 |
 | `________` | `________` | `________` | `________` |
+
+<a id="graphics-001"></a>
+
+### GRAPHICS-001: Unity 6のCinemachine例は3.x APIを基準とする
+
+**仕様**
+
+- Unity 6の新規プロジェクトでCinemachineを採用する場合は、Package Managerが対象Editor向けに提供する安定版`com.unity.cinemachine` 3.xを基準とする。`Packages/manifest.json`と`packages-lock.json`から正確な導入バージョンを記録し、文書だけからバージョンを推測しない。
+- Cinemachine 3.xのコードは`Unity.Cinemachine`名前空間を使用する。
+- Unity Cameraには`CinemachineBrain`を設定し、ショット側の中心コンポーネントには`CinemachineCamera`を使用する。
+- 追従・注視対象は`CinemachineCamera`のTracking Targetを基本とし、別の注視対象が必要な場合だけLook At Targetを設定する。
+- 位置制御と回転制御は、`CinemachineFollow`、`CinemachineOrbitalFollow`、`CinemachinePositionComposer`、`CinemachineRotationComposer`など、Cinemachine 3.xの標準Componentを同じGameObjectへ追加して構成する。
+- 複数Brainを使用する場合の振り分けには、Unity LayerではなくCinemachine ChannelとBrainのChannel Maskを使用する。
+- Cinemachine 2.xを使用する既存プロジェクトでは、`CinemachineVirtualCamera`などの2.x名称を互換対象として維持してよい。3.xへの移行はPackage更新、API・名前空間変更、Cinemachine Upgrader、Scene・Prefab・Timeline・Animation・スクリプト参照の検査を含む独立作業とし、単純な文字列置換やUnity YAML直接編集では行わない。
+- `CINEMACHINE_NO_CM2_SUPPORT`は、2.x Component、スクリプト、Scene、Prefab、Timeline、Animation参照が残っていないことを検証した後だけ使用する。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `GRAPHICS-001-AC01` | `有効` | `AUTO:STATIC` | Unity 6向けカメラ例が`CinemachineCamera`とCinemachine 3.xのPosition / Rotation Control Componentを使用している | リポジトリ文書検査 |
+| `GRAPHICS-001-AC02` | `有効` | `AUTO:STATIC` | Packageバージョン検出、`Unity.Cinemachine`名前空間、Tracking Target、Cinemachine Channelが規定されている | リポジトリ文書検査 |
+| `GRAPHICS-001-AC03` | `有効` | `AUTO:STATIC` | Cinemachine 2.x既存案件を互換対象とし、3.x移行にUpgraderと参照検査が必要だと規定されている | リポジトリ文書検査 |
 
 ### 4.5 ライティング
 
@@ -1364,7 +1388,7 @@ SO名       :
 接地判定              : Raycast / SphereCast / Collider Stay / CharacterController.isGrounded
 ジャンプ実装          : 速度直接代入 / AddForce(Impulse)
 入力反映タイミング    : Update（入力取得）→ FixedUpdate（物理適用）
-カメラ追従との結合    : Cinemachine が Player Transform を参照
+カメラ追従との結合    : CinemachineCamera の Tracking Target が Player Transform を参照
 ```
 
 ### 14.4 物理設定（採用ジャンルのみ）

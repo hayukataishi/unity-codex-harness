@@ -37,6 +37,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - Package、既存資産の削除、Build/Releaseの恒久設定、任意コードの危険な実行は追加承認の対象とする。
 - MCP操作後はCompile、Console、Test、Screenshot、参照検査で検証する。
 - ツール追加・仕様変更に備え、作業開始時にEditor State、Project Info、Tool Groupsを確認する。
+- Cinemachine操作前はPackageの正確なmajor versionを確認する。3.xでは`CinemachineCamera`と同一GameObject上のPosition / Rotation Control Componentを使用し、2.x既存案件の移行は公式Upgraderを伴う別作業として扱う。
 
 ---
 

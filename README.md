@@ -115,6 +115,8 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 Unity 6のゲームでは、導入後に[BUILD-001](docs/unity_design_sheet.md#build-001)へ従ってDevelopment / QA / ReleaseのBuild Profileをゲーム側で作成します。Build Profileは対象Platform、Scene、配布要件がプロジェクトごとに異なるため、インストーラーは自動生成しません。
 
+Cinemachineを採用する場合もPackageは自動導入されません。[GRAPHICS-001](docs/unity_design_sheet.md#graphics-001)に従い、Unity 6の新規案件はCinemachine 3.xを基準として、ゲーム側の`Packages/manifest.json`と`packages-lock.json`へ記録された正確なバージョンを使用します。
+
 ### 手順4: 導入結果を確認する
 
 まず、検証成果物を保存する`Artifacts/`がGit管理外になっていることを確認します。
