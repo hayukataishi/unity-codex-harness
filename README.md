@@ -12,53 +12,179 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
 - `scripts/install.py`: 既存Unityプロジェクトへの安全な導入スクリプト
 
-## 導入
+## Unityプロジェクトへの導入
 
-### 1. リポジトリを取得
+### 最短手順
+
+次の`/path/to/YourUnityProject`を、対象ゲームのUnityプロジェクトルートへ置き換えて実行します。パスに空白がある場合に備えて、引用符で囲むことを推奨します。
+
+```bash
+git clone https://github.com/hayukataishi/unity-codex-harness.git
+cd unity-codex-harness
+
+# 変更予定を確認
+python3 scripts/install.py "/path/to/YourUnityProject" --dry-run
+
+# ハーネスを導入
+python3 scripts/install.py "/path/to/YourUnityProject"
+
+# ArtifactsがGit管理外になっていることを確認
+python3 scripts/install.py "/path/to/YourUnityProject" --check
+```
+
+Windowsで`python3`が見つからない場合は、`python`または`py -3`へ読み替えてください。
+
+### 事前条件
+
+- Python 3.11以上を利用できる
+- Unityプロジェクトを作成済みである
+- 初回導入前にUnity Editorを閉じている
+- 可能なら対象プロジェクトの変更をcommitまたはbackupしている
+
+インストーラーへ渡すのは`Assets`フォルダではなく、その一つ上の**Unityプロジェクトルート**です。次の3つが存在するディレクトリを指定します。
+
+```text
+<UNITY_PROJECT_ROOT>/
+├─ Assets/
+├─ Packages/
+└─ ProjectSettings/
+   └─ ProjectVersion.txt
+```
+
+例:
+
+```text
+macOS:   /Users/your-name/UnityProjects/MyGame
+Windows: C:\Users\your-name\UnityProjects\MyGame
+```
+
+### 手順1: ハーネスを取得する
+
+Unityプロジェクトとは別の場所へ、このリポジトリをcloneします。
 
 ```bash
 git clone https://github.com/hayukataishi/unity-codex-harness.git
 cd unity-codex-harness
 ```
 
-### 2. Unityプロジェクトへインストール
+すでに取得済みの場合は、`unity-codex-harness`ディレクトリへ移動するだけで構いません。
+
+### 手順2: 導入予定を確認する
+
+最初に`--dry-run`を使います。このコマンドはファイルを変更せず、作成・更新予定だけを表示します。
 
 ```bash
-python3 scripts/install.py /path/to/YourUnityProject
+python3 scripts/install.py "/path/to/YourUnityProject" --dry-run
 ```
 
-インストーラーはUnityプロジェクトの目印を検証し、次をプロジェクトルートへコピーします。
+出力の`would create`は新規作成、`would update`は既存ファイルへの追記・更新を表します。
+
+### 手順3: Unityプロジェクトへ導入する
+
+dry-runの内容に問題がなければ、通常実行します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject"
+```
+
+導入後の主な構成:
 
 ```text
 <UNITY_PROJECT_ROOT>/
-├─ .codex/skills/
-├─ .gitignore
-├─ Assets/UnityCodexHarness/Editor/
-├─ docs/
-├─ harness.lock.json
-├─ ProjectSettings/UnityCodexHarnessAssetValidation.json
-└─ AGENTS.md
+├─ .codex/skills/                              Codex用Unity開発Skill
+├─ .gitignore                                  /Artifacts/ルールを安全に追記
+├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
+├─ docs/                                       設計・運用ドキュメント
+├─ harness.lock.json                           外部ツールの固定情報
+├─ ProjectSettings/
+│  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
+└─ AGENTS.md                                   Codex向けリポジトリ指示
 ```
 
-`Assets/UnityCodexHarness/Editor/`はMissing Script、Missing Reference、必須資産をUnity Editor APIで検査するEditor専用Assemblyです。Player Buildには含まれません。既存ファイルは標準では上書きせず、ゲーム固有に編集する資産検査設定JSONは通常の再導入でも保持します。
+`Assets/UnityCodexHarness/Editor/`はEditor専用Assemblyで、Missing Script、Missing Reference、必須資産を検査します。Player Buildには含まれません。
 
-インストーラーは既存`.gitignore`の末尾へ、管理マーカー付きの`/Artifacts/`ルールを追加します。既存ルールと改行形式は保持し、再実行してもブロックは重複しません。`Artifacts`内にGit追跡済みファイルがある場合は、自動削除せずインストールを停止します。
+インストーラーは既存ファイルを標準では上書きしません。`.gitignore`には管理マーカー付きの`/Artifacts/`ルールだけを追加し、既存ルールや改行形式を保持します。
+
+次のものはゲームプロジェクトへ自動導入されません。
+
+- Unity Editor本体とBuild Support
+- Unity MCP
+- agent-sprite-forge
+- ハーネス自身のGitHub ActionsとUnity fixture
+- ゲーム固有のCI、Build Profile、Package
+
+### 手順4: 導入結果を確認する
+
+まず、検証成果物を保存する`Artifacts/`がGit管理外になっていることを確認します。
 
 ```bash
-# 変更内容だけ確認
-python3 scripts/install.py /path/to/YourUnityProject --dry-run
-
-# AGENTS.mdを既存のプロジェクト指示で管理する
-python3 scripts/install.py /path/to/YourUnityProject --skip-agents
-
-# 内容を確認したうえで既存ファイルを置換
-python3 scripts/install.py /path/to/YourUnityProject --force
-
-# ファイルを変更せずArtifactsのGit除外状態を検査
-python3 scripts/install.py /path/to/YourUnityProject --check
+python3 scripts/install.py "/path/to/YourUnityProject" --check
 ```
 
-手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーし、ルートの`.gitignore`へ`/Artifacts/`を追加してください。Skills内の参照パスはこの配置を前提にしています。
+成功時は次のように表示されます。
+
+```text
+Artifacts ignore check: PASS
+```
+
+続いてUnityプロジェクトへ移動し、静的プリフライトを実行します。
+
+```bash
+cd "/path/to/YourUnityProject"
+python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
+  --project-root .
+```
+
+`"status": "PASS"`になったことを確認してからUnity Editorを開き、Consoleにコンパイルエラーがないことを確認します。
+
+### 既存の`AGENTS.md`がある場合
+
+通常実行は既存`AGENTS.md`を勝手に上書きせず、競合として停止します。その場合は`--skip-agents`で導入し、このリポジトリの`AGENTS.md`にある必須ルールを既存ファイルへ手動で統合してください。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" --skip-agents
+```
+
+### `Artifacts/`がすでにGit追跡されている場合
+
+インストーラーは追跡済みファイルを自動削除せず停止します。対象を確認してからGitのindexだけを外し、再実行します。ローカルファイル自体は削除されません。
+
+```bash
+git -C "/path/to/YourUnityProject" ls-files Artifacts
+git -C "/path/to/YourUnityProject" rm -r --cached Artifacts
+python3 scripts/install.py "/path/to/YourUnityProject"
+```
+
+### ハーネスを更新する
+
+ハーネス側を更新した後、最初にdry-runで差分を確認します。
+
+```bash
+cd "/path/to/unity-codex-harness"
+git pull
+python3 scripts/install.py "/path/to/YourUnityProject" --dry-run
+```
+
+導入済みファイルと新しいハーネスの内容が異なる場合、通常実行は安全のため停止します。差分を確認し、ハーネス管理ファイルを新しい版へ置き換えてよい場合だけ`--force`を使用します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" --force
+```
+
+`--force`はゲーム固有に編集した`ProjectSettings/UnityCodexHarnessAssetValidation.json`も置換します。必要な設定を退避してから実行してください。
+
+### オプション一覧
+
+| オプション | 用途 |
+|---|---|
+| `--dry-run` | ファイルを変更せず、導入予定を表示する |
+| `--check` | ファイルを変更せず、`Artifacts/`のGit除外状態を検査する |
+| `--skip-agents` | `AGENTS.md`を導入対象から外す |
+| `--force` | 内容が異なる既存ファイルを置換する |
+
+### 手動導入
+
+自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 ## Codexでの使い方
 
