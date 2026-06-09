@@ -22,6 +22,40 @@ COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PACKAGE_REQUIREMENT_RE = re.compile(r"^(?:~=|==|!=|>=|<=|>|<)\S+$")
 VALID_RESULTS = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
+BUILD_PROFILE_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="build-001"></a>',
+        "### BUILD-001:",
+        "Assets/Settings/BuildProfiles/<Platform>/",
+        "GAME_BUILD_DEVELOPMENT",
+        "GAME_BUILD_QA",
+        "GAME_BUILD_RELEASE",
+        "-activeBuildProfile",
+        "BUILD-001-AC03",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="build-profile-policy"></a>',
+        "Unity 6 Build Profile運用方針",
+        "Legacy Build Settings",
+        "-activeBuildProfile",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "Build Profile asset path",
+        "-activeBuildProfile",
+    ),
+}
+OUTDATED_BUILD_SETTINGS_TEXT = {
+    "docs/unity_design_sheet.md": (
+        "Build Settings（登録）",
+        "| **Build Settings** |",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "Build SettingsのScene登録確認",
+    ),
+    "docs/mcp_and_skills_list.md": (
+        "Build Settings、Tag、Layer、Input設定",
+    ),
+}
 
 
 def frontmatter_value(frontmatter: str, key: str) -> str | None:
@@ -113,6 +147,33 @@ def validate_github_actions(root: Path) -> list[str]:
                 errors.append(
                     f"unpinned GitHub Action: "
                     f"{workflow.relative_to(root)} -> {action}"
+                )
+    return errors
+
+
+def validate_build_profile_documentation(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in BUILD_PROFILE_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing Build Profile document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing Build Profile guidance: {relative} -> {required}"
+                )
+
+    for relative, outdated_values in OUTDATED_BUILD_SETTINGS_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for outdated in outdated_values:
+            if outdated in text:
+                errors.append(
+                    f"outdated Build Settings guidance: {relative} -> {outdated}"
                 )
     return errors
 
@@ -311,6 +372,7 @@ def main() -> int:
         validate_skills(root)
         + validate_markdown(root)
         + validate_github_actions(root)
+        + validate_build_profile_documentation(root)
         + validate_harness_lock(root)
     )
     if errors:

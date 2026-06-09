@@ -64,12 +64,17 @@ Run only applicable checks, but explicitly mark omitted checks.
      prefabs, and ScriptableObjects.
    - Read required asset and serialized-reference rules from
      `ProjectSettings/UnityCodexHarnessAssetValidation.json`.
-   - Inspect tag, layer, input, and build-scene references separately when
+   - Inspect tag, layer, input, and Build Profile Scene List references separately when
      applicable; they are not yet covered by the generic asset validator.
    - Reopen or reload changed assets when needed to catch serialization issues.
 6. **Build verification**
-   - Run when required by an `AUTO:BUILD` AC or when platform/build settings changed.
-   - Use the approved target and existing release settings. Do not switch targets or publish without approval.
+   - Run when required by an `AUTO:BUILD` AC or when Build Profile or platform settings changed.
+   - On Unity 6, record the saved Build Profile asset path and inspect its target, purpose, Scene List, Scripting Defines, Player Settings overrides, and debugging options.
+   - Start batch builds with `-activeBuildProfile <Assets/...Profile.asset>`; do not rely on the Editor's last active profile.
+   - Use a separate Unity process for each target platform.
+   - When a clean build is required in CI, use a custom build method with `BuildOptions.CleanBuildCache`; direct `-build` is incremental after the first build.
+   - Use the approved Profile and write output under `Artifacts/ValidationRuns/<RunId>/Builds/<ProfileName>/`.
+   - Do not switch targets, change Release settings, sign, upload, or publish without approval.
 7. **Visual evidence**
    - Capture screenshots, videos, and profiler data for relevant ACs.
    - Store AC-specific evidence under `Evidence/<AcceptanceCriterionIdWithoutHyphens>/`.

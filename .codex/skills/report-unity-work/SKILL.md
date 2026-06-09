@@ -65,6 +65,7 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
 ## Reporting rules
 
 - Prefer exact filenames, asset names, test names, design IDs, and AC IDs.
+- For build work, report the exact Build Profile asset path, output path, clean or incremental mode, and target platform.
 - Summarize large diffs; do not paste generated logs.
 - Separate warnings from blockers.
 - Label subjective criteria as human review, not automated success.

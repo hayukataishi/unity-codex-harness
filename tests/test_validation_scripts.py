@@ -179,6 +179,36 @@ class GithubActionsValidationTests(unittest.TestCase):
             self.assertIn("actions/checkout@v4", errors[0])
 
 
+class BuildProfileDocumentationTests(unittest.TestCase):
+    def test_repository_uses_build_profile_guidance(self):
+        self.assertEqual(
+            repository_validator.validate_build_profile_documentation(ROOT),
+            [],
+        )
+
+    def test_rejects_outdated_build_settings_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.BUILD_PROFILE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += "\nBuild Settings（登録）"
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_build_profile_documentation(root)
+            )
+
+            self.assertTrue(
+                any("outdated Build Settings guidance" in error for error in errors),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(

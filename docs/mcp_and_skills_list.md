@@ -26,7 +26,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - Material、Texture、Shader、Animation、Animator、Camera、Cinemachine
 - UI Toolkit、uGUI構築支援、VFX、Graphics、Lighting、Physics
 - ProBuilderによるEditor内モデリング
-- Package、Build、Build Profile、Build Scene、Platform設定
+- Package、Build、Build Profile、Scene List、Platform設定
 - EditMode / PlayMode Test、Profiler、Console、Screenshot
 - Play / Pause / Stop、Tag / Layer、Undo / Redo
 - Menu Item、任意C#、プロジェクトCustom Toolの実行
@@ -99,7 +99,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 - EditMode / PlayModeテスト実行
 - Missing Script / Missing Reference検査
 - Scene、Prefab、ScriptableObjectの必須参照検査
-- Build Settings、Tag、Layer、Input設定の確認
+- Build Profile、Scene List、Tag、Layer、Input設定の確認
 - 対象プラットフォームのビルド検証
 - 設計項目IDとテスト・実装の対応確認
 

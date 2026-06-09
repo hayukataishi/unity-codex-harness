@@ -41,6 +41,7 @@ description: Implement an approved Unity design item with minimal, architecture-
 ### Unity assets
 
 - Prefer Unity MCP or Editor APIs for scenes, prefabs, components, ScriptableObjects, import settings, tags, and layers.
+- For Unity 6 build work, use saved Build Profile assets under the approved project path. Do not edit Build Profile YAML directly or rely on the Editor's last active profile.
 - Inspect an existing asset before modifying it.
 - Preserve `.meta` files and GUIDs. Move or rename assets through Unity-aware tools.
 - Avoid direct YAML edits to scenes and prefabs unless no supported Editor operation exists and the impact is understood.
@@ -59,7 +60,7 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 - Add EditMode tests for pure logic and deterministic data transformations.
 - Add PlayMode tests for component integration, scene transitions, input, and time-dependent behavior.
-- Add Editor validation for required assets, serialized references, build scenes, tags, layers, or naming constraints.
+- Add Editor validation for required assets, serialized references, Build Profile scene lists, tags, layers, or naming constraints.
 - Name tests so the behavior is searchable, and associate relevant tests or reports with design and AC IDs.
 
 ## Finish

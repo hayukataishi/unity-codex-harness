@@ -924,14 +924,16 @@ Reflection Probe      : 使用 / 不使用
 
 ## 7. シーンフロー — 読まれる順番
 
-> 公式の「シーンチャート」機能は無い。**Build Settings（登録）＋ SceneManager（遷移コード）** で設計し、それを図にする。
+> 公式の「シーンチャート」機能は無い。Unity 6では**Build ProfileのScene List（ビルド対象）＋ SceneManager（遷移コード）**で設計し、それを図にする。
 
 ### シーンを束ねる2つの仕組み
 
 | 仕組み | 役割 |
 |---|---|
-| **Build Settings** | 実行時にロードするシーンを全登録。各シーンにインデックス番号。ここに無いシーンはロード不可 |
+| **Build Profile Scene List** | Profileごとのビルド対象Sceneと順序を定義する。直接`SceneManager`でロードするSceneは有効なScene Listへ含める |
 | **SceneManager** | ロード・アンロード・問い合わせ、すべての操作が通る管制塔 |
+
+Unity 6では各保存済みProfileで`Override Global Scene List`を有効にし、Development / QA / ReleaseごとのScene差分を明示する。Build IndexはProfileごとに変化し得るため、永続IDとして使用しない。Addressablesなど別経路で配信するSceneは、そのロード方式とCatalog管理をセクション18へ記録する。
 
 ### ロードの2モード
 
@@ -1580,9 +1582,96 @@ Git管理       : する / しない
 .gitignore    : Unity標準テンプレート + Artifacts, Builds を除外
 Git LFS       : .psd .png .fbx .wav 等を対象
 ブランチ運用  : main / develop / feature/*
-ビルドターゲット:
-品質プロファイル:
+Build Profile保存先:
+主Build Profile:
+検証Build Profile:
+Release Build Profile:
 ```
+
+<a id="build-001"></a>
+
+### BUILD-001: Unity 6では保存済みBuild Profileをビルド構成の正とする
+
+**仕様**
+
+Unity 6プロジェクトは、対象プラットフォームと用途ごとに保存済みBuild Profileアセットを作成し、Scene List、Scripting Defines、ビルドオプション、必要なPlayer Settings差分をVersion Controlで管理する。CI、ローカル検証、Release作成では使用したProfileのアセットパスを記録し、Editorで最後に選択されていた構成へ依存しない。
+
+旧Unityまたは移行前案件ではLegacy Build Settingsを互換経路として使用できるが、Unity 6 Profileへ移行するまでは制約として設計書と作業報告へ記録する。
+
+#### 保存場所と命名
+
+- 保存先: `Assets/Settings/BuildProfiles/<Platform>/`
+- 名前: `<ProjectName><Platform><Purpose>.asset`
+- `Platform`: `Windows`、`MacOS`、`Linux`、`Android`、`IOS`、`Web`など、対象を一意に識別するPascalCase
+- `Purpose`: `Development`、`QA`、`Release`
+- Build Profileアセットと`.meta`をGit管理する
+
+例:
+
+```text
+Assets/Settings/BuildProfiles/
+├─ Windows/
+│  ├─ MyGameWindowsDevelopment.asset
+│  ├─ MyGameWindowsQA.asset
+│  └─ MyGameWindowsRelease.asset
+└─ Android/
+   ├─ MyGameAndroidDevelopment.asset
+   └─ MyGameAndroidRelease.asset
+```
+
+#### 標準Profile分類
+
+| Purpose | 用途 | Scene List | Profile固有Define | Development Build | Profiler / Debugger |
+|---|---|---|---|---|---|
+| `Development` | 日常開発、診断、端末確認 | 開発に必要なScene。Sandbox追加可 | `GAME_BUILD_DEVELOPMENT` | ON | 必要な項目だけON |
+| `QA` | 継続テスト、受け入れ確認、Release候補前確認 | Release相当。QA専用Sceneは明示追加 | `GAME_BUILD_QA` | 原則OFF | 原則OFF。調査時だけ別ProfileでON |
+| `Release` | 配布物作成 | 配布対象Sceneのみ | `GAME_BUILD_RELEASE` | OFF | すべてOFF |
+
+各Profileは`Override Global Scene List`を有効にし、Scene順序を明示する。3つの`GAME_BUILD_*`シンボルは同一Profileへ複数設定しない。Profile固有DefineはProject / Player SettingsのDefineへ追加され、置換しない。
+
+#### Profile記録テンプレート
+
+| Profile asset | Platform | Purpose | Scene List | Defines | Player Settings override | Build options | 出力形式 |
+|---|---|---|---|---|---|---|---|
+| `Assets/Settings/BuildProfiles/____/____.asset` | | Development / QA / Release | | | | | |
+
+Player Settings overrideは、Product Name、Bundle Identifier、Version、Scripting Backend、Architectureなど、Profile間で差が必要な値だけを列挙する。共通値はグローバルPlayer Settingsで管理する。
+
+#### Clean Build条件
+
+次の場合はClean Buildを実行する。
+
+- Profileまたは対象プラットフォームで最初にビルドする
+- Unity Editor、Build Target、Scripting Backend、Architectureを変更した
+- Player Settings override、Scene List、Addressablesまたはビルド前処理を変更した
+- Release候補を作成する
+- incremental buildのキャッシュ不整合が疑われる
+
+日常的なコード・アセット変更の反復確認ではincremental buildを使用できる。
+
+#### CI・バッチ実行
+
+CIは保存済みProfileを明示してUnityを起動する。
+
+```text
+<UNITY_EDITOR> -batchmode -quit \
+  -projectPath <UNITY_PROJECT_ROOT> \
+  -activeBuildProfile "Assets/Settings/BuildProfiles/<Platform>/<Profile>.asset" \
+  -build "Artifacts/ValidationRuns/<RunId>/Builds/<ProfileName>/<PlayerPath>" \
+  -logFile "Artifacts/ValidationRuns/<RunId>/Logs/Build.log"
+```
+
+カスタムBuild Scriptを使う場合も`-activeBuildProfile`を指定し、`BuildProfile.GetActiveBuildProfile()`または`BuildPlayerWithProfileOptions`でProfileを利用する。異なるPlatformはUnityプロセスを分けて実行する。
+
+直接`-build`を使うビルドは、初回を除いてincremental buildになる。CIでClean Build条件に該当する場合はカスタムBuild Scriptを使用し、`BuildPlayerWithProfileOptions.options`へ`BuildOptions.CleanBuildCache`を追加する。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `BUILD-001-AC01` | `有効` | `AUTO:STATIC` | Unity 6のScene・Build説明が保存済みBuild ProfileとScene Listを正としている | リポジトリ文書検査 |
+| `BUILD-001-AC02` | `有効` | `AUTO:STATIC` | Development / QA / Releaseの用途、Defines、Debug設定、Clean Build条件、保存場所、命名が定義されている | リポジトリ文書検査 |
+| `BUILD-001-AC03` | `有効` | `AUTO:STATIC` | CI手順が`-activeBuildProfile`でProfileアセットを明示し、Editorの前回状態へ依存しない | リポジトリ文書検査 |
 
 ---
 

@@ -113,6 +113,8 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 - ハーネス自身のGitHub ActionsとUnity fixture
 - ゲーム固有のCI、Build Profile、Package
 
+Unity 6のゲームでは、導入後に[BUILD-001](docs/unity_design_sheet.md#build-001)へ従ってDevelopment / QA / ReleaseのBuild Profileをゲーム側で作成します。Build Profileは対象Platform、Scene、配布要件がプロジェクトごとに異なるため、インストーラーは自動生成しません。
+
 ### 手順4: 導入結果を確認する
 
 まず、検証成果物を保存する`Artifacts/`がGit管理外になっていることを確認します。

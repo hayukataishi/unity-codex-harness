@@ -79,7 +79,7 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 1. `ProjectSettings/ProjectVersion.txt`から正確なEditorバージョンを取得する。
 2. `Packages/manifest.json`と`packages-lock.json`から主要パッケージと互換性を確認する。
-3. Project Settings、Build SettingsまたはBuild Profilesから現在のビルド対象を調査する。
+3. Unity 6では保存済みBuild ProfileとアクティブProfile、旧Unityまたは移行前案件ではLegacy Build Settingsから現在のビルド対象を調査する。
 4. 設計書の対象プラットフォームと実装設定を比較する。
 5. 差異がある場合は勝手にEditor更新やBuild Target変更をせず、人間へ確認する。
 
@@ -112,6 +112,23 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 - 既存プロジェクトのUnityバージョンを変更する場合は、人間の承認と移行計画がある。
 
 このゲートが未完了の場合、バージョンやプラットフォームへ依存するパッケージ導入、Render Pipeline選定、入力・UI・ビルド設定を確定しない。
+
+<a id="build-profile-policy"></a>
+
+### Unity 6 Build Profile運用方針
+
+Unity 6プロジェクトでは、`Assets`以下へ保存したBuild Profileアセットをビルド構成の正とする。Build ProfilesウィンドウのPlatform profileや、Editorで最後に選択していた状態だけに依存してビルドしない。
+
+- 対象プラットフォームごとにDevelopmentとReleaseを作成し、継続的な受け入れ確認が必要ならQAを追加する。
+- Profileアセットと`.meta`をVersion Controlへ含め、保存場所と命名は[BUILD-001](./unity_design_sheet.md#build-001)に従う。
+- 各Profileで`Override Global Scene List`を有効にし、ビルド対象Sceneと順序を明示する。
+- Build Profileの`Scripting Defines`は既存のProject / Player Settings定義へ追加される。Profile固有の排他的シンボルを設計書へ記録する。
+- `Customize player settings`はProfile間で異なる値だけに使用し、共通値はグローバルPlayer Settingsで管理する。
+- Development Build、Autoconnect Profiler、Deep Profiling、Script Debugging、Wait for Managed DebuggerはProfileごとに明示する。Releaseではすべて無効を標準とする。
+- CIとバッチビルドは`-activeBuildProfile "Assets/.../<Profile>.asset"`を必ず指定し、Editorの前回状態へ依存しない。
+- 一つのUnityプロセスで複数の対象プラットフォームへ切り替えながらビルドしない。ProfileまたはPlatformごとにUnityプロセスを分ける。
+- 最初のビルド、Unity・Build Target・Scripting Backend・Architecture・Player Settings override・Addressables構成の変更後、Release候補、キャッシュ不整合の疑いがある場合はClean Buildを使う。通常の反復開発ではincremental buildを使う。
+- 旧Unityまたは移行前案件ではLegacy Build Settingsを互換経路として扱い、Unity 6 Profileへの移行は人間の承認と差分確認を伴う。
 
 ---
 
@@ -429,7 +446,7 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 - EditMode / PlayModeテスト
 - Missing Script、Missing Referenceの検出
 - 必須Scene、Prefab、設定アセットの存在確認
-- Build SettingsのScene登録確認
+- Build Profileの存在、Scene List、Profile固有設定の確認
 - 設計で定義された識別子や名称の検査
 - バッチモードでのビルド
 
@@ -675,7 +692,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 - ProBuilderによるプロトタイプ・レベル形状の作成
 - 承認済み設計に必要なTag・Layerの追加
 - `Assets/Game`内のフォルダ作成、Asset Import、現在タスクで新規作成したAssetの移動・改名・削除
-- 設計で確定済みのBuild Scene登録や、既存設定値への反映
+- 設計で確定済みのBuild Profile Scene List登録や、既存Profile設定値への反映
 - 既知の安全なMenu Itemおよび内容を確認済みのプロジェクトCustom Toolの実行
 
 既存Scene、Prefab、ScriptableObject、Scriptを変更すること自体は承認不要である。ただし、事前に対象を読み、変更後に保存・コンパイル・参照・Test・Screenshotなど必要な検証を行う。
@@ -721,6 +738,7 @@ Unity Editor内で完結する操作は、対応するUnity MCPツールがあ�
 #### Project・Build・Release設定
 
 - Build Targetの切替
+- Build Profileの新規作成、削除、保存場所変更、用途変更
 - Product Name、Company Name、Version、Bundle Identifierの変更
 - Scripting Backend、Architecture、Scripting Define Symbolsの変更
 - 署名、証明書、Keystore、Provisioning、Store、配布設定の変更

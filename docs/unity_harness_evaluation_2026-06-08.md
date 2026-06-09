@@ -164,18 +164,24 @@ GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供�
 
 Secret、個人情報、ローカル絶対パスを含む成果物の内容スキャンは、Git除外とは別の多層防御として未対応である。
 
-### P1: Unity 6向けBuild Profile記述へ統一されていない
+### P1: Unity 6向けBuild Profile記述へ統一されていない（記述対応済み・実ビルド未検証）
 
-設計書にはBuild Profilesも登場するが、シーンフローでは旧来の`Build Settings`を中心に説明している。Unity 6のBuild ProfileはVersion Control可能なアセットであり、プロファイルごとにScene List、Scripting Defines、Player設定の差分を持てる。
+初回評価時点では、設計書にBuild Profilesも登場する一方、シーンフローと検証Skillは旧来の`Build Settings`を中心に説明していた。
 
-**改善案:** 次を標準テンプレートへ加える。
+2026-06-09に、Unity 6では保存済みBuild Profileアセットをビルド構成の正とする`BUILD-001`を追加した。次を標準化している。
 
 - Development / QA / ReleaseのProfile分類
 - ProfileごとのScene List
-- Scripting Defines
-- Development Build、Profiler、Script Debugging
+- 排他的なProfile固有Scripting Defines
+- Development Build、Profiler、Deep Profiling、Script Debugging
 - Clean Buildの実行条件
-- Build Profileアセットの保存場所と命名
+- `Assets/Settings/BuildProfiles/<Platform>/`への保存と命名
+- Player Settings overrideとグローバル設定の責務分離
+- CIでの`-activeBuildProfile`指定
+- ProfileまたはPlatformごとのUnityプロセス分離
+- 旧Unityと移行前案件のLegacy Build Settings互換方針
+
+リポジトリ検査へ必須記述と旧表現の回帰検査を追加した。Build Profileアセットの作成とProfile指定Player buildはプロジェクト固有のため、ハーネスfixtureでは引き続き`NOT RUN`である。
 
 ### P1: Cinemachineの例が2系の名称
 
@@ -302,7 +308,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 ### フェーズ2: 再現性とUnity 6対応
 
 1. `[完了]` Harness、Unity MCP、agent-sprite-forgeの互換性マニフェストを追加する。
-2. Build Profile中心のビルド設計へ更新する。
+2. `[完了]` Build Profile中心のビルド設計へ更新する。
 3. Cinemachine 3、Input System、Code Coverageの現行例へ更新する。
 4. Validation Runのfinalize処理とschemaを追加する。
 5. インストーラーへupgrade、backup、diff、version表示を追加する。
@@ -361,7 +367,8 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
 | AssetDatabase参照検査 | PASS | Missing Referenceと必須参照の正常系・異常系 |
 | 外部依存マニフェスト | PASS | Unity MCPとagent-sprite-forgeのcommit、要件、`NOT RUN`理由を検査 |
-| Build Profile build | NOT RUN | UnityプロジェクトとBuild Profileがない |
+| Build Profile文書規約 | PASS | `BUILD-001`、3分類、Scene List、Defines、Clean Build、CI指定 |
+| Build Profile build | NOT RUN | fixtureに保存済みBuild ProfileとPlayer Sceneがない |
 | Unity MCP接続 | NOT RUN | 固定版MCPをfixtureへ未導入・未接続 |
 
 fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000.4.10f1`へ固定している。
@@ -372,7 +379,7 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 
 特に次は文書上は要求されるが、ハーネス単体ではまだ自動実行できない。
 
-- Build Profile / Scene List
+- Build Profileアセット実体検査 / Profile指定Player build
 - Input / Tag / Layer
 - Build
 - Profiler
@@ -394,8 +401,11 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
   https://unity.com/releases/editor/whats-new
 - Build Profiles overview  
   https://docs.unity3d.com/Manual/build-profiles.html
+- Build Profiles window reference: https://docs.unity3d.com/Manual/build-profiles-reference.html
 - Build Profile scene list  
   https://docs.unity3d.com/Manual/build-profile-scene-list.html
+- Build a player from the command line: https://docs.unity3d.com/Manual/build-command-line.html
+- BuildPlayerWithProfileOptions: https://docs.unity3d.com/ScriptReference/BuildPlayerWithProfileOptions.html
 - [PrefabUtility.LoadPrefabContents](https://docs.unity3d.com/ScriptReference/PrefabUtility.LoadPrefabContents.html)
 - [SerializedObject](https://docs.unity3d.com/ScriptReference/SerializedObject.html)
 - [EditorSceneManager](https://docs.unity3d.com/ScriptReference/SceneManagement.EditorSceneManager.html)
@@ -555,6 +565,53 @@ Unity `6000.4.10f1`実行結果:
 残るP0:
 
 - GitHub Actions Unity jobのリモート実行確認
+
+### 2026-06-09: P1-1 Unity 6 Build Profile記述の統一
+
+次を追加・更新した。
+
+- `BUILD-001`による保存済みBuild Profile中心の設計
+- `Assets/Settings/BuildProfiles/<Platform>/`の保存場所と命名
+- Development / QA / Releaseの用途と標準設定
+- ProfileごとのScene Listと`Override Global Scene List`
+- `GAME_BUILD_DEVELOPMENT`、`GAME_BUILD_QA`、`GAME_BUILD_RELEASE`
+- Profile固有Player Settings overrideとグローバル設定の責務分離
+- Development Build、Profiler、Debugger設定
+- Clean Build条件と`BuildOptions.CleanBuildCache`
+- CIの`-activeBuildProfile`指定とPlatformごとのUnityプロセス分離
+- Legacy Build Settingsを旧Unity・移行前案件だけに限定する互換方針
+- 実装、検証、報告SkillのBuild Profile対応
+- 旧Build Settings中心の表現を検出するリポジトリ回帰検査
+
+`BUILD-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `BUILD-001-AC01` | `PASS` | Scene・Build説明がBuild Profile Scene List中心 |
+| `BUILD-001-AC02` | `PASS` | 3分類、Defines、Debug、Clean Build、保存規則を確認 |
+| `BUILD-001-AC03` | `PASS` | CIが`-activeBuildProfile`を明示 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、33件
+- Build Profile必須記述検査: `PASS`
+- 旧Build Settings表現の異常系: 検出テスト`PASS`
+- Unity `6000.4.10f1` fixture回帰: `PASS`
+  - Run ID: `20260609T014700Z`
+  - Compile: `PASS`
+  - EditMode: `PASS`、4件
+  - PlayMode: `PASS`、1件
+  - Asset validation: `PASS`、error 0 / warning 0
+  - 証拠: `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T014700Z/`
+
+未実施:
+
+- fixtureへの保存済みBuild ProfileとPlayer Sceneの追加
+- Profileを指定した実Player build
+- Build Profile Scene ListとProfile固有設定のEditor API自動検査
+
+このP1は「Build Profile記述の統一」として対応済みである。実Profileの作成・ビルド・検査は後続のビルド自動化課題として残る。
 
 ### 2026-06-09: P0-4 インストール先の`Artifacts/` Git除外保証
 
