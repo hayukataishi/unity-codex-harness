@@ -94,6 +94,13 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
                 preserve_existing=False,
             )
         )
+    files.append(
+        InstallSource(
+            source=repository_root / "harness.lock.json",
+            relative=Path("harness.lock.json"),
+            preserve_existing=False,
+        )
+    )
     return sorted(files, key=lambda item: item.relative.as_posix())
 
 

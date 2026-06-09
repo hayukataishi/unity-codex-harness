@@ -8,6 +8,7 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 - `docs/unity_harness_engineering.md`: ハーネスの運用・安全・品質ルール
 - `docs/unity_design_sheet.md`: ゲーム設計書テンプレート
 - `docs/mcp_and_skills_list.md`: Unity MCPとSkillsの責務
+- `harness.lock.json`: 外部ツールと検証環境の固定情報
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
 - `scripts/install.py`: 既存Unityプロジェクトへの安全な導入スクリプト
 
@@ -33,6 +34,7 @@ python3 scripts/install.py /path/to/YourUnityProject
 ├─ .codex/skills/
 ├─ Assets/UnityCodexHarness/Editor/
 ├─ docs/
+├─ harness.lock.json
 ├─ ProjectSettings/UnityCodexHarnessAssetValidation.json
 └─ AGENTS.md
 ```
@@ -50,7 +52,7 @@ python3 scripts/install.py /path/to/YourUnityProject --skip-agents
 python3 scripts/install.py /path/to/YourUnityProject --force
 ```
 
-手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーしてください。Skills内の参照パスはこの配置を前提にしています。
+手動導入する場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーしてください。Skills内の参照パスはこの配置を前提にしています。
 
 ## Codexでの使い方
 
@@ -76,16 +78,20 @@ $validate-unity-change で検証してください。
 | `integrate-2d-assets` | 2D素材を承認済みプロファイルでUnityへ統合 |
 | `review-gameplay` | Play Modeやビルドの観察証拠を整理 |
 
-## 外部ツール
+## 外部ツールと互換性マニフェスト
 
-- [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp): Unity Editor操作
-- [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge): 2Dアセット生成
+| ツール | 固定参照 | 用途 | ハーネスでの実行状態 |
+|---|---|---|---|
+| [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) | `v9.7.0` / `417cf351a152b483c91e6e2deaf7ae355fa8eff3` | Unity Editor操作 | `NOT RUN` |
+| [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | `fff651a89223b044ccfc0b75ed9f3754c6d739b1` | 2Dアセット生成 | `NOT RUN` |
 
-これらは本リポジトリへ同梱していません。導入方法と利用可能な機能は各プロジェクトの最新版を確認してください。
+これらは本リポジトリへ同梱していません。再現可能な導入基準、Python要件、公式参照元、検証状態は`harness.lock.json`へ記録します。固定参照は「この版を導入対象にする」という意味であり、Unity `6000.4.10f1`との実接続・実生成が成功したという意味ではありません。
+
+更新時は公式Release、commit、Package metadataまたはrequirementsを確認して固定値を変更し、対象環境で実行した後にだけ`verification.status`を`PASS`へ変更します。
 
 ## 検証
 
-リポジトリ内のSkill構造、ローカル文書リンク、旧Vaultパスの残存を検証:
+リポジトリ内のSkill構造、ローカル文書リンク、旧Vaultパス、GitHub ActionsのSHA固定、`harness.lock.json`の整合性を検証:
 
 ```bash
 python3 scripts/validate_repository.py

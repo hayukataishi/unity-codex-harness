@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -176,6 +177,78 @@ class GithubActionsValidationTests(unittest.TestCase):
             self.assertIn("actions/checkout@v4", errors[0])
 
 
+class HarnessLockValidationTests(unittest.TestCase):
+    def load_manifest(self):
+        return json.loads(
+            (ROOT / "harness.lock.json").read_text(encoding="utf-8")
+        )
+
+    def test_repository_lock_is_valid(self):
+        self.assertEqual(repository_validator.validate_harness_lock(ROOT), [])
+
+    def test_rejects_non_pinned_dependency_commit(self):
+        manifest = self.load_manifest()
+        manifest["externalDependencies"]["unityMcp"]["commit"] = "main"
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.10f1",
+        )
+
+        self.assertTrue(
+            any("unityMcp.commit" in error for error in errors),
+            errors,
+        )
+
+    def test_requires_reason_for_not_run_dependency(self):
+        manifest = self.load_manifest()
+        manifest["externalDependencies"]["agentSpriteForge"][
+            "verification"
+        ].pop("reason")
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.10f1",
+        )
+
+        self.assertTrue(
+            any(
+                "agentSpriteForge.verification.reason" in error
+                for error in errors
+            ),
+            errors,
+        )
+
+    def test_rejects_fixture_version_mismatch(self):
+        manifest = self.load_manifest()
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.11f1",
+        )
+
+        self.assertTrue(
+            any("fixture version" in error for error in errors),
+            errors,
+        )
+
+    def test_rejects_missing_sprite_forge_requirement(self):
+        manifest = self.load_manifest()
+        manifest["externalDependencies"]["agentSpriteForge"][
+            "pythonPackages"
+        ].pop("Pillow")
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.10f1",
+        )
+
+        self.assertTrue(
+            any("pythonPackages.Pillow" in error for error in errors),
+            errors,
+        )
+
+
 class InstallerSourceTests(unittest.TestCase):
     def test_maps_unity_template_into_project_paths(self):
         installer = load_module(
@@ -194,6 +267,7 @@ class InstallerSourceTests(unittest.TestCase):
             "ProjectSettings/UnityCodexHarnessAssetValidation.json",
             relative_paths,
         )
+        self.assertIn("harness.lock.json", relative_paths)
         config = next(
             item
             for item in sources

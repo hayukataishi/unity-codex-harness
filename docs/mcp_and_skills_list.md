@@ -2,10 +2,12 @@
 
 ## 採用確定
 
-| 名称 | 種別 | 主な責務 |
-|---|---|---|
-| [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) | MCP | Unity Editor操作、Scene・GameObject・アセット・スクリプト・テストの操作 |
-| [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | Codex Skill | 2Dスプライト、アニメーションシート、マップ、プロップ、FXの生成と後処理 |
+| 名称 | 種別 | 固定参照 | 主な責務 | 検証状態 |
+|---|---|---|---|---|
+| [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) | MCP | `v9.7.0` / `417cf351a152b483c91e6e2deaf7ae355fa8eff3` | Unity Editor操作、Scene・GameObject・アセット・スクリプト・テストの操作 | `NOT RUN` |
+| [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | Codex Skill | `fff651a89223b044ccfc0b75ed9f3754c6d739b1` | 2Dスプライト、アニメーションシート、マップ、プロップ、FXの生成と後処理 | `NOT RUN` |
+
+正確なrepository、channel、commit、実行要件、公式参照元は`../harness.lock.json`で管理する。固定参照を記録しただけでは互換性確認済みとは扱わず、実接続または実生成を行うまでは`NOT RUN`とする。
 
 ### 責務の境界
 
@@ -17,7 +19,7 @@
 
 Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う。詳細な承認境界は[Unity MCP優先方針](./unity_harness_engineering.md#unity-mcp-policy)を参照する。
 
-2026-06-08時点のbeta版で確認した主な能力：
+能力調査で確認した主な機能：
 
 - Scene、GameObject、Component、Prefab、Asset、ScriptableObjectのCRUD
 - C# Scriptの作成、構造化編集、Validation、Compile

@@ -36,6 +36,7 @@ Unityゲーム開発において、人間がゲームの方向性と品質判断
 - **ゲーム設計書**：何を作るか、ゲームがどう振る舞うべきかを定義する。
 - **本書**：Codexがどのような手順と制約で設計・実装・検証するかを定義する。
 - **MCP・Skill一覧**：利用可能な能力、用途、使用条件、制限事項を定義する。
+- **`harness.lock.json`**：ハーネスの検証環境、外部ツールの固定参照、公式根拠、実行確認状態を定義する。
 - **ソースコードとUnityアセット**：設計を実行可能な形で表現する。
 - **テスト**：設計と実装の一致を機械的に確認する。
 
@@ -361,6 +362,19 @@ SAVE-001
 - Unityテスト結果とログは、成功・失敗にかかわらずGitHub Actions Artifactへ保存する。
 - Workflowの定義完了と、GitHub上での実行成功は別の状態として扱う。Secret、Runner、GameCI imageなどが未準備なら`NOT RUN`または`BLOCKED`と報告する。
 
+### 外部ツールの再現性
+
+Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも`harness.lock.json`で管理する。
+
+- GitHub依存はtag名だけでなく、解決済みの40桁commit SHAを記録する。
+- Releaseのない依存はbranch名ではなくcommit SHAを`ref`として使用する。
+- Package名、Package version、必要なUnity・Python・Python Package条件を公式metadataから記録する。
+- 根拠にしたRelease、commit、metadata、requirementsのURLを`sources`として残す。
+- 固定情報の確認と、実際の接続・生成・Unityへの統合確認を分離する。
+- 実行していない依存は`NOT RUN`とし、固定済みであることだけを理由に`PASS`へしない。
+- `python3 scripts/validate_repository.py`でマニフェスト構造、fixtureとのUnityバージョン一致、commit SHA、既知の依存条件を検査する。
+- 更新時は公式情報を再確認し、対象環境で回帰検証してから検証日と状態を更新する。
+
 ### Scene・Prefab・ScriptableObjectの自動検査
 
 `Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs`をEditor専用Assemblyとして導入し、Unity Editor APIで次を検査する。
@@ -600,7 +614,7 @@ Codexは最低限、次を確認する。
 
 Unity Editor内で完結する操作は、対応するUnity MCPツールがある限りMCPへ任せる。Scene、Prefab、`.asset`などのUnity YAMLを直接編集する方法は、対応ツールがなく、安全性を説明できる場合の最終手段とする。
 
-2026-06-08時点のUnity MCP beta版では、Scene、GameObject、Component、Asset、Prefab、Script、ScriptableObject、Material、Animation、Camera、UI、VFX、Shader、Texture、Graphics、Physics、Package、Build、Test、Profiler、Consoleなどを操作できる。さらに任意C#、Menu Item、プロジェクト固有Custom Toolの実行能力がある。
+能力調査ではUnity MCPのScene、GameObject、Component、Asset、Prefab、Script、ScriptableObject、Material、Animation、Camera、UI、VFX、Shader、Texture、Graphics、Physics、Package、Build、Test、Profiler、Consoleなどを確認している。さらに任意C#、Menu Item、プロジェクト固有Custom Toolの実行能力がある。採用する正確なReleaseとcommitは`harness.lock.json`を参照し、実行時には接続先がその固定情報と一致するか確認する。
 
 ツールは更新されるため、固定された一覧だけを信用しない。作業開始時に次を行う。
 

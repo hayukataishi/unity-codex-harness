@@ -1,6 +1,7 @@
 # Unity Codex Harness 評価レポート
 
 - 評価日: 2026-06-08
+- 最終更新日: 2026-06-09
 - 評価対象: Unity Codex Harness リポジトリ全体
 - 評価目的: 最新のUnityゲーム開発をジャンル・規模・対象プラットフォームに依存せず進めるための汎用ハーネスとして、設計、実装支援、検証、再現性、安全性を評価する
 
@@ -11,7 +12,7 @@
 現状の最も正確な位置づけは、次の通り。
 
 > 設計・承認・証拠管理に加え、ローカルUnityバッチ検証とハーネス専用CI定義を備えた「Unity AI開発ハーネスの基盤」。
-> Editor APIによる資産検査、ビルド検証、依存バージョン固定を追加すれば、汎用的な実運用テンプレートへ発展できる。
+> Editor APIによる資産検査と外部依存の固定は追加済み。ビルド検証、リモートUnity CI、固定した外部ツールの実接続検証を加えることで、汎用的な実運用テンプレートへ発展できる。
 
 ### 初回総合評価
 
@@ -138,22 +139,15 @@ GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供�
 
 引き続き未対応なのは、Build ProfileのScene、Tag、Layer、Input Action、Addressables設定である。PythonのYAML検査は高速プリフライト、正式なオブジェクト参照判定はEditor APIという役割分担になった。
 
-### P0: 外部依存のバージョンが固定されていない
+### P0: 外部依存のバージョンが固定されていない（マニフェスト対応済み・実行未検証）
 
-Unity MCPとagent-sprite-forgeは同梱されず、「最新版を確認」とだけ記載されている。2026-06-08時点でCoplayDev/unity-mcpのREADMEにはv9.7.0が直近リリースとして掲載されているが、本テンプレートは対応確認済みバージョン、Git commit、導入チャネルを記録していない。
+初回評価時点では、Unity MCPとagent-sprite-forgeは同梱されず、「最新版を確認」とだけ記載されていた。
 
-agent-sprite-forgeは`Pillow`と`numpy`を必要とするが、ハーネス側に存在確認やバージョン確認がない。
+2026-06-09に`harness.lock.json`を追加し、Unity fixtureとPython環境、Unity MCP `v9.7.0`のrelease commit、agent-sprite-forgeのmain commit、`Pillow`と`numpy`の条件、公式参照元を固定した。リポジトリ検査はfixtureのUnity version、40桁commit SHA、Package情報、Python依存、検証状態と理由を検査する。インストーラーはこのマニフェストを導入先ゲームへコピーする。
 
-**改善案:** `harness.lock.json`のような互換性マニフェストを追加し、以下を記録する。
+固定した外部ツールはfixtureへ導入していないため、Unity MCPの実接続とagent-sprite-forgeの実生成は`NOT RUN`である。したがって、現時点で保証するのは「導入対象を再現できること」であり、「Unity `6000.4.10f1`で動作確認済み」であることではない。
 
-- Harness version
-- 対応Unity Editor範囲
-- Unity MCPの確認済みversion / commit / channel
-- agent-sprite-forgeの確認済みversion / commit
-- 必須Python versionとPackage
-- 検証日
-
-「最新版追従」と「再現可能性」を分離し、更新Botまたは定期検証で互換性を更新する。
+**次の改善:** 固定した版を隔離fixtureまたは専用統合プロジェクトへ導入し、接続、基本Editor操作、画像生成、Unity importまでを検証する。定期更新は固定値を自動変更せず、公式情報の検出と人間レビュー付きの回帰検証に分ける。
 
 ### P0: インストール後に`Artifacts/`除外が保証されない
 
@@ -303,7 +297,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 
 ### フェーズ2: 再現性とUnity 6対応
 
-1. Harness、Unity MCP、agent-sprite-forgeの互換性マニフェストを追加する。
+1. `[完了]` Harness、Unity MCP、agent-sprite-forgeの互換性マニフェストを追加する。
 2. Build Profile中心のビルド設計へ更新する。
 3. Cinemachine 3、Input System、Code Coverageの現行例へ更新する。
 4. Validation Runのfinalize処理とschemaを追加する。
@@ -362,8 +356,9 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | GitHub Actions静的job | 定義済み | Workflow構文とローカル相当コマンドはPASS、GitHub上はNOT RUN |
 | GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
 | AssetDatabase参照検査 | PASS | Missing Referenceと必須参照の正常系・異常系 |
+| 外部依存マニフェスト | PASS | Unity MCPとagent-sprite-forgeのcommit、要件、`NOT RUN`理由を検査 |
 | Build Profile build | NOT RUN | UnityプロジェクトとBuild Profileがない |
-| Unity MCP接続 | NOT RUN | 評価セッションに対象Unity Editorがない |
+| Unity MCP接続 | NOT RUN | 固定版MCPをfixtureへ未導入・未接続 |
 
 fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000.4.10f1`へ固定している。
 
@@ -380,7 +375,7 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 
 ## 10. 残課題・リスク
 
-- Unity MCPは第三者プロジェクトであり、更新頻度が高い。バージョン固定なしではツール名や挙動の変化を吸収できない。
+- Unity MCPとagent-sprite-forgeは固定済みだが、fixtureでの実行互換性は未検証である。上流更新の採用には再固定と回帰検証が必要。
 - 「最新Unityへの対応」と「既存Unity案件への互換性」は別要件である。Package検出とバージョン別ガイドが必要。
 - 文書量が多いため、毎作業で全設計書を読むとコンテキスト効率が落ちる。設計シートを索引と機能別文書へ分割する余地がある。
 - 実ゲームでの性能、ビルド、入力、UI、アセット参照は未検証であり、本評価だけで本番利用可能とは判断できない。
@@ -414,9 +409,10 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 - Input System  
   https://docs.unity3d.com/Manual/com.unity.inputsystem.html
 - CoplayDev/unity-mcp  
-  https://github.com/CoplayDev/unity-mcp
+  https://github.com/CoplayDev/unity-mcp/releases/tag/v9.7.0
+- CoplayDev/unity-mcp v9.7.0 commit: https://github.com/CoplayDev/unity-mcp/commit/417cf351a152b483c91e6e2deaf7ae355fa8eff3
 - 0x0funky/agent-sprite-forge  
-  https://github.com/0x0funky/agent-sprite-forge
+  https://github.com/0x0funky/agent-sprite-forge/commit/fff651a89223b044ccfc0b75ed9f3754c6d739b1
 
 ## 12. 最終判定
 
@@ -425,7 +421,7 @@ fixtureの`ProjectVersion.txt`は、ローカルで実行確認したUnity `6000
 - 設計・承認・安全規約の土台としては採用価値が高い。
 - 小規模な試作やCodexとの共同作業には現状でも利用できる。
 - チーム開発、継続運用、複数プラットフォーム、本番リリースへ使う前に、P0項目を実装する必要がある。
-- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、CIのリモート実行証拠、Build Profileビルド、依存固定が不足している。
+- 「最新のUnityゲーム開発を汎用的に行える完成環境」と呼ぶには、CIのリモート実行証拠、Build Profileビルド、固定した外部依存の実行確認が不足している。
 
 ## 13. 改善進捗
 
@@ -514,5 +510,45 @@ Unity `6000.4.10f1`実行結果:
 残るP0:
 
 - GitHub Actions Unity jobのリモート実行確認
-- 外部依存の互換性マニフェスト
+- インストール先プロジェクトの`Artifacts/` Git除外保証
+
+### 2026-06-09: P0-3 外部依存の互換性マニフェスト
+
+次を追加した。
+
+- `harness.lock.json`によるUnity fixture、Python、外部ツールの固定情報
+- Unity MCP `v9.7.0`とrelease commit `417cf351a152b483c91e6e2deaf7ae355fa8eff3`
+- agent-sprite-forge commit `fff651a89223b044ccfc0b75ed9f3754c6d739b1`
+- `numpy>=1.26`、`Pillow>=10.0`のPython依存条件
+- Release、commit、Package metadata、requirementsへの公式参照
+- fixtureのUnity version、commit SHA、Package情報、Python依存、検証状態の静的検査
+- インストーラーによる導入先ゲームへのマニフェスト配布
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、19件
+- Unity `6000.4.10f1`回帰検証: `PASS`
+- Compile: `PASS`
+- EditMode: `PASS`、4件
+- PlayMode: `PASS`、1件
+- Asset validation: `PASS`
+- Unity MCP `v9.7.0`のfixture接続: `NOT RUN`
+- agent-sprite-forgeの画像生成とUnity import: `NOT RUN`
+
+検証成果物:
+
+- `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T000618Z/`
+
+検証中、sandbox内ではUnity Package ManagerがIPC socketを作成できず失敗し、sandbox外の初回実行では孤立したLicensing Clientとの競合が発生した。孤立プロセスを終了したクリーン再実行で全チェックがPASSした。これはコード回帰ではなくローカル実行環境の制約として扱う。
+
+未実施:
+
+- Unity MCPはfixtureへ未導入で、基本Editor操作との互換性を実行確認していない
+- agent-sprite-forgeは未導入で、固定Python依存による生成を実行確認していない
+- 固定値の更新通知と定期回帰検証は未実装
+
+残るP0:
+
+- GitHub Actions Unity jobのリモート実行確認
 - インストール先プロジェクトの`Artifacts/` Git除外保証
