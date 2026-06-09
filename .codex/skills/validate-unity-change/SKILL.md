@@ -11,7 +11,11 @@ description: Validate Unity changes against design IDs and acceptance criteria u
 2. Read validation, artifact, and Definition of Done rules in `docs/unity_harness_engineering.md`.
 3. Resolve `UNITY_PROJECT_ROOT`; verify the Unity project markers instead of guessing.
 4. List changed code, scenes, prefabs, ScriptableObjects, settings, packages, tags, layers, and build configuration.
-5. Build an AC matrix before testing:
+5. For cross-cutting changes, compare implementation, installed packages,
+   service settings, network behavior, collected data, and user-facing flows
+   with the adoption matrix. Treat implementation under `不採用` or `保留` as
+   a design mismatch, not a passing validation.
+6. Build an AC matrix before testing:
 
 ```markdown
 | AC ID | Verification type | Planned check | Evidence target |

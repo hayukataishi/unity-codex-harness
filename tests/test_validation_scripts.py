@@ -406,6 +406,66 @@ class BuildProfileDocumentationTests(unittest.TestCase):
             )
 
 
+class CrossCuttingDocumentationTests(unittest.TestCase):
+    def test_repository_defines_cross_cutting_adoption_gate(self):
+        self.assertEqual(
+            repository_validator.validate_cross_cutting_documentation(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_privacy_adoption_row(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.CROSS_CUTTING_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = [
+                    value
+                    for value in required_values
+                    if value != "| Privacy / Consent / Compliance |"
+                ]
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_cross_cutting_documentation(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "Privacy / Consent / Compliance" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_cross_cutting_topics_returning_to_appendix_only(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.CROSS_CUTTING_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += "\n**ネットワーク同期** … マルチプレイなら必須"
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator.validate_cross_cutting_documentation(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "cross-cutting topic remains appendix-only" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class CinemachineDocumentationTests(unittest.TestCase):
     def test_repository_uses_cinemachine_3_guidance(self):
         self.assertEqual(

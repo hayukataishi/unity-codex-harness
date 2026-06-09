@@ -56,6 +56,68 @@ OUTDATED_BUILD_SETTINGS_TEXT = {
         "Build Settings、Tag、Layer、Input設定",
     ),
 }
+CROSS_CUTTING_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="cross-cutting-gate"></a>',
+        "## 20. 横断機能採否ゲート",
+        '<a id="project-001"></a>',
+        "### PROJECT-001:",
+        "PROJECT-001-AC03",
+        "| `採用` |",
+        "| `不採用` |",
+        "| `保留` |",
+        "| Accessibility |",
+        "| Localization |",
+        "| Multiplayer / Online |",
+        "| Account / Authentication / Cloud Save |",
+        "| Analytics / Crash Reporting |",
+        "| Privacy / Consent / Compliance |",
+        "| Security / Abuse Prevention |",
+        "| LiveOps / Remote Config |",
+        "| IAP / Ads / Entitlements |",
+        "| Moderation / Community |",
+        "| Modding / UGC |",
+        "| XR |",
+        "| Performance / Device Budgets |",
+        "| Diagnostics / Debug / Cheat Controls |",
+        "Vertical Slice、Alpha、Release Candidate",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="cross-cutting-policy"></a>',
+        "### 横断機能採否ゲート",
+        "空欄を不採用と解釈しない",
+        "Codexは法務判断を代替せず",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "## Cross-cutting adoption gate",
+        "`採用`, `不採用`, or `保留`",
+        "legal, store-policy, child-safety, or security",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "Check the cross-cutting adoption matrix",
+        "`保留` or contradicts",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "For cross-cutting changes",
+        "implementation under `不採用` or `保留`",
+    ),
+    ".codex/skills/report-unity-work/SKILL.md": (
+        "For cross-cutting changes",
+        "reevaluation trigger",
+    ),
+    "README.md": (
+        "### 横断機能を先に採否判断する",
+        "`採用`、`不採用`、`保留`",
+    ),
+}
+OUTDATED_CROSS_CUTTING_APPENDIX_TEXT = {
+    "docs/unity_design_sheet.md": (
+        "**ネットワーク同期** … マルチプレイなら必須",
+        "**ローカライズ** … 多言語対応",
+        "**Unity Gaming Services** …",
+        "**VR / AR 対応** …",
+    ),
+}
 CINEMACHINE_3_REQUIRED_TEXT = {
     "docs/unity_design_sheet.md": (
         '<a id="graphics-001"></a>',
@@ -320,6 +382,37 @@ def validate_cinemachine_documentation(root: Path) -> list[str]:
     return errors
 
 
+def validate_cross_cutting_documentation(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in CROSS_CUTTING_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing cross-cutting document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing cross-cutting adoption guidance: "
+                    f"{relative} -> {required}"
+                )
+
+    for relative, outdated_values in (
+        OUTDATED_CROSS_CUTTING_APPENDIX_TEXT.items()
+    ):
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for outdated in outdated_values:
+            if outdated in text:
+                errors.append(
+                    f"cross-cutting topic remains appendix-only: "
+                    f"{relative} -> {outdated}"
+                )
+    return errors
+
+
 def validate_validation_run_lifecycle(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in VALIDATION_RUN_REQUIRED_TEXT.items():
@@ -549,6 +642,7 @@ def main() -> int:
         + validate_markdown(root)
         + validate_github_actions(root)
         + validate_build_profile_documentation(root)
+        + validate_cross_cutting_documentation(root)
         + validate_cinemachine_documentation(root)
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)

@@ -26,10 +26,27 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
    - **仮定**: temporary premise needed to continue
    - **要確認**: requires human judgment or approval
 4. Identify contradictions, missing decisions, affected systems, save compatibility, and regression risks.
-5. Update the smallest coherent design section.
-6. Add or revise design item IDs and acceptance criteria.
-7. Separate changes that require approval from changes safe to implement immediately.
-8. Report the edited sections, unresolved questions, and the next implementable unit.
+5. Check the cross-cutting adoption matrix for affected services, data, online,
+   monetization, accessibility, localization, performance, diagnostics, UGC,
+   and XR concerns.
+6. Update the smallest coherent design section.
+7. Add or revise design item IDs and acceptance criteria.
+8. Separate changes that require approval from changes safe to implement immediately.
+9. Report the edited sections, unresolved questions, and the next implementable unit.
+
+## Cross-cutting adoption gate
+
+- Every matrix row uses `採用`, `不採用`, or `保留`; never infer an empty row
+  as not applicable.
+- `採用` requires scope, dependency or `なし（自作）`, data and regulatory
+  considerations, and linked design and acceptance-criterion IDs.
+- `不採用` requires a reason and reevaluation trigger.
+- `保留` requires a reason, decision owner, and deadline or milestone. Do not
+  approve dependent implementation while it remains pending.
+- Require human approval for privacy, consent, accounts, online services,
+  analytics, monetization, ads, UGC, moderation, and target-region decisions.
+- Do not present legal, store-policy, child-safety, or security assumptions as
+  settled facts. Record them as `要確認` and identify the needed reviewer.
 
 ## Traceability rules
 

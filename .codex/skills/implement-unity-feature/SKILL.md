@@ -14,8 +14,13 @@ description: Implement an approved Unity design item with minimal, architecture-
    - repository-level instructions
 2. Resolve `UNITY_PROJECT_ROOT` from user context or Unity MCP. Verify `Assets/`, `Packages/`, and `ProjectSettings/ProjectVersion.txt`. Never store a machine-specific path in shared files.
 3. Read the exact design item and all active AC IDs. If the requested behavior is not approved, use `$maintain-game-design` before implementation.
-4. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-5. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+4. Check the cross-cutting adoption matrix before work involving packages,
+   external services, networking, accounts, collected data, analytics,
+   monetization, ads, UGC, moderation, accessibility, localization,
+   performance budgets, diagnostics, or XR. Stop if the affected row is
+   `保留` or contradicts the requested implementation.
+5. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+6. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 

@@ -245,25 +245,20 @@ Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Python
 
 基盤fixtureには主観的なゲーム体験がないため、常設の有効な`MANUAL:*` ACは設けず、Inspector確認をREADMEの任意手順として分離した。全有効ACはローカルとCIで再現可能な自動検証とする。
 
-### P1: 汎用性に必要な横断設計が「付録」に留まる
+### P1: 汎用性に必要な横断設計が「付録」に留まる（対応済み）
 
-ネットワーク、ローカライズ、UGS、性能、デバッグ、XRは付録扱いで、アクセシビリティ、プライバシー、クラッシュ収集、分析、課金、モデレーション、セキュリティ、ライブ運用のゲートがない。
+2026-06-09に`PROJECT-001`として、横断機能を付録から正式な実装前ゲートへ昇格した。
 
-すべてを初期必須にする必要はないが、該当性を判定するチェックは必要である。
+- 14領域をAccessibility、Localization、Online、Account、Analytics / Crash、Privacy、Security、LiveOps、IAP / Ads、Moderation、UGC、XR、Performance、Diagnosticsに分類
+- 全行を`採用`、`不採用`、`保留`のいずれかへ分類し、空欄を暗黙の不採用として扱わない
+- `採用`には対象範囲、Package / Service、データ・規制・安全性、設計ID・AC IDを要求
+- `不採用`には理由と再評価条件、`保留`には理由、責任者、期限・マイルストーンを要求
+- 保留中の依存導入、通信、データ収集、課金、広告、UGC実装を開始しない
+- 高影響領域は人間承認と必要な専門レビューを要求し、Codexが法務・Store・安全性判断を代替しない
+- 企画確定、Vertical Slice、Alpha、Release Candidateと条件変更時に再評価
+- 設計、Engineering、実装・検証・報告Skill、READMEを同じ契約へ統一
 
-**改善案:** 設計シートへ「横断機能採否マトリクス」を追加する。
-
-| 領域 | 採用 | 理由 | 対象Package/Service | ACあり |
-|---|---|---|---|---|
-| Accessibility | | | | |
-| Localization | | | | |
-| Multiplayer | | | | |
-| Analytics / Crash | | | | |
-| Privacy / Consent | | | | |
-| LiveOps / Remote Config | | | | |
-| IAP / Ads | | | | |
-| Modding / UGC | | | | |
-| XR | | | | |
+テンプレートのマトリクスは意図的に空欄で配布する。これは「不採用」を意味せず、導入先ゲームが実装開始前に判断すべき未決定事項を可視化するためである。
 
 ### P2: アーキテクチャ例が規模に対して強すぎる
 
@@ -321,7 +316,7 @@ JSON、PlayerPrefs、暗号化、versionフィールドだけでは、実運用�
 
 ### フェーズ3: 汎用ゲーム開発の拡張
 
-1. Accessibility、Localization、Multiplayer、Privacy、LiveOpsの採否ゲートを追加する。
+1. `[完了]` Accessibility、Localization、Multiplayer、Privacy、LiveOpsを含む14領域の採否ゲートを追加する。
 2. Small / Standard / Largeのアーキテクチャプロファイルを追加する。
 3. 2Dに加えて3Dアセット、Shader、Lighting、性能予算の統合Skillを追加する。
 4. 対象デバイスProfiler、Memory Profiler、ロード時間、Build sizeをACへ接続する。
@@ -364,7 +359,8 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| テンプレート自己回帰 | PASS | Python `unittest` 63件。Installer、preflight、Validation Run、fixture、文書・CI規約 |
+| テンプレート自己回帰 | PASS | Python `unittest` 66件。Installer、preflight、Validation Run、fixture、横断設計、文書・CI規約 |
+| 横断機能採否ゲート | PASS | `PROJECT-001`、14領域、3状態、承認・停止・再評価規則 |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
@@ -847,3 +843,42 @@ Unity `6000.4.10f1`実行結果:
 - 保存済みBuild Profileを使用したPlayer buildはまだ`NOT RUN`
 - GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
 - fixtureはハーネス自身の回帰専用であり、`scripts/install.py`から導入先ゲームへコピーしない
+
+### 2026-06-09: P1-6 横断機能採否ゲート
+
+横断機能を付録の検討候補から、全ゲームで採否を記録するSection 20へ移動した。
+
+追加・更新内容:
+
+- `PROJECT-001`と3つの静的AC
+- 14領域の横断機能採否マトリクス
+- `採用` / `不採用` / `保留`の記録要件と実装可否
+- 高影響領域の人間承認、専門レビュー、法務判断を代替しない規則
+- 企画確定、Vertical Slice、Alpha、Release Candidate、条件変更時の再評価
+- `maintain-game-design`、`implement-unity-feature`、`validate-unity-change`、`report-unity-work`へのゲート接続
+- READMEとMCP・Skill一覧の導入手順
+- Privacy行欠落と横断領域の付録回帰を検出するPythonテスト3件
+
+`PROJECT-001`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `PROJECT-001-AC01` | `PASS` | 14領域と3状態をリポジトリ文書検査で確認 |
+| `PROJECT-001-AC02` | `PASS` | 採用時の設計・依存・データ要件、不採用・保留時の理由・再評価要件を確認 |
+| `PROJECT-001-AC03` | `PASS` | 人間承認、保留中の実装停止、マイルストーン・条件変更時の再評価を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、66件
+- Python構文コンパイル: `PASS`
+- 横断領域必須記述検査: `PASS`
+- Privacy行欠落の異常系: 検出テスト`PASS`
+- 付録だけへ戻る異常系: 検出テスト`PASS`
+- Unity fixture: 非該当。Unityコード、Scene、Prefab、Package、ProjectSettingsは変更していない
+
+導入先ゲームで必要な作業:
+
+- テンプレートの空欄は未決定を表すため、実装開始前に全14行を埋める
+- `採用`を選んだ領域はゲーム固有の設計ID・ACへ接続する
+- Privacy、課金、広告、Online、Account、Analytics、UGC、Moderationは対象地域・Store・年齢区分に応じて専門レビューを行う
