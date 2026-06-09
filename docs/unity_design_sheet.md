@@ -1741,6 +1741,28 @@ CIは保存済みProfileを明示してUnityを起動する。
 | `DEBUG-002-AC03` | `有効` | `AUTO:STATIC` | Run作成が無効プロジェクトを変更せず拒否し、Run ID衝突とManifest記録を検証する | Python CLI回帰テスト |
 | `DEBUG-002-AC04` | `有効` | `AUTO:STATIC` | Repository jobが全`test_*.py`を自動検出し、必須回帰テストファイルをリポジトリ検査が保証する | Workflow・リポジトリ文書検査 |
 
+<a id="debug-003"></a>
+
+### DEBUG-003: Unity 6.4実動fixtureでハーネスを検証する
+
+**仕様**
+
+- `tests/fixtures/UnityValidationFixture`を、ハーネス自身のUnity実行回帰に使用する最小Unityプロジェクトとする。
+- fixtureはUnity `6000.4.10f1`、Test Framework、Runtime / Editor / EditMode / PlayMode asmdefを固定する。
+- 保存済みPrefab、Scene、Unity 6 Build Profileを含み、Prefab参照、Scene内Prefab instance、Profile固有Scene ListとScripting DefineをEditor APIで検証する。
+- EditModeでは純粋C#、保存済みUnity資産、AssetDatabase検査の正常系と、動的に生成したMissing Reference・必須参照不足の異常系を検証する。
+- PlayModeでは保存済みSceneを読み込み、Prefab instanceと必須参照を使用したComponent連携を検証する。
+- fixture、Workflow、生成物はハーネス自身の回帰専用とし、`scripts/install.py`で導入先ゲームへコピーしない。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-003-AC01` | `有効` | `AUTO:STATIC` | fixtureがUnity 6000.4.10f1、Test Framework、Runtime / Editor / EditMode / PlayMode asmdef、必要なScene・Prefab・Build Profileを持つ | Python fixture契約テスト |
+| `DEBUG-003-AC02` | `有効` | `AUTO:ASSET` | 保存済みPrefabの必須参照、Scene内Prefab instance、Build ProfileのScene ListとScripting DefineをEditor APIで読み取れる | EditModeテスト |
+| `DEBUG-003-AC03` | `有効` | `AUTO:EDIT` | Asset validatorが正常fixtureをPASSし、動的に生成したMissing Referenceと必須参照不足をFAILとして検出する | EditModeテスト |
+| `DEBUG-003-AC04` | `有効` | `AUTO:PLAY` | `FixtureScene`をPlayModeで読み込み、`CounterFixture`の参照とカウンター動作を確認できる | PlayModeテスト |
+
 ---
 
 ## 付録A：ジャンル別 追加検討項目

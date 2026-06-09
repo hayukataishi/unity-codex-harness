@@ -19,7 +19,7 @@ namespace UnityCodexHarness.Fixture.Tests.EditMode
         }
 
         [Test]
-        public void Harness001Ac02_ProjectAssetsPassConfiguredValidation()
+        public void Debug003Ac03_ProjectAssetsPassConfiguredValidation()
         {
             CreateReferencePrefab(useExternalTarget: false);
 
@@ -33,12 +33,13 @@ namespace UnityCodexHarness.Fixture.Tests.EditMode
                     "\n",
                     report.errors.Select(issue => $"{issue.code}: {issue.message}")));
             Assert.That(report.status, Is.EqualTo("PASS"));
-            Assert.That(report.summary.requiredAssets, Is.EqualTo(1));
+            Assert.That(report.summary.requiredAssets, Is.EqualTo(4));
+            Assert.That(report.summary.requiredReferences, Is.EqualTo(1));
             Assert.That(report.summary.scannedPrefabs, Is.GreaterThanOrEqualTo(1));
         }
 
         [Test]
-        public void Harness001Ac02_DetectsBrokenSerializedObjectReference()
+        public void Debug003Ac03_DetectsBrokenSerializedObjectReference()
         {
             CreateReferencePrefab(useExternalTarget: true);
             AssetDatabase.DeleteAsset(TargetPrefabPath);
@@ -55,7 +56,7 @@ namespace UnityCodexHarness.Fixture.Tests.EditMode
         }
 
         [Test]
-        public void Harness001Ac02_DetectsMissingRequiredPrefabReference()
+        public void Debug003Ac03_DetectsMissingRequiredPrefabReference()
         {
             AssetDatabase.CreateFolder("Assets", "TempAssetValidationTests");
             var root = new GameObject("ReferenceFixture");

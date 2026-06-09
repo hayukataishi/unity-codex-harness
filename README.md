@@ -309,9 +309,14 @@ python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
 ```bash
 python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
   --project-root tests/fixtures/UnityValidationFixture \
-  --design-id HARNESS-001 \
-  --ac-id HARNESS-001-AC01
+  --design-id DEBUG-003 \
+  --ac-id DEBUG-003-AC01 \
+  --ac-id DEBUG-003-AC02 \
+  --ac-id DEBUG-003-AC03 \
+  --ac-id DEBUG-003-AC04
 ```
+
+fixtureにはRuntime / Editor / EditMode / PlayMode asmdef、保存済みPrefab、Scene、Unity 6 Build Profile、正常系と故意に壊した参照の検査が含まれます。
 
 ### ハーネス自身のCI
 

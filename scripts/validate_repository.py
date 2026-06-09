@@ -131,11 +131,15 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         '<a id="debug-002"></a>',
         "### DEBUG-002:",
         "DEBUG-002-AC04",
+        '<a id="debug-003"></a>',
+        "### DEBUG-003:",
+        "DEBUG-003-AC04",
         "Run ID衝突",
         "競合やdry-run時",
     ),
     "docs/unity_harness_engineering.md": (
         "テンプレート自己回帰テスト基準",
+        "Unity fixture契約",
         "Installer CLI",
         "Static preflight",
         "unittest discover",
@@ -159,6 +163,12 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "class ValidationRunCreationRegressionTests",
         "test_run_id_collision_uses_two_digit_suffix",
         "test_run_id_collision_limit_fails_explicitly",
+    ),
+    "tests/test_unity_fixture_contract.py": (
+        "class UnityFixtureContractTests",
+        "test_required_saved_assets_have_meta_files",
+        "test_assembly_boundaries_are_explicit",
+        "test_asset_validation_config_covers_saved_assets",
     ),
 }
 

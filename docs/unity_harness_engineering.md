@@ -392,6 +392,19 @@ SAVE-001
 - Unityテスト結果とログは、成功・失敗にかかわらずGitHub Actions Artifactへ保存する。
 - Workflowの定義完了と、GitHub上での実行成功は別の状態として扱う。Secret、Runner、GameCI imageなどが未準備なら`NOT RUN`または`BLOCKED`と報告する。
 
+#### Unity fixture契約
+
+`tests/fixtures/UnityValidationFixture`は、ハーネス文書とは独立したUnity実行可能性の回帰境界とする。
+
+- Unity Editorは`6000.4.10f1`へ固定し、`harness.lock.json`と一致させる。
+- Runtime、Editor、EditMode、PlayModeのasmdefを分離する。
+- 保存済みPrefab、Scene、Unity 6 Build ProfileをVersion Controlへ含める。
+- Build Profileはfixture Scene Listをoverrideし、fixture固有Scripting Defineを持つ。
+- EditModeは保存済み資産の接続と、テスト中に生成した壊れた参照の検出を確認する。
+- PlayModeは保存済みSceneをロードし、Prefab instanceのComponent連携を確認する。
+- Scene、Prefab、Build ProfileはUnity Editor APIで生成・更新し、Unity YAMLを手編集しない。
+- fixture契約の必須ファイルとJSON設定はPython回帰でも検査し、Unity API上の成立性はUnity Test Frameworkで検査する。
+
 #### テンプレート自己回帰テスト基準
 
 ハーネスのPython回帰テストは、次の責務ごとに`tests/test_*.py`へ分割し、標準ライブラリ`unittest`で実行する。

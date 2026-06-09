@@ -227,19 +227,23 @@ Unity `6000.4.10f1` fixtureでfinalizeとintegrity verificationまで`PASS`し�
 
 Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Pythonテストはファイル操作とCLI契約、Unity fixtureはEditorコンパイル、EditMode、PlayMode、AssetDatabase検査を担当し、両者を別の証拠として扱う。
 
-### P1: 実動サンプルまたはfixture Unityプロジェクトがない
+### P1: 実動サンプルまたはfixture Unityプロジェクトがない（対応済み）
 
-文書とSkillだけでは、Unity Package、asmdef、Test Framework、Build Profile、Scene、Prefab検査が実際に成立するか継続確認できない。
+`tests/fixtures/UnityValidationFixture`は以前のP0対応で追加済みであり、この評価項目の前提は古くなっていた。ただし当初はRuntime / EditMode / PlayModeと動的な資産検査だけで、保存済みScene、Prefab、Build Profile、fixture専用Editor asmdefが不足していた。
 
-**改善案:** 小さな`Samples~/`または別fixtureプロジェクトを用意し、次を含める。
+2026-06-09に`DEBUG-003`として次を追加し、実動fixture契約を完成させた。
 
-- Unity 6.4 Update基準
+- Unity `6000.4.10f1`とTest Framework `1.6.0`
 - Runtime / Editor / EditMode / PlayMode asmdef
-- 1つのSceneとPrefab
-- 1つの設計IDとAUTO/MANUAL AC
-- EditMode / PlayModeテスト
-- Build Profile
-- 故意に壊した検証用fixture
+- `CounterFixture.prefab`と必須`target`参照
+- `FixtureScene.unity`と保存済みPrefab instance
+- `FixtureDevelopment.asset` Build Profile、Scene List override、`UNITY_CODEX_FIXTURE` Define
+- 純粋C#、保存済み資産、PlayMode Sceneロードの正常系
+- 動的に生成するMissing Referenceと必須参照不足の異常系
+- 必須ファイル、`.meta`、asmdef、Package、資産検査設定を確認するPython fixture契約テスト
+- 任意のEditorレビュー手順
+
+基盤fixtureには主観的なゲーム体験がないため、常設の有効な`MANUAL:*` ACは設けず、Inspector確認をREADMEの任意手順として分離した。全有効ACはローカルとCIで再現可能な自動検証とする。
 
 ### P1: 汎用性に必要な横断設計が「付録」に留まる
 
@@ -360,20 +364,21 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
-| テンプレート自己回帰 | PASS | Python `unittest` 59件。Installer、preflight、Validation Run、文書・CI規約 |
+| テンプレート自己回帰 | PASS | Python `unittest` 63件。Installer、preflight、Validation Run、fixture、文書・CI規約 |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
 | Validation Run integrity | PASS | Manifest sidecar hash、成果物SHA-256、改変・欠落・未記録検出 |
 | 静的プリフライト | PASS | Unity 6.4 fixtureで必須パス、`.meta`、GUIDを検査 |
 | Unity Editor compile | PASS | ローカルUnity `6000.4.10f1` |
-| EditMode / PlayMode | PASS | EditMode 4件、PlayMode 1件 |
+| EditMode / PlayMode | PASS | EditMode 6件、PlayMode 2件 |
+| Unity fixture契約 | PASS | Unity 6.4、4 asmdef、Prefab、Scene、Build Profile、正常系・異常系 |
 | GitHub Actions静的job | 定義済み | Workflow構文とローカル相当コマンドはPASS、GitHub上はNOT RUN |
 | GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
 | AssetDatabase参照検査 | PASS | Missing Referenceと必須参照の正常系・異常系 |
 | 外部依存マニフェスト | PASS | Unity MCPとagent-sprite-forgeのcommit、要件、`NOT RUN`理由を検査 |
 | Build Profile文書規約 | PASS | `BUILD-001`、3分類、Scene List、Defines、Clean Build、CI指定 |
-| Build Profile build | NOT RUN | fixtureに保存済みBuild ProfileとPlayer Sceneがない |
+| Build Profile build | NOT RUN | 保存済みProfileとPlayer SceneのEditor API・PlayMode検査はPASS。Player buildは未実行 |
 | Cinemachine 3文書規約 | PASS | `GRAPHICS-001`、3.x API、Package検出、2.x移行規則 |
 | Cinemachine 3実Component | NOT RUN | fixtureにCinemachine PackageとCamera Sceneがない |
 | Unity MCP接続 | NOT RUN | 固定版MCPをfixtureへ未導入・未接続 |
@@ -796,3 +801,49 @@ Unity `6000.4.10f1`実行結果:
 - GitHub Actions Repository jobは定義とローカル相当コマンドが`PASS`だが、GitHub上ではまだ`NOT RUN`
 - GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
 - Unity fixtureはハーネス基盤の非回帰を確認する最小プロジェクトであり、実ゲーム固有のScene、Build Profile、Package構成は導入先ごとに追加検証する
+
+### 2026-06-09: P1-5 Unity 6.4実動fixture
+
+既存の`tests/fixtures/UnityValidationFixture`を棚卸しし、部分対応だった実動fixtureを`DEBUG-003`として完成させた。
+
+追加・更新内容:
+
+- fixture専用Editor asmdefと資産パス契約
+- Unity Editor APIで生成した保存済みPrefab、Scene、Build Profileと`.meta`
+- Build ProfileのScene List overrideと`UNITY_CODEX_FIXTURE` Define
+- Prefab必須参照とScene内Prefab instanceのEditMode検査
+- 保存済み`FixtureScene`をロードするPlayMode検査
+- Missing Referenceと必須参照不足を動的生成する異常系
+- fixtureの必須ファイル、asmdef、Package、資産検査設定を守るPython回帰4件
+- `DEBUG-003`の設計、AC、README、Engineering契約
+
+`DEBUG-003`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-003-AC01` | `PASS` | Python fixture契約と静的プリフライトでUnity version、Test Framework、4 asmdef、保存済み資産と`.meta`を確認 |
+| `DEBUG-003-AC02` | `PASS` | EditModeでPrefab参照、Scene内Prefab instance、Build Profile Scene List・Defineを公開Editor APIから確認 |
+| `DEBUG-003-AC03` | `PASS` | 正常fixtureのAsset validationと、Missing Reference・必須参照不足の異常系を確認 |
+| `DEBUG-003-AC04` | `PASS` | PlayModeで`FixtureScene`をロードし、`CounterFixture`の参照とカウンター動作を確認 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、63件
+- 静的プリフライト: `PASS`、asset / directory 29件、`.meta` 29件
+- Unity `6000.4.10f1` fixture: `PASS`
+  - Run ID: `20260609T062753Z`
+  - State: `COMPLETED`
+  - Result: `PASS`
+  - Compile: `PASS`
+  - EditMode: `PASS`、6件
+  - PlayMode: `PASS`、2件
+  - Asset validation: `PASS`、Scene 1 / Prefab 1 / 必須資産 4 / 必須参照 1 / error 0
+  - Integrity verification: `PASS`
+  - 証拠: `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T062753Z/`
+
+既知の境界:
+
+- 保存済みBuild Profileを使用したPlayer buildはまだ`NOT RUN`
+- GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
+- fixtureはハーネス自身の回帰専用であり、`scripts/install.py`から導入先ゲームへコピーしない

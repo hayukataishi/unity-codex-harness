@@ -3,6 +3,7 @@
   "rootNamespace": "UnityCodexHarness.Fixture.Tests.EditMode",
   "references": [
     "UnityCodexHarness.Fixture.Runtime",
+    "UnityCodexHarness.Fixture.Editor",
     "UnityCodexHarness.Validation.Editor"
   ],
   "includePlatforms": [

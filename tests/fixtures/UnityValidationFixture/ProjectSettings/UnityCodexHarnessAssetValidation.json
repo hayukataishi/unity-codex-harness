@@ -3,7 +3,26 @@
     {
       "path": "Assets/Game/Scripts/Runtime/CounterBehaviour.cs",
       "type": "MonoScript"
+    },
+    {
+      "path": "Assets/Game/Prefabs/CounterFixture.prefab",
+      "type": "GameObject"
+    },
+    {
+      "path": "Assets/Game/Scenes/FixtureScene.unity",
+      "type": "SceneAsset"
+    },
+    {
+      "path": "Assets/Settings/BuildProfiles/FixtureDevelopment.asset",
+      "type": "BuildProfile"
     }
   ],
-  "requiredReferences": []
+  "requiredReferences": [
+    {
+      "assetPath": "Assets/Game/Prefabs/CounterFixture.prefab",
+      "objectPath": "CounterFixture",
+      "componentType": "UnityCodexHarness.Fixture.CounterBehaviour",
+      "propertyPath": "target"
+    }
+  ]
 }

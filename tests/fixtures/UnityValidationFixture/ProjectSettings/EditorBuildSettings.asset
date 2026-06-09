@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Game/Scenes/FixtureScene.unity
+    guid: aac8d20d8ad9a4f2eb9b3fcb9dc1d203
   m_configObjects: {}
