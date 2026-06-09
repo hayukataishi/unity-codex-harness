@@ -126,6 +126,41 @@ VALIDATION_RUN_REQUIRED_TEXT = {
         "unrecorded artifact",
     ),
 }
+TEMPLATE_REGRESSION_REQUIRED_TEXT = {
+    "docs/unity_design_sheet.md": (
+        '<a id="debug-002"></a>',
+        "### DEBUG-002:",
+        "DEBUG-002-AC04",
+        "Run ID衝突",
+        "競合やdry-run時",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "テンプレート自己回帰テスト基準",
+        "Installer CLI",
+        "Static preflight",
+        "unittest discover",
+    ),
+    ".github/workflows/validate-harness.yml": (
+        'python3 -m unittest discover -s tests -p "test_*.py" -v',
+    ),
+    "tests/test_installer_cli.py": (
+        "class InstallerCliRegressionTests",
+        "test_conflict_stops_before_any_update",
+        "test_force_replaces_conflicting_harness_file",
+        "test_reinstall_is_idempotent",
+    ),
+    "tests/test_preflight_unity_project.py": (
+        "class PreflightRegressionTests",
+        "test_detects_missing_and_orphan_meta",
+        "test_detects_invalid_and_duplicate_guid",
+        "test_detects_missing_script_marker",
+    ),
+    "tests/test_validation_run_creation.py": (
+        "class ValidationRunCreationRegressionTests",
+        "test_run_id_collision_uses_two_digit_suffix",
+        "test_run_id_collision_limit_fails_explicitly",
+    ),
+}
 
 
 def frontmatter_value(frontmatter: str, key: str) -> str | None:
@@ -287,6 +322,23 @@ def validate_validation_run_lifecycle(root: Path) -> list[str]:
             if required not in text:
                 errors.append(
                     f"missing Validation Run lifecycle guidance: "
+                    f"{relative} -> {required}"
+                )
+    return errors
+
+
+def validate_template_regression_suite(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in TEMPLATE_REGRESSION_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing template regression file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing template regression coverage: "
                     f"{relative} -> {required}"
                 )
     return errors
@@ -489,6 +541,7 @@ def main() -> int:
         + validate_build_profile_documentation(root)
         + validate_cinemachine_documentation(root)
         + validate_validation_run_lifecycle(root)
+        + validate_template_regression_suite(root)
         + validate_harness_lock(root)
     )
     if errors:

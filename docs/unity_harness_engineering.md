@@ -392,6 +392,26 @@ SAVE-001
 - Unityテスト結果とログは、成功・失敗にかかわらずGitHub Actions Artifactへ保存する。
 - Workflowの定義完了と、GitHub上での実行成功は別の状態として扱う。Secret、Runner、GameCI imageなどが未準備なら`NOT RUN`または`BLOCKED`と報告する。
 
+#### テンプレート自己回帰テスト基準
+
+ハーネスのPython回帰テストは、次の責務ごとに`tests/test_*.py`へ分割し、標準ライブラリ`unittest`で実行する。
+
+| 領域 | 必須の正常系・異常系 |
+|---|---|
+| Installer CLI | 新規導入、冪等な再導入、競合時の無変更停止、`--force`、`--dry-run`、`--skip-agents`、ゲーム固有設定保持、Git ignore |
+| Static preflight | 正常資産、必須パス不足、`.meta`不足・孤立、不正・重複GUID、Missing Script marker |
+| Validation Run作成 | Unityプロジェクト判定、Run ID衝突・上限、schema、設計ID・AC ID・Platform・Unity version |
+| Validation Run完結 | `RUNNING` / `COMPLETED`、結果集計、`BLOCKED`終了、再finalize拒否、改変・欠落検出 |
+| Repository規約 | Skill、Markdownリンク、GitHub Actions固定参照、Build Profile、Cinemachine、外部依存 |
+
+運用規則:
+
+- テストは一時ディレクトリを使用し、開発者の実プロジェクト、Git設定、Unity Editor状態へ依存しない。
+- 失敗すべき操作では、終了コードとエラー内容に加えて、対象ファイルが変更されていないことを確認する。
+- 不具合修正時は、その不具合を修正前に再現する回帰テストを追加する。
+- Repository jobは`unittest discover`を使用し、新しい`test_*.py`を明示列挙なしで実行する。
+- PythonテストとUnity fixtureの責務を分離し、Unity APIやserializationの成立性はUnity実行で確認する。
+
 ### 外部ツールの再現性
 
 Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも`harness.lock.json`で管理する。

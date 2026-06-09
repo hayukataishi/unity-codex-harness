@@ -215,22 +215,17 @@ fixtureにはCinemachine PackageとCamera Sceneがないため、実Component作
 
 Unity `6000.4.10f1` fixtureでfinalizeとintegrity verificationまで`PASS`した。OS強制終了や電源断はプロセス内で自動finalizeできないため、残った`RUNNING` Runは再開または理由付き`BLOCKED`で閉じる運用とする。
 
-### P1: テンプレート自身の回帰テストが不足
+### P1: テンプレート自身の回帰テストが不足（対応済み）
 
-`validate_repository.py`はSkill frontmatterと一部Markdownリンクを確認するが、インストーラー、プリフライト、Run作成の自動テストはない。
+2026-06-09に`DEBUG-002`として、標準Python `unittest`によるテンプレート自己回帰を追加した。
 
-**改善案:** 標準Python `unittest`で次を追加する。
+- Installer CLI: 新規導入、冪等な再導入、競合時の無変更停止、`--force`、`--dry-run`、`--skip-agents`、ゲーム固有設定保持
+- 静的プリフライト: 正常資産、必須パス不足、`.meta`不足・孤立、不正・重複GUID、Missing Script marker
+- Validation Run作成: Unityプロジェクト判定、Run ID衝突・上限、schema、設計ID・AC ID・Platform・Unity version
+- 既存回帰: `.gitignore`管理、Run完結・整合性、文書規約、外部依存マニフェスト、GitHub Actions
+- `validate_repository.py`: 必須テストファイル、重要な異常系、CIの`unittest discover`規約を自己検査
 
-- 新規導入
-- 再導入
-- 競合検出
-- `--force`
-- `--dry-run`
-- `.gitignore`更新
-- `.meta`不足、孤立、重複GUID
-- Missing Script
-- Run ID衝突
-- Manifest schema
+Python回帰59件とUnity `6000.4.10f1` fixture非回帰が`PASS`した。Pythonテストはファイル操作とCLI契約、Unity fixtureはEditorコンパイル、EditMode、PlayMode、AssetDatabase検査を担当し、両者を別の証拠として扱う。
 
 ### P1: 実動サンプルまたはfixture Unityプロジェクトがない
 
@@ -365,6 +360,7 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 |---|---|---|
 | `python3 scripts/validate_repository.py` | PASS | Skill構造、frontmatter、ローカル文書リンク |
 | Python構文コンパイル | PASS | `PYTHONPYCACHEPREFIX`を一時領域へ指定 |
+| テンプレート自己回帰 | PASS | Python `unittest` 59件。Installer、preflight、Validation Run、文書・CI規約 |
 | インストーラー通常実行 | PASS | 一時Unityプロジェクトへ28ファイルを導入 |
 | インストーラー再実行 | PASS | 0変更、28ファイルunchanged |
 | Validation Run lifecycle | PASS | schema v2、`RUNNING`→`COMPLETED`、finalize、再実行拒否 |
@@ -758,3 +754,45 @@ Unity `6000.4.10f1`実行結果:
 - OS強制終了、電源断、プロセス強制killでは、そのプロセス自身によるfinalizeはできない
 - その場合は残った`RUNNING` Runを調査し、再開するか`--blocked-reason`で閉じる
 - 暗号署名や外部の改ざん防止ストレージは提供しない。SHA-256は偶発的な変更と成果物不整合の検出を目的とする
+
+### 2026-06-09: P1-4 テンプレート自身の回帰テスト
+
+次を追加・更新した。
+
+- `DEBUG-002`によるテンプレート自己回帰の設計と受け入れ条件
+- Installer CLIの正常系・異常系7件
+- 静的プリフライトの正常系・異常系6件
+- Validation Run作成とRun ID衝突の正常系・異常系4件
+- 必須回帰ファイル、重要ケース、CIの`unittest discover`を守るリポジトリ自己検査2件
+- README、Engineering、検証・報告Skillの自己回帰実行規約
+
+`DEBUG-002`受け入れ条件:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-002-AC01` | `PASS` | 一時UnityプロジェクトでInstaller CLIの導入、再導入、競合、force、dry-run、skip、設定保持を検証 |
+| `DEBUG-002-AC02` | `PASS` | `.meta`、GUID、Missing Script、必須パスの正常系・異常系を検証 |
+| `DEBUG-002-AC03` | `PASS` | 無効プロジェクトの無変更拒否、Run ID衝突・上限、Manifest記録を検証 |
+| `DEBUG-002-AC04` | `PASS` | Workflowの自動検出コマンドと必須回帰ファイルをリポジトリ検査で検証 |
+
+確認結果:
+
+- リポジトリ検査: `PASS`
+- Python回帰テスト: `PASS`、59件
+- Python構文コンパイル: `PASS`
+- Unity `6000.4.10f1` fixture非回帰: `PASS`
+  - Run ID: `20260609T053752Z`
+  - State: `COMPLETED`
+  - Result: `PASS`
+  - Compile: `PASS`
+  - EditMode: `PASS`、4件
+  - PlayMode: `PASS`、1件
+  - Asset validation: `PASS`、error 0 / warning 0
+  - Integrity verification: `PASS`
+  - 証拠: `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260609T053752Z/`
+
+既知の境界:
+
+- GitHub Actions Repository jobは定義とローカル相当コマンドが`PASS`だが、GitHub上ではまだ`NOT RUN`
+- GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
+- Unity fixtureはハーネス基盤の非回帰を確認する最小プロジェクトであり、実ゲーム固有のScene、Build Profile、Package構成は導入先ごとに追加検証する

@@ -478,6 +478,42 @@ class ValidationRunDocumentationTests(unittest.TestCase):
             )
 
 
+class TemplateRegressionDocumentationTests(unittest.TestCase):
+    def test_repository_defines_template_regression_suite(self):
+        self.assertEqual(
+            repository_validator.validate_template_regression_suite(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_installer_regression_file(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.TEMPLATE_REGRESSION_REQUIRED_TEXT.items()
+            ):
+                if relative.endswith("test_installer_cli.py"):
+                    continue
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    "\n".join(required_values),
+                    encoding="utf-8",
+                )
+
+            errors = (
+                repository_validator.validate_template_regression_suite(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "missing template regression file" in error
+                    and "test_installer_cli.py" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(

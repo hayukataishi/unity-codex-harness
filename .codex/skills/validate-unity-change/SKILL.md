@@ -45,6 +45,12 @@ which finalizes and verifies automatically.
 
 Run only applicable checks, but explicitly mark omitted checks.
 
+When changing the harness itself, run the full repository suite with
+`python3 -m unittest discover -s tests -p 'test_*.py' -v`. Installer,
+preflight, Validation Run, repository-policy, and workflow changes require both
+their focused regression tests and the complete suite. Run the Unity fixture
+separately when Unity-facing behavior can be affected.
+
 1. **Static preflight**
    ```bash
    python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \

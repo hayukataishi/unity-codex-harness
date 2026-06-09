@@ -1718,6 +1718,29 @@ CIは保存済みProfileを明示してUnityを起動する。
 | `DEBUG-001-AC02` | `有効` | `AUTO:STATIC` | 完了済みRunの再finalizeが拒否され、途中Runを理由付き`BLOCKED`で完了できる | Python CLI回帰テスト |
 | `DEBUG-001-AC03` | `有効` | `AUTO:STATIC` | Manifest sidecar hash、Check・AC証拠パス、成果物のサイズ・SHA-256を検証し、欠落と完了後の変更を検出できる | Python CLI回帰テスト |
 
+<a id="debug-002"></a>
+
+### DEBUG-002: ハーネステンプレート自身を回帰テストする
+
+**仕様**
+
+- ハーネスはゲーム側の機能だけでなく、インストーラー、静的プリフライト、Validation Run、文書規約、外部依存マニフェスト、CI定義をPython回帰テストで検証する。
+- インストーラーは新規導入、再導入、競合時の無変更停止、`--force`、`--dry-run`、`--skip-agents`、ゲーム固有設定の保持、`Artifacts` Git除外を検証する。
+- 静的プリフライトは正常系に加え、必須パス不足、`.meta`不足、孤立`.meta`、不正GUID、重複GUID、Missing Script markerを検出する。
+- Validation Run作成はUnityプロジェクト判定、Run ID衝突時の連番、衝突上限、schema、設計ID・AC ID・Platform・Unity version記録を検証する。
+- 異常系テストはエラーを検出するだけでなく、競合やdry-run時に対象プロジェクトを変更していないことも確認する。
+- GitHub ActionsのRepository jobは`python3 -m unittest discover -s tests -p "test_*.py" -v`を実行し、新しい`test_*.py`を自動的に対象へ含める。
+- Unity API、コンパイル、EditMode、PlayMode、AssetDatabase検査はUnity 6.4 fixtureで別に回帰し、PythonだけでUnity実行済みとは扱わない。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-002-AC01` | `有効` | `AUTO:STATIC` | インストーラーの新規・再導入・競合・force・dry-run・skip・設定保持を一時Unityプロジェクトで検証する | Python CLI回帰テスト |
+| `DEBUG-002-AC02` | `有効` | `AUTO:STATIC` | プリフライトが`.meta`、GUID、Missing Script、必須パスの正常系と異常系を検証する | Python CLI回帰テスト |
+| `DEBUG-002-AC03` | `有効` | `AUTO:STATIC` | Run作成が無効プロジェクトを変更せず拒否し、Run ID衝突とManifest記録を検証する | Python CLI回帰テスト |
+| `DEBUG-002-AC04` | `有効` | `AUTO:STATIC` | Repository jobが全`test_*.py`を自動検出し、必須回帰テストファイルをリポジトリ検査が保証する | Workflow・リポジトリ文書検査 |
+
 ---
 
 ## 付録A：ジャンル別 追加検討項目

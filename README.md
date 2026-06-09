@@ -233,6 +233,14 @@ $validate-unity-change で検証してください。
 python3 scripts/validate_repository.py
 ```
 
+ハーネステンプレート自身のInstaller、preflight、Validation Run、文書規約を回帰検証:
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py" -v
+```
+
+テストは一時Unityプロジェクトを使い、新規・再導入、競合、`--force`、`--dry-run`、`.meta`・GUID・Missing Script異常系、Run ID衝突を検証します。Unity APIを必要とするCompile、EditMode、PlayMode、資産検査は後述のUnity fixtureで別に実行します。
+
 Unityプロジェクトの静的プリフライト:
 
 ```bash
