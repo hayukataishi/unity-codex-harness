@@ -476,7 +476,7 @@ SAVE-001
 
 | 領域 | 必須の正常系・異常系 |
 |---|---|
-| Installer CLI | 新規導入、冪等な再導入、競合時の無変更停止、`--force`、`--dry-run`、`--skip-agents`、ゲーム固有設定保持、Git ignore |
+| Installer CLI | 新規導入、冪等な再導入、所有区分、競合時の無変更停止、対象限定force、backup、migration bundle、`--dry-run`、`--skip-agents`、ゲーム固有設定保持、Git ignore |
 | Static preflight | 正常資産、必須パス不足、`.meta`不足・孤立、不正・重複GUID、Missing Script marker |
 | Validation Run作成 | Unityプロジェクト判定、Run ID衝突・上限、schema、設計ID・AC ID・Platform・Unity version |
 | Validation Run完結 | `RUNNING` / `COMPLETED`、結果集計、`BLOCKED`終了、再finalize拒否、改変・欠落検出 |
@@ -489,6 +489,23 @@ SAVE-001
 - 不具合修正時は、その不具合を修正前に再現する回帰テストを追加する。
 - Repository jobは`unittest discover`を使用し、新しい`test_*.py`を明示列挙なしで実行する。
 - PythonテストとUnity fixtureの責務を分離し、Unity APIやserializationの成立性はUnity実行で確認する。
+
+### Installerの所有権と更新
+
+Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/install-manifest.json`へschema version、harness release、path、ownership、source SHA-256を記録する。
+
+- `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書など、ハーネス更新で置換可能なファイル。
+- `project-owned`: ゲーム設計書、MCP・Skill採否、`AGENTS.md`、外部依存lock、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
+
+更新規則:
+
+- `project-owned`は存在しない場合だけ初回生成する。既存ファイルは内容がtemplateと同じでも異なっていても、`--force`と`--force-file`を含むInstaller操作で上書きしない。
+- `harness-managed`の競合は標準実行で全書込み前に停止する。`--force-file <relative-path>`で対象を限定するか、全harness-managed競合を確認済みの場合だけ`--force`を使う。
+- 置換対象は書込み前に`Artifacts/HarnessInstallerBackups/<OperationId>/`へbackupし、元・置換後のSHA-256をBackup Manifestへ記録する。
+- project-owned templateの元版は`.unity-codex-harness/baselines/`へ保存する。template更新時は`--prepare-migration`でbase・local・incomingとunified diffを`Artifacts/HarnessInstallerMigrations/<OperationId>/`へ出力する。
+- 旧Installerからの更新でbaselineがない既存project-ownedは、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、incomingとの差分を生成してから新baselineを記録する。
+- migration bundle生成後もlocalは変更しない。人間またはCodexが差分をレビューしてゲーム所有ファイルへ必要な変更だけを統合する。
+- `--dry-run`ではbackup、migration、baseline、install manifestを含め一切書き込まない。
 
 ### 外部ツールの再現性
 

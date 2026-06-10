@@ -93,6 +93,9 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/skills/                              Codex用Unity開発Skill
 ├─ .gitignore                                  成果物・外部ツールのローカル配置を除外
+├─ .unity-codex-harness/
+│  ├─ install-manifest.json                    所有区分とsource hash
+│  └─ baselines/                               project-owned templateの比較元
 ├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
 ├─ docs/                                       設計・運用ドキュメント
 ├─ harness.lock.json                           外部ツールの固定情報
@@ -105,7 +108,19 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 `Assets/UnityCodexHarness/Editor/`はEditor専用Assemblyで、Missing Script、Missing Reference、必須資産を検査します。Player Buildには含まれません。
 
-インストーラーは既存ファイルを標準では上書きしません。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
+インストーラーは導入対象を`harness-managed`と`project-owned`へ分けます。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
+
+`project-owned`として保護されるファイル:
+
+- `docs/unity_design_sheet.md`
+- `docs/mcp_and_skills_list.md`
+- `AGENTS.md`
+- `harness.lock.json`
+- `ProjectSettings/UnityCodexHarnessAssetValidation.json`
+
+これらは存在しない場合だけ生成され、導入後はゲーム側が所有します。通常更新、`--force`、`--force-file`のいずれでも既存内容を上書きしません。
+
+`.unity-codex-harness/`は更新比較に必要なハーネス状態です。ゲーム側の設計書ではなく、元templateのhashとbaselineを保持します。`Artifacts/`とは異なりGit管理へ含めてください。
 
 次のものはゲームプロジェクトへ自動導入されません。
 
@@ -154,7 +169,7 @@ python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
 
 ### 既存の`AGENTS.md`がある場合
 
-通常実行は既存`AGENTS.md`を勝手に上書きせず、競合として停止します。その場合は`--skip-agents`で導入し、このリポジトリの`AGENTS.md`にある必須ルールを既存ファイルへ手動で統合してください。
+通常実行は既存`AGENTS.md`を`project-owned`としてそのまま保持します。このリポジトリの`AGENTS.md`にある必須ルールを既存ファイルへ手動で統合してください。ハーネスの`AGENTS.md`を比較対象にも含めない場合は`--skip-agents`を使用します。
 
 ```bash
 python3 scripts/install.py "/path/to/YourUnityProject" --skip-agents
@@ -180,13 +195,48 @@ git pull
 python3 scripts/install.py "/path/to/YourUnityProject" --dry-run
 ```
 
-導入済みファイルと新しいハーネスの内容が異なる場合、通常実行は安全のため停止します。差分を確認し、ハーネス管理ファイルを新しい版へ置き換えてよい場合だけ`--force`を使用します。
+導入済みの`harness-managed`ファイルと新しいハーネスの内容が異なる場合、通常実行は全書込み前に停止します。差分を確認し、対象を限定して更新します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" \
+  --force-file "docs/unity_harness_engineering.md"
+```
+
+確認済みの全`harness-managed`競合を一括更新する場合だけ`--force`を使用します。
 
 ```bash
 python3 scripts/install.py "/path/to/YourUnityProject" --force
 ```
 
-`--force`はゲーム固有に編集した`ProjectSettings/UnityCodexHarnessAssetValidation.json`も置換します。必要な設定を退避してから実行してください。
+置換される既存ファイルは、書込み前に次へbackupされます。
+
+```text
+Artifacts/HarnessInstallerBackups/<OperationId>/
+├─ BackupManifest.json
+└─ files/<元の相対パス>
+```
+
+`project-owned`は`--force`でも置換されません。新しいハーネスでproject-owned templateが更新された場合、通常実行は対象を表示します。次のコマンドで三者比較用bundleを生成します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" \
+  --prepare-migration
+```
+
+```text
+Artifacts/HarnessInstallerMigrations/<OperationId>/
+├─ MigrationManifest.json
+├─ base/<相対パス>
+├─ local/<相対パス>
+├─ incoming/<相対パス>
+└─ diff/<相対パス>.*.patch
+```
+
+`base`は前回template、`local`はゲーム側の現在値、`incoming`は新しいtemplateです。bundle生成後もゲーム側ファイルは変更されません。diffをレビューし、必要な項目だけをlocalへ統合します。harness-managed競合も同時に存在する場合は、承認した`--force-file`と組み合わせます。
+
+旧版Installerからの更新でbaselineがない場合は、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、localからincomingへの差分を生成します。
+
+backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`files/`以下の該当ファイルを元の相対パスへ戻します。Installerは自動rollbackを行いません。
 
 ### オプション一覧
 
@@ -195,11 +245,15 @@ python3 scripts/install.py "/path/to/YourUnityProject" --force
 | `--dry-run` | ファイルを変更せず、導入予定を表示する |
 | `--check` | ファイルを変更せず、`Artifacts/`のGit除外状態を検査する |
 | `--skip-agents` | `AGENTS.md`を導入対象から外す |
-| `--force` | 内容が異なる既存ファイルを置換する |
+| `--force-file PATH` | 指定したharness-managedファイルだけをbackup後に置換する。複数指定可 |
+| `--force` | 内容が異なる全harness-managedファイルをbackup後に置換する |
+| `--prepare-migration` | project-owned templateの三者比較bundleを作る。localは変更しない |
 
 ### 手動導入
 
 自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+
+手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 
 ## Codexでの使い方
 
@@ -335,7 +389,7 @@ python3 scripts/validate_repository.py
 python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-テストは一時Unityプロジェクトを使い、新規・再導入、競合、`--force`、`--dry-run`、`.meta`・GUID・Missing Script異常系、Run ID衝突を検証します。Unity APIを必要とするCompile、EditMode、PlayMode、資産検査は後述のUnity fixtureで別に実行します。
+テストは一時Unityプロジェクトを使い、新規・再導入、所有区分、競合、対象限定更新、backup、migration bundle、`--dry-run`、`.meta`・GUID・Missing Script異常系、Run ID衝突を検証します。Unity APIを必要とするCompile、EditMode、PlayMode、資産検査は後述のUnity fixtureで別に実行します。
 
 Unityプロジェクトの静的プリフライト:
 

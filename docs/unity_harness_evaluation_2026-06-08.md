@@ -1148,7 +1148,7 @@ Scene、Prefab、Component、Screenshot、Play操作はUnity MCP優先と定義�
 
 これにより「未導入を検出し、権利・配布境界を保った固定導入へ案内する」部分は対応した。一方、Server起動、Codex connector、Editor接続、基本Editor操作のE2E smoke testは引き続き`NOT RUN`であり、P0-2全体は未完了である。
 
-#### P0-3: `--force`更新がゲーム固有設計書を上書きできる
+#### P0-3: `--force`更新がゲーム固有設計書を上書きできる（対応済み）
 
 Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位として扱う。既存保持対象はAsset validation設定だけで、`--force`はゲーム側で編集した`docs/unity_design_sheet.md`を含む全競合ファイルをbackupなしで置換できる。
 
@@ -1160,6 +1160,17 @@ Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位とし
 - 設計書はtemplateから初回生成し、upgrade対象から外す
 - versioned manifest、backup、diff、三方向mergeまたはmigrationを追加する
 - `--force`をファイル単位に限定し、ゲーム所有ファイルへの使用を拒否する
+
+2026-06-10に`DEBUG-005`として対応した。
+
+- 導入対象を`harness-managed`と`project-owned`へ分類した
+- ゲーム設計書、MCP・Skill一覧、`AGENTS.md`、外部依存lock、資産検査設定をproject-ownedとして保護した
+- project-ownedは通常実行、`--force`、`--force-file`のいずれでも既存内容を置換しない
+- `.unity-codex-harness/install-manifest.json`へschema、release、path、ownership、source hash、baseline hashを記録する
+- `--force-file`でharness-managedの置換対象を相対path単位に限定できる
+- `--force`はharness-managedだけを対象とし、置換前にhash付きbackupを`Artifacts/HarnessInstallerBackups/`へ作る
+- project-owned template更新は`--prepare-migration`でbase、local、incoming、unified diffを出力し、localを変更しない
+- `--dry-run`ではmanifest、baseline、backup、migrationを含め対象プロジェクトへ書き込まない
 
 #### P0-4: 公開CIのUnity jobが赤い
 
@@ -1186,7 +1197,7 @@ Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位とし
 
 ### 14.6 100点の完了条件
 
-1. 残るP0-2からP0-4を解消する。P0-1の失敗経路整合性は対応済み
+1. 残るP0-2とP0-4を解消する。P0-1とP0-3は対応済み
 2. 固定版Unity MCPを導入したE2E fixtureをCodexから実行し、Editor操作証拠を残す
 3. 導入先CI templateとBuild Profile Player buildを少なくともmacOSまたはWindowsの一系統で成功させる
 4. Installerをinstall / doctor / upgradeへ分離し、ゲーム所有ファイルをbackupなしで上書きしない
@@ -1255,3 +1266,29 @@ UnityとGitの基本セットアップができ、ゲームの方向性、承認
 - Unity MCP Server、Codex connector、Unity `6000.4.10f1` Editorの実接続
 - CodexからEditor state、Scene、Prefab、Compile、Play、Screenshotを確認するE2E smoke test
 - agent-sprite-forgeの実生成、Unity import、Animation、Prefab接続
+
+### 14.10 P0-3安全更新対応結果
+
+実装:
+
+- `DEBUG-005`へInstaller所有区分、project-owned保護、対象限定更新、backup、migration bundleを追加
+- `InstallSource`へ`harness-managed` / `project-owned`を追加
+- `.unity-codex-harness/install-manifest.json`とproject template baselineを生成
+- `--force-file`、置換前Backup Manifest、`--prepare-migration`を追加
+- READMEの導入・更新・復旧手順を新しい所有権契約へ更新
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-005-AC01` | `PASS` | install manifestのschema、ownership、source / baseline hashを確認 |
+| `DEBUG-005-AC02` | `PASS` | 5つのproject-ownedが`--force`でも不変、`--force-file`指定は書込み前拒否 |
+| `DEBUG-005-AC03` | `PASS` | 対象限定置換と元ファイル・hash付きBackup Manifestを確認 |
+| `DEBUG-005-AC04` | `PASS` | base・local・incoming・2種diffを生成し、local不変とbaseline更新を確認 |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、93件
+- Unity fixture: `NOT RUN`。Unity資産とEditor実装を変更していないため
+
+Unity Scene、Prefab、Package、GUIDの変更はない。InstallerとPython回帰だけの変更であるため、Unity fixtureはこの対応では再実行しない。

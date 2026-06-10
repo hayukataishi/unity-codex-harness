@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import filecmp
+import hashlib
+import json
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
@@ -44,12 +48,33 @@ LOCAL_ONLY_PATHS = (
     ".codex/skills/generate2dsprite",
     ".codex/skills/generate2dmap",
 )
+OWNERSHIP_HARNESS = "harness-managed"
+OWNERSHIP_PROJECT = "project-owned"
+INSTALL_STATE_ROOT = Path(".unity-codex-harness")
+INSTALL_MANIFEST_PATH = INSTALL_STATE_ROOT / "install-manifest.json"
+BASELINE_ROOT = INSTALL_STATE_ROOT / "baselines"
+BACKUP_ROOT = Path("Artifacts/HarnessInstallerBackups")
+MIGRATION_ROOT = Path("Artifacts/HarnessInstallerMigrations")
+PROJECT_OWNED_PATHS = {
+    Path("AGENTS.md"),
+    Path("docs/mcp_and_skills_list.md"),
+    Path("docs/unity_design_sheet.md"),
+    Path("harness.lock.json"),
+    Path("ProjectSettings/UnityCodexHarnessAssetValidation.json"),
+}
 
 
 class InstallSource(NamedTuple):
     source: Path
     relative: Path
-    preserve_existing: bool
+    ownership: str
+
+
+class ProjectTemplateChange(NamedTuple):
+    item: InstallSource
+    baseline: Path
+    destination: Path
+    base_kind: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,7 +85,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Replace existing files whose contents differ",
+        help=(
+            "Replace all differing harness-managed files after backing them up; "
+            "project-owned files are never replaced"
+        ),
+    )
+    parser.add_argument(
+        "--force-file",
+        action="append",
+        default=[],
+        metavar="RELATIVE_PATH",
+        help=(
+            "Replace one differing harness-managed file after backup. "
+            "May be repeated."
+        ),
+    )
+    parser.add_argument(
+        "--prepare-migration",
+        action="store_true",
+        help=(
+            "Create three-way migration bundles for changed project-owned "
+            "templates without modifying project-owned files"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -111,12 +157,8 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
                 InstallSource(
                     source=path,
                     relative=destination_root / path.relative_to(source_root),
-                    preserve_existing=(
+                    ownership=ownership_for(
                         destination_root / path.relative_to(source_root)
-                        == Path(
-                            "ProjectSettings/"
-                            "UnityCodexHarnessAssetValidation.json"
-                        )
                     ),
                 )
             )
@@ -125,14 +167,14 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             InstallSource(
                 source=repository_root / "AGENTS.md",
                 relative=Path("AGENTS.md"),
-                preserve_existing=False,
+                ownership=OWNERSHIP_PROJECT,
             )
         )
     files.append(
         InstallSource(
             source=repository_root / "harness.lock.json",
             relative=Path("harness.lock.json"),
-            preserve_existing=False,
+            ownership=OWNERSHIP_PROJECT,
         )
     )
     files.append(
@@ -145,10 +187,112 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             relative=Path(
                 "scripts/unity_codex_harness/check_external_dependencies.py"
             ),
-            preserve_existing=False,
+            ownership=OWNERSHIP_HARNESS,
         )
     )
     return sorted(files, key=lambda item: item.relative.as_posix())
+
+
+def ownership_for(relative: Path) -> str:
+    if relative in PROJECT_OWNED_PATHS:
+        return OWNERSHIP_PROJECT
+    return OWNERSHIP_HARNESS
+
+
+def normalized_relative_path(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute() or not path.parts or ".." in path.parts:
+        raise SystemExit(
+            f"--force-file must be a project-relative path: {value}"
+        )
+    normalized = Path(*[part for part in path.parts if part not in ("", ".")])
+    if not normalized.parts:
+        raise SystemExit(
+            f"--force-file must be a project-relative path: {value}"
+        )
+    return normalized
+
+
+def selected_force_paths(
+    files: list[InstallSource],
+    values: list[str],
+) -> set[Path]:
+    requested = {normalized_relative_path(value) for value in values}
+    by_path = {item.relative: item for item in files}
+    unknown = sorted(path for path in requested if path not in by_path)
+    if unknown:
+        rendered = ", ".join(path.as_posix() for path in unknown)
+        raise SystemExit(f"Unknown --force-file path: {rendered}")
+    project_owned = sorted(
+        path
+        for path in requested
+        if by_path[path].ownership == OWNERSHIP_PROJECT
+    )
+    if project_owned:
+        rendered = ", ".join(path.as_posix() for path in project_owned)
+        raise SystemExit(
+            "Project-owned files cannot be replaced by the installer: "
+            f"{rendered}"
+        )
+    return requested
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def json_text(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+
+
+def write_text_if_changed(
+    path: Path,
+    text: str,
+    *,
+    dry_run: bool,
+) -> str:
+    if path.is_file() and path.read_text(encoding="utf-8") == text:
+        return "unchanged"
+    action = "update" if path.exists() else "create"
+    if not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return action
+
+
+def copy_if_changed(
+    source: Path,
+    destination: Path,
+    *,
+    dry_run: bool,
+) -> str:
+    if (
+        destination.is_file()
+        and filecmp.cmp(source, destination, shallow=False)
+    ):
+        return "unchanged"
+    action = "update" if destination.exists() else "create"
+    if not dry_run:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return action
+
+
+def next_operation_id(project_root: Path) -> str:
+    base = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    candidate = base
+    suffix = 2
+    while (
+        (project_root / BACKUP_ROOT / candidate).exists()
+        or (project_root / MIGRATION_ROOT / candidate).exists()
+    ):
+        candidate = f"{base}-{suffix:02d}"
+        suffix += 1
+    return candidate
 
 
 def install_file(
@@ -171,6 +315,252 @@ def install_file(
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
     return action
+
+
+def backup_replacements(
+    project_root: Path,
+    replacements: list[InstallSource],
+    operation_id: str,
+    *,
+    dry_run: bool,
+) -> Path | None:
+    if not replacements:
+        return None
+
+    backup_root = project_root / BACKUP_ROOT / operation_id
+    entries = []
+    for item in replacements:
+        destination = project_root / item.relative
+        backup = backup_root / "files" / item.relative
+        entries.append(
+            {
+                "path": item.relative.as_posix(),
+                "originalSha256": sha256_file(destination),
+                "replacementSha256": sha256_file(item.source),
+                "backupPath": (
+                    Path("files") / item.relative
+                ).as_posix(),
+            }
+        )
+        if not dry_run:
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(destination, backup)
+
+    manifest = {
+        "schemaVersion": 1,
+        "operationId": operation_id,
+        "files": entries,
+    }
+    if not dry_run:
+        (backup_root / "BackupManifest.json").write_text(
+            json_text(manifest),
+            encoding="utf-8",
+        )
+    return backup_root
+
+
+def unified_diff_text(
+    before: Path,
+    after: Path,
+    before_label: str,
+    after_label: str,
+) -> str:
+    before_lines = before.read_text(encoding="utf-8").splitlines(keepends=True)
+    after_lines = after.read_text(encoding="utf-8").splitlines(keepends=True)
+    return "".join(
+        difflib.unified_diff(
+            before_lines,
+            after_lines,
+            fromfile=before_label,
+            tofile=after_label,
+        )
+    )
+
+
+def create_migration_bundle(
+    project_root: Path,
+    changes: list[ProjectTemplateChange],
+    operation_id: str,
+    *,
+    dry_run: bool,
+) -> Path | None:
+    if not changes:
+        return None
+
+    migration_root = project_root / MIGRATION_ROOT / operation_id
+    entries = []
+    for change in changes:
+        relative = change.item.relative
+        base_target = migration_root / "base" / relative
+        local_target = migration_root / "local" / relative
+        incoming_target = migration_root / "incoming" / relative
+        local_diff = migration_root / "diff" / Path(
+            relative.as_posix() + ".local.patch"
+        )
+        incoming_diff = migration_root / "diff" / Path(
+            relative.as_posix() + ".incoming.patch"
+        )
+        entries.append(
+            {
+                "path": relative.as_posix(),
+                "baseSha256": sha256_file(change.baseline),
+                "localSha256": sha256_file(change.destination),
+                "incomingSha256": sha256_file(change.item.source),
+                "baseKind": change.base_kind,
+                "basePath": (Path("base") / relative).as_posix(),
+                "localPath": (Path("local") / relative).as_posix(),
+                "incomingPath": (Path("incoming") / relative).as_posix(),
+                "localDiffPath": (
+                    Path("diff") / Path(relative.as_posix() + ".local.patch")
+                ).as_posix(),
+                "incomingDiffPath": (
+                    Path("diff")
+                    / Path(relative.as_posix() + ".incoming.patch")
+                ).as_posix(),
+            }
+        )
+        if not dry_run:
+            for source, destination in (
+                (change.baseline, base_target),
+                (change.destination, local_target),
+                (change.item.source, incoming_target),
+            ):
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+            local_diff.parent.mkdir(parents=True, exist_ok=True)
+            local_diff.write_text(
+                unified_diff_text(
+                    change.baseline,
+                    change.destination,
+                    f"base/{relative.as_posix()}",
+                    f"local/{relative.as_posix()}",
+                ),
+                encoding="utf-8",
+            )
+            incoming_diff.write_text(
+                unified_diff_text(
+                    change.baseline,
+                    change.item.source,
+                    f"base/{relative.as_posix()}",
+                    f"incoming/{relative.as_posix()}",
+                ),
+                encoding="utf-8",
+            )
+
+    manifest = {
+        "schemaVersion": 1,
+        "operationId": operation_id,
+        "instruction": (
+            "Review base, local, incoming, and both diffs. Apply only the "
+            "approved changes to the project-owned local file."
+        ),
+        "files": entries,
+    }
+    if not dry_run:
+        (migration_root / "MigrationManifest.json").write_text(
+            json_text(manifest),
+            encoding="utf-8",
+        )
+    return migration_root
+
+
+def plan_project_templates(
+    project_root: Path,
+    files: list[InstallSource],
+    *,
+    prepare_migration: bool,
+) -> tuple[
+    list[InstallSource],
+    list[ProjectTemplateChange],
+    list[Path],
+]:
+    baseline_updates: list[InstallSource] = []
+    migration_changes: list[ProjectTemplateChange] = []
+    update_notices: list[Path] = []
+    for item in files:
+        if item.ownership != OWNERSHIP_PROJECT:
+            continue
+        baseline = project_root / BASELINE_ROOT / item.relative
+        destination = project_root / item.relative
+        if not baseline.is_file():
+            if not destination.is_file() or filecmp.cmp(
+                item.source,
+                destination,
+                shallow=False,
+            ):
+                baseline_updates.append(item)
+                continue
+            update_notices.append(item.relative)
+            if prepare_migration:
+                migration_changes.append(
+                    ProjectTemplateChange(
+                        item=item,
+                        baseline=destination,
+                        destination=destination,
+                        base_kind="legacy-local-snapshot",
+                    )
+                )
+                baseline_updates.append(item)
+            continue
+        if filecmp.cmp(item.source, baseline, shallow=False):
+            continue
+        if destination.is_file() and filecmp.cmp(
+            item.source,
+            destination,
+            shallow=False,
+        ):
+            baseline_updates.append(item)
+            continue
+        update_notices.append(item.relative)
+        if prepare_migration and destination.is_file():
+            migration_changes.append(
+                ProjectTemplateChange(
+                    item=item,
+                    baseline=baseline,
+                    destination=destination,
+                    base_kind="recorded-template",
+                )
+            )
+            baseline_updates.append(item)
+    return baseline_updates, migration_changes, update_notices
+
+
+def harness_release(repository_root: Path) -> tuple[str, str]:
+    lock = json.loads(
+        (repository_root / "harness.lock.json").read_text(encoding="utf-8")
+    )
+    harness = lock.get("harness", {})
+    return str(harness.get("release", "UNKNOWN")), str(
+        lock.get("updatedAt", "UNKNOWN")
+    )
+
+
+def install_manifest(
+    repository_root: Path,
+    project_root: Path,
+    files: list[InstallSource],
+) -> dict[str, object]:
+    release, lock_updated_at = harness_release(repository_root)
+    entries = []
+    for item in files:
+        entry = {
+            "path": item.relative.as_posix(),
+            "ownership": item.ownership,
+            "sourceSha256": sha256_file(item.source),
+        }
+        if item.ownership == OWNERSHIP_PROJECT:
+            baseline = project_root / BASELINE_ROOT / item.relative
+            if baseline.is_file():
+                entry["baselineSha256"] = sha256_file(baseline)
+        entries.append(entry)
+    return {
+        "schemaVersion": 1,
+        "harness": {
+            "release": release,
+            "lockUpdatedAt": lock_updated_at,
+        },
+        "files": entries,
+    }
 
 
 def managed_gitignore_text(existing: str) -> str:
@@ -357,8 +747,23 @@ def main() -> int:
         return 0
 
     files = source_files(repository_root, args.skip_agents)
+    force_paths = selected_force_paths(files, args.force_file)
     conflicts: list[Path] = []
     operations: list[tuple[str, Path]] = []
+    invalid_destinations = [
+        item.relative
+        for item in files
+        if (project_root / item.relative).exists()
+        and not (project_root / item.relative).is_file()
+    ]
+    if invalid_destinations:
+        rendered = "\n".join(
+            f"  - {path.as_posix()}" for path in invalid_destinations
+        )
+        raise SystemExit(
+            "Installation stopped because file destinations are not files:\n"
+            f"{rendered}"
+        )
     try:
         gitignore_action, gitignore_text = plan_gitignore_update(project_root)
     except ValueError as error:
@@ -374,43 +779,101 @@ def main() -> int:
             "Remove them from the Git index, then rerun the installer."
         )
 
-    if not args.force:
-        for item in files:
-            source = item.source
-            relative = item.relative
-            destination = project_root / relative
-            if not destination.exists():
-                continue
-            if item.preserve_existing:
-                continue
-            if destination.is_file() and filecmp.cmp(
-                source, destination, shallow=False
-            ):
-                continue
-            conflicts.append(relative)
+    replacements: list[InstallSource] = []
+    for item in files:
+        destination = project_root / item.relative
+        if not destination.exists():
+            continue
+        if item.ownership == OWNERSHIP_PROJECT:
+            continue
+        if destination.is_file() and filecmp.cmp(
+            item.source,
+            destination,
+            shallow=False,
+        ):
+            continue
+        if args.force or item.relative in force_paths:
+            replacements.append(item)
+        else:
+            conflicts.append(item.relative)
 
     if conflicts:
         rendered = "\n".join(f"  - {path.as_posix()}" for path in conflicts)
         raise SystemExit(
-            "Installation stopped because existing files differ:\n"
+            "Installation stopped because harness-managed files differ:\n"
             f"{rendered}\n"
-            "Review them, use --skip-agents where appropriate, or rerun with --force."
+            "Review them, then use --force-file <relative-path> for each "
+            "approved replacement or --force for all listed "
+            "harness-managed files."
+        )
+
+    baseline_updates, migration_changes, update_notices = (
+        plan_project_templates(
+            project_root,
+            files,
+            prepare_migration=args.prepare_migration,
+        )
+    )
+    operation_id = (
+        next_operation_id(project_root)
+        if replacements or migration_changes
+        else ""
+    )
+    backup_root = backup_replacements(
+        project_root,
+        replacements,
+        operation_id,
+        dry_run=args.dry_run,
+    )
+    if backup_root is not None:
+        operations.append(
+            (
+                "backup",
+                backup_root.relative_to(project_root),
+            )
+        )
+    migration_root = create_migration_bundle(
+        project_root,
+        migration_changes,
+        operation_id,
+        dry_run=args.dry_run,
+    )
+    if migration_root is not None:
+        operations.append(
+            (
+                "migration",
+                migration_root.relative_to(project_root),
+            )
         )
 
     for item in files:
         source = item.source
         relative = item.relative
         destination = project_root / relative
-        if item.preserve_existing and destination.exists() and not args.force:
-            operations.append(("unchanged", relative))
+        if item.ownership == OWNERSHIP_PROJECT and destination.exists():
+            operations.append(("preserve", relative))
             continue
         action = install_file(
             source,
             destination,
-            force=args.force,
+            force=(args.force or relative in force_paths),
             dry_run=args.dry_run,
         )
         operations.append((action, relative))
+
+    for item in baseline_updates:
+        baseline = project_root / BASELINE_ROOT / item.relative
+        action = copy_if_changed(
+            item.source,
+            baseline,
+            dry_run=args.dry_run,
+        )
+        operations.append(
+            (
+                f"baseline-{action}",
+                BASELINE_ROOT / item.relative,
+            )
+        )
 
     write_gitignore(
         project_root,
@@ -419,13 +882,39 @@ def main() -> int:
     )
     operations.append((gitignore_action, Path(".gitignore")))
 
-    prefix = "would " if args.dry_run else ""
-    for action, relative in operations:
-        if action != "unchanged":
-            print(f"{prefix}{action}: {relative.as_posix()}")
+    manifest = install_manifest(repository_root, project_root, files)
+    manifest_action = write_text_if_changed(
+        project_root / INSTALL_MANIFEST_PATH,
+        json_text(manifest),
+        dry_run=args.dry_run,
+    )
+    operations.append((f"manifest-{manifest_action}", INSTALL_MANIFEST_PATH))
 
-    changed = sum(action != "unchanged" for action, _ in operations)
-    unchanged = sum(action == "unchanged" for action, _ in operations)
+    prefix = "would " if args.dry_run else ""
+    unchanged_actions = {
+        "unchanged",
+        "preserve",
+        "baseline-unchanged",
+        "manifest-unchanged",
+    }
+    for action, relative in operations:
+        if action not in unchanged_actions:
+            print(f"{prefix}{action}: {relative.as_posix()}")
+    for relative in update_notices:
+        if args.prepare_migration:
+            print(
+                f"{prefix}review migration for project-owned file: "
+                f"{relative.as_posix()}"
+            )
+        else:
+            print(
+                "project-owned template update available: "
+                f"{relative.as_posix()} "
+                "(rerun with --prepare-migration)"
+            )
+
+    changed = sum(action not in unchanged_actions for action, _ in operations)
+    unchanged = sum(action in unchanged_actions for action, _ in operations)
     print(
         f"{'Dry run complete' if args.dry_run else 'Installation complete'}: "
         f"{changed} changed, {unchanged} unchanged"

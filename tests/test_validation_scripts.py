@@ -1059,7 +1059,20 @@ class InstallerSourceTests(unittest.TestCase):
             if item.relative.as_posix()
             == "ProjectSettings/UnityCodexHarnessAssetValidation.json"
         )
-        self.assertTrue(config.preserve_existing)
+        self.assertEqual(config.ownership, installer.OWNERSHIP_PROJECT)
+        design = next(
+            item
+            for item in sources
+            if item.relative.as_posix() == "docs/unity_design_sheet.md"
+        )
+        self.assertEqual(design.ownership, installer.OWNERSHIP_PROJECT)
+        validator = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == "Assets/UnityCodexHarness/Editor/AssetValidationBatch.cs"
+        )
+        self.assertEqual(validator.ownership, installer.OWNERSHIP_HARNESS)
 
     def test_fixture_validator_matches_install_template(self):
         template_root = ROOT / "templates" / "unity"

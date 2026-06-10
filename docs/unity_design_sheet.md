@@ -2017,7 +2017,7 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 **仕様**
 
 - ハーネスはゲーム側の機能だけでなく、インストーラー、静的プリフライト、Validation Run、文書規約、外部依存マニフェスト、CI定義をPython回帰テストで検証する。
-- インストーラーは新規導入、再導入、競合時の無変更停止、`--force`、`--dry-run`、`--skip-agents`、ゲーム固有設定の保持、`Artifacts` Git除外を検証する。
+- インストーラーは新規導入、再導入、競合時の無変更停止、所有区分付き更新、backup、`--force-file`、`--dry-run`、`--skip-agents`、ゲーム固有設定の保持、`Artifacts` Git除外を検証する。
 - 静的プリフライトは正常系に加え、必須パス不足、`.meta`不足、孤立`.meta`、不正GUID、重複GUID、Missing Script markerを検出する。
 - Validation Run作成はUnityプロジェクト判定、Run ID衝突時の連番、衝突上限、schema、設計ID・AC ID・Platform・Unity version記録を検証する。
 - 異常系テストはエラーを検出するだけでなく、競合やdry-run時に対象プロジェクトを変更していないことも確認する。
@@ -2028,7 +2028,7 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 
 | AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
 |---|---|---|---|---|
-| `DEBUG-002-AC01` | `有効` | `AUTO:STATIC` | インストーラーの新規・再導入・競合・force・dry-run・skip・設定保持を一時Unityプロジェクトで検証する | Python CLI回帰テスト |
+| `DEBUG-002-AC01` | `有効` | `AUTO:STATIC` | インストーラーの新規・再導入・競合・所有区分・backup・対象限定force・dry-run・skip・設定保持を一時Unityプロジェクトで検証する | Python CLI回帰テスト |
 | `DEBUG-002-AC02` | `有効` | `AUTO:STATIC` | プリフライトが`.meta`、GUID、Missing Script、必須パスの正常系と異常系を検証する | Python CLI回帰テスト |
 | `DEBUG-002-AC03` | `有効` | `AUTO:STATIC` | Run作成が無効プロジェクトを変更せず拒否し、Run ID衝突とManifest記録を検証する | Python CLI回帰テスト |
 | `DEBUG-002-AC04` | `有効` | `AUTO:STATIC` | Repository jobが全`test_*.py`を自動検出し、必須回帰テストファイルをリポジトリ検査が保証する | Workflow・リポジトリ文書検査 |
@@ -2076,6 +2076,30 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 | `DEBUG-004-AC02` | `有効` | `AUTO:STATIC` | Installerが診断CLIを導入し、`Artifacts`、外部checkout、外部SkillコピーをGit除外し、追跡済みファイルがあれば停止する | Installer CLI回帰テスト |
 | `DEBUG-004-AC03` | `有効` | `AUTO:STATIC` | 診断CLIが不足・版違いを終了コード`1`で報告し、固定参照の手順を表示するが外部依存を変更しない | 外部依存CLI回帰テスト |
 | `DEBUG-004-AC04` | `有効` | `AUTO:STATIC` | commit固定Unity Package、固定checkout、必要Skillが存在するfixtureで診断CLIが`PASS`し、MCP接続は`NOT CHECKED`と区別する | 外部依存CLI回帰テスト |
+
+<a id="debug-005"></a>
+
+### DEBUG-005: ハーネス更新でゲーム所有ファイルを失わない
+
+**仕様**
+
+- Installerの導入対象を`harness-managed`と`project-owned`へ分類し、所有区分とsource hashをschema version付きinstall manifestへ記録する。
+- `docs/unity_design_sheet.md`、`docs/mcp_and_skills_list.md`、`AGENTS.md`、`harness.lock.json`、ゲーム固有の資産検査設定を`project-owned`とする。
+- `project-owned`ファイルは初回に存在しない場合だけ生成し、通常更新、`--force`、`--force-file`のいずれでも既存内容を上書きしない。
+- `harness-managed`ファイルの内容が異なる場合は標準実行を変更前に停止する。更新は対象を明示する`--force-file`、または全harness-managed競合を対象とする`--force`で行う。
+- 置換する既存harness-managedファイルは、書込み前に`Artifacts/HarnessInstallerBackups/<OperationId>/`へ相対パスを維持して複製し、hash付きBackup Manifestを残す。
+- project-owned templateの元版を`.unity-codex-harness/baselines/`へ保持する。上流templateが変わった場合、`--prepare-migration`はbase、local、incoming、diff、hashを含むmigration bundleを生成し、ゲーム所有ファイル自体は変更しない。
+- 旧Installerからの更新でbaselineが存在しない場合は、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、incomingとの差分を生成してから新baselineを記録する。
+- `--dry-run`は置換、backup、manifest、baseline、migration bundleの予定を表示するが、対象Unityプロジェクトへ書き込まない。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-005-AC01` | `有効` | `AUTO:STATIC` | install manifestがschema、harness release、全導入対象のpath・ownership・source hashを持ち、project-ownedのbaseline hashを記録する | Installer CLI回帰テスト |
+| `DEBUG-005-AC02` | `有効` | `AUTO:STATIC` | 既存project-ownedファイルが通常実行、`--force`、`--force-file`でbyte単位に不変であり、project-ownedを`--force-file`指定すると書込み前に拒否する | Installer CLI回帰テスト |
+| `DEBUG-005-AC03` | `有効` | `AUTO:STATIC` | harness-managed置換時に元ファイルとhash付きBackup Manifestが先に生成され、`--force-file`は指定したharness-managedファイルだけを置換する | Installer CLI回帰テスト |
+| `DEBUG-005-AC04` | `有効` | `AUTO:STATIC` | project-owned template更新時にmigration bundleがbase・local・incoming・diffを持ち、localを変更せずbaselineだけを新しいtemplateへ進める | Installer CLI回帰テスト |
 
 ---
 
