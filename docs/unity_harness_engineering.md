@@ -494,14 +494,21 @@ SAVE-001
 
 Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも`harness.lock.json`で管理する。
 
+- 外部OSSはハーネスへvendorせず、標準インストーラーも自動取得・自動実行しない。利用者が固定参照と上流ライセンスを確認して明示的に導入する。
+- `distribution.bundled`を`false`、`installMode`を`explicit-user-action`とし、固定参照のlicense名とlicense URLを記録する。
 - GitHub依存はtag名だけでなく、解決済みの40桁commit SHAを記録する。
 - Releaseのない依存はbranch名ではなくcommit SHAを`ref`として使用する。
 - Package名、Package version、必要なUnity・Python・Python Package条件を公式metadataから記録する。
 - 根拠にしたRelease、commit、metadata、requirementsのURLを`sources`として残す。
+- Unity Packageはcommit固定のUPM URLを`Packages/manifest.json`へ記録する。外部Skillは`.codex/external/`または`$CODEX_HOME/external/`の固定commit checkoutから導入する。
+- ゲームリポジトリ内の外部checkoutと外部Skillコピーは`.gitignore`へ追加し、意図しない再配布と上流コードの混在を防ぐ。
+- `check_external_dependencies.py`は不足・版違いと固定導入手順を報告するだけとし、ネットワーク取得、Package変更、Skillコピーを行わない。
 - 固定情報の確認と、実際の接続・生成・Unityへの統合確認を分離する。
 - 実行していない依存は`NOT RUN`とし、固定済みであることだけを理由に`PASS`へしない。
 - `python3 scripts/validate_repository.py`でマニフェスト構造、fixtureとのUnityバージョン一致、commit SHA、既知の依存条件を検査する。
 - 更新時は公式情報を再確認し、対象環境で回帰検証してから検証日と状態を更新する。
+
+Unity MCPが未導入、未接続、または固定版と一致しない場合、Codexは文書、C#、純粋Python検査などEditor外で安全に完結する作業だけを継続できる。Scene、Prefab、ScriptableObject、Import設定、Tag、Layer、Build ProfileなどEditor serializationへ関わる変更は、対応するEditor APIまたは検証可能な代替手段がない限り停止する。MCP不在を理由にUnity YAMLを直接編集してはならない。
 
 ### Scene・Prefab・ScriptableObjectの自動検査
 

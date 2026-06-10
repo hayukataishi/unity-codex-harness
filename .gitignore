@@ -1,5 +1,8 @@
 .DS_Store
 Artifacts/
+/.codex/external/
+/.codex/skills/generate2dsprite/
+/.codex/skills/generate2dmap/
 __pycache__/
 *.pyc
 tests/fixtures/**/Library/

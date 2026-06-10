@@ -92,18 +92,20 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 ```text
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/skills/                              Codex用Unity開発Skill
-├─ .gitignore                                  /Artifacts/ルールを安全に追記
+├─ .gitignore                                  成果物・外部ツールのローカル配置を除外
 ├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
 ├─ docs/                                       設計・運用ドキュメント
 ├─ harness.lock.json                           外部ツールの固定情報
 ├─ ProjectSettings/
 │  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
+├─ scripts/unity_codex_harness/
+│  └─ check_external_dependencies.py           外部依存の未導入・版違い検査
 └─ AGENTS.md                                   Codex向けリポジトリ指示
 ```
 
 `Assets/UnityCodexHarness/Editor/`はEditor専用Assemblyで、Missing Script、Missing Reference、必須資産を検査します。Player Buildには含まれません。
 
-インストーラーは既存ファイルを標準では上書きしません。`.gitignore`には管理マーカー付きの`/Artifacts/`ルールだけを追加し、既存ルールや改行形式を保持します。
+インストーラーは既存ファイルを標準では上書きしません。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
 
 次のものはゲームプロジェクトへ自動導入されません。
 
@@ -119,7 +121,7 @@ Cinemachineを採用する場合もPackageは自動導入されません。[GRAP
 
 ### 手順4: 導入結果を確認する
 
-まず、検証成果物を保存する`Artifacts/`がGit管理外になっていることを確認します。
+まず、検証成果物と外部OSSのローカル配置がGit管理外になっていることを確認します。
 
 ```bash
 python3 scripts/install.py "/path/to/YourUnityProject" --check
@@ -128,13 +130,22 @@ python3 scripts/install.py "/path/to/YourUnityProject" --check
 成功時は次のように表示されます。
 
 ```text
-Artifacts ignore check: PASS
+Harness local-path ignore check: PASS
 ```
 
-続いてUnityプロジェクトへ移動し、静的プリフライトを実行します。
+続いてUnityプロジェクトへ移動し、外部依存を診断します。
 
 ```bash
 cd "/path/to/YourUnityProject"
+python3 scripts/unity_codex_harness/check_external_dependencies.py \
+  --project-root .
+```
+
+Unity MCPまたは外部Skillがない場合、このコマンドは終了コード`1`と固定版の導入手順を表示します。自動ダウンロード、Package変更、Skillコピーは行いません。
+
+その後、静的プリフライトを実行します。
+
+```bash
 python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
   --project-root .
 ```
@@ -269,6 +280,44 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 | [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | `fff651a89223b044ccfc0b75ed9f3754c6d739b1` | 2Dアセット生成 | `NOT RUN` |
 
 これらは本リポジトリへ同梱していません。再現可能な導入基準、Python要件、公式参照元、検証状態は`harness.lock.json`へ記録します。固定参照は「この版を導入対象にする」という意味であり、Unity `6000.4.10f1`との実接続・実生成が成功したという意味ではありません。
+
+### 外部ツールを明示的に導入する
+
+外部OSSは利用者が上流ライセンスと固定参照を確認してから導入します。本ハーネスは外部リポジトリのコードを再配布せず、導入時にも自動取得しません。現在固定している両依存は記録上MITですが、ライセンス条件は固定参照の原文を確認してください。この記述は法的助言ではありません。
+
+Unity MCP:
+
+1. Unityの`Window > Package Management > Package Manager`を開く。
+2. `Add package from git URL`へ次の固定commit URLを入力する。
+
+```text
+https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#417cf351a152b483c91e6e2deaf7ae355fa8eff3
+```
+
+3. `Window > MCP for Unity`を開き、Serverを開始してCodex clientを設定する。
+4. Unity側が`Connected`になったことを確認し、診断CLIを再実行する。
+
+Package Managerが記録する`Packages/manifest.json`と`Packages/packages-lock.json`はゲームプロジェクトの再現性情報としてGit管理します。Unity MCPのソースcheckoutやPackage cacheはゲームリポジトリへコピーしません。
+
+agent-sprite-forgeをプロジェクト単位で導入する例:
+
+```bash
+mkdir -p .codex/external .codex/skills
+git clone https://github.com/0x0funky/agent-sprite-forge.git \
+  .codex/external/agent-sprite-forge
+git -C .codex/external/agent-sprite-forge checkout --detach \
+  fff651a89223b044ccfc0b75ed9f3754c6d739b1
+python3 -m pip install -r \
+  .codex/external/agent-sprite-forge/requirements.txt
+cp -R .codex/external/agent-sprite-forge/skills/generate2dsprite \
+  .codex/skills/generate2dsprite
+cp -R .codex/external/agent-sprite-forge/skills/generate2dmap \
+  .codex/skills/generate2dmap
+```
+
+上記はmacOS / Linux shellの例です。Windowsでは同じパスを`New-Item`と`Copy-Item -Recurse`で作成・コピーします。既存の外部Skillがある場合は、内容と参照元を確認してから置換してください。
+
+`.codex/external/`と2つの外部Skillコピーはインストーラーが`.gitignore`へ追加するため、ハーネス本体やゲームリポジトリへ再配布されません。導入後はCodexを再起動し、診断CLIを再実行します。全プロジェクトで共用する場合は`$CODEX_HOME/external/agent-sprite-forge`と`$CODEX_HOME/skills/`へ同じ固定commitから導入できます。
 
 更新時は公式Release、commit、Package metadataまたはrequirementsを確認して固定値を変更し、対象環境で実行した後にだけ`verification.status`を`PASS`へ変更します。
 

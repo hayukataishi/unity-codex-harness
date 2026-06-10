@@ -122,6 +122,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertFalse((project / ".codex").exists())
             self.assertFalse((project / "docs").exists())
             self.assertFalse((project / "harness.lock.json").exists())
+            self.assertFalse((project / "scripts").exists())
             self.assertEqual(
                 (project / ".gitignore").read_text(encoding="utf-8"),
                 original_gitignore,
@@ -156,6 +157,36 @@ class InstallerCliRegressionTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(config.read_text(encoding="utf-8"), custom)
+
+    def test_installs_external_dependency_checker_and_ignore_rules(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(
+                (
+                    project
+                    / "scripts"
+                    / "unity_codex_harness"
+                    / "check_external_dependencies.py"
+                ).is_file()
+            )
+            gitignore = (project / ".gitignore").read_text(encoding="utf-8")
+            self.assertIn("/.codex/external/", gitignore)
+            self.assertIn(
+                "/.codex/skills/generate2dsprite/",
+                gitignore,
+            )
+            self.assertIn(
+                "/.codex/skills/generate2dmap/",
+                gitignore,
+            )
+            self.assertIn(
+                "External dependencies are not bundled",
+                result.stdout,
+            )
 
 
 if __name__ == "__main__":

@@ -2055,6 +2055,28 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 | `DEBUG-003-AC03` | `有効` | `AUTO:EDIT` | Asset validatorが正常fixtureをPASSし、動的に生成したMissing Referenceと必須参照不足をFAILとして検出する | EditModeテスト |
 | `DEBUG-003-AC04` | `有効` | `AUTO:PLAY` | `FixtureScene`をPlayModeで読み込み、`CounterFixture`の参照とカウンター動作を確認できる | PlayModeテスト |
 
+<a id="debug-004"></a>
+
+### DEBUG-004: 外部MCPとSkillを同梱せず固定参照から導入する
+
+**仕様**
+
+- Unity MCPと外部Codex Skillはハーネスへvendorせず、標準インストーラーもネットワークから自動取得しない。
+- `harness.lock.json`へ固定commit、導入参照、非同梱、明示導入、上流license名と固定参照のlicense URLを記録する。
+- 導入先の`.gitignore`は外部checkoutと外部SkillコピーをGit管理外にし、Package Managerが記録するUnity Package manifestは再現性情報としてGit管理する。
+- 診断CLIはUnity MCP Packageの不足・版違い、agent-sprite-forgeのcheckout commitとSkill配置を検査し、固定版の導入手順を表示する。
+- 診断CLIは外部コードの取得、Package変更、Skillコピーを行わない。Unity MCPの実接続は別のEditor smoke testで検証する。
+- MCPが利用できない場合、Editor serializationを必要とする変更は安全なEditor API代替がない限り停止し、Unity YAML直接編集へ縮退しない。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-004-AC01` | `有効` | `AUTO:STATIC` | lockが両依存の固定commit、非同梱、明示導入、license、固定導入情報を持ち、リポジトリ検査が欠落と可変参照を拒否する | lock検証回帰テスト |
+| `DEBUG-004-AC02` | `有効` | `AUTO:STATIC` | Installerが診断CLIを導入し、`Artifacts`、外部checkout、外部SkillコピーをGit除外し、追跡済みファイルがあれば停止する | Installer CLI回帰テスト |
+| `DEBUG-004-AC03` | `有効` | `AUTO:STATIC` | 診断CLIが不足・版違いを終了コード`1`で報告し、固定参照の手順を表示するが外部依存を変更しない | 外部依存CLI回帰テスト |
+| `DEBUG-004-AC04` | `有効` | `AUTO:STATIC` | commit固定Unity Package、固定checkout、必要Skillが存在するfixtureで診断CLIが`PASS`し、MCP接続は`NOT CHECKED`と区別する | 外部依存CLI回帰テスト |
+
 ---
 
 ## 付録A：ジャンル別 追加検討項目

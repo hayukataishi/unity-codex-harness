@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-06-09",
+  "updatedAt": "2026-06-10",
   "harness": {
     "release": "UNRELEASED",
     "unityFixtureVersion": "6000.4.10f1",
@@ -20,10 +20,20 @@
       "packageVersion": "9.7.0",
       "minimumUnity": "2021.3",
       "minimumPython": "3.10",
+      "distribution": {
+        "bundled": false,
+        "installMode": "explicit-user-action",
+        "license": "MIT",
+        "licenseUrl": "https://github.com/CoplayDev/unity-mcp/blob/v9.7.0/LICENSE"
+      },
+      "install": {
+        "unityPackageUrl": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#417cf351a152b483c91e6e2deaf7ae355fa8eff3"
+      },
       "sources": [
         "https://github.com/CoplayDev/unity-mcp/releases/tag/v9.7.0",
         "https://github.com/CoplayDev/unity-mcp/commit/417cf351a152b483c91e6e2deaf7ae355fa8eff3",
-        "https://github.com/CoplayDev/unity-mcp/blob/v9.7.0/MCPForUnity/package.json"
+        "https://github.com/CoplayDev/unity-mcp/blob/v9.7.0/MCPForUnity/package.json",
+        "https://github.com/CoplayDev/unity-mcp/blob/v9.7.0/LICENSE"
       ],
       "verification": {
         "status": "NOT RUN",
@@ -40,9 +50,24 @@
         "numpy": ">=1.26",
         "Pillow": ">=10.0"
       },
+      "distribution": {
+        "bundled": false,
+        "installMode": "explicit-user-action",
+        "license": "MIT",
+        "licenseUrl": "https://github.com/0x0funky/agent-sprite-forge/blob/fff651a89223b044ccfc0b75ed9f3754c6d739b1/LICENSE"
+      },
+      "install": {
+        "projectCheckoutPath": ".codex/external/agent-sprite-forge",
+        "userCheckoutPath": "external/agent-sprite-forge",
+        "skillNames": [
+          "generate2dsprite",
+          "generate2dmap"
+        ]
+      },
       "sources": [
         "https://github.com/0x0funky/agent-sprite-forge/commit/fff651a89223b044ccfc0b75ed9f3754c6d739b1",
-        "https://github.com/0x0funky/agent-sprite-forge/blob/fff651a89223b044ccfc0b75ed9f3754c6d739b1/requirements.txt"
+        "https://github.com/0x0funky/agent-sprite-forge/blob/fff651a89223b044ccfc0b75ed9f3754c6d739b1/requirements.txt",
+        "https://github.com/0x0funky/agent-sprite-forge/blob/fff651a89223b044ccfc0b75ed9f3754c6d739b1/LICENSE"
       ],
       "verification": {
         "status": "NOT RUN",

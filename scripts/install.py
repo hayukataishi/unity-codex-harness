@@ -18,15 +18,32 @@ REQUIRED_UNITY_PATHS = (
 )
 GITIGNORE_BEGIN = "# >>> Unity Codex Harness managed Artifacts ignore >>>"
 GITIGNORE_RULE = "/Artifacts/"
+GITIGNORE_RULES = (
+    GITIGNORE_RULE,
+    "/.codex/external/",
+    "/.codex/skills/generate2dsprite/",
+    "/.codex/skills/generate2dmap/",
+)
 GITIGNORE_END = "# <<< Unity Codex Harness managed Artifacts ignore <<<"
 GITIGNORE_BLOCK = "\n".join(
     (
         GITIGNORE_BEGIN,
-        GITIGNORE_RULE,
+        *GITIGNORE_RULES,
         GITIGNORE_END,
     )
 )
-ARTIFACTS_CHECK_PATH = "Artifacts/.unity-codex-harness-ignore-check"
+GITIGNORE_CHECK_PATHS = (
+    "Artifacts/.unity-codex-harness-ignore-check",
+    ".codex/external/.unity-codex-harness-ignore-check",
+    ".codex/skills/generate2dsprite/.unity-codex-harness-ignore-check",
+    ".codex/skills/generate2dmap/.unity-codex-harness-ignore-check",
+)
+LOCAL_ONLY_PATHS = (
+    "Artifacts",
+    ".codex/external",
+    ".codex/skills/generate2dsprite",
+    ".codex/skills/generate2dmap",
+)
 
 
 class InstallSource(NamedTuple):
@@ -58,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Check that Artifacts is ignored without installing files",
+        help="Check that harness local-only paths are ignored",
     )
     return parser.parse_args()
 
@@ -115,6 +132,19 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
         InstallSource(
             source=repository_root / "harness.lock.json",
             relative=Path("harness.lock.json"),
+            preserve_existing=False,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=(
+                repository_root
+                / "scripts"
+                / "check_external_dependencies.py"
+            ),
+            relative=Path(
+                "scripts/unity_codex_harness/check_external_dependencies.py"
+            ),
             preserve_existing=False,
         )
     )
@@ -210,7 +240,7 @@ def write_gitignore(
             handle.write(updated)
 
 
-def tracked_artifacts(project_root: Path) -> list[str]:
+def tracked_local_only_paths(project_root: Path) -> list[str]:
     try:
         result = subprocess.run(
             [
@@ -219,7 +249,7 @@ def tracked_artifacts(project_root: Path) -> list[str]:
                 str(project_root),
                 "ls-files",
                 "--",
-                "Artifacts",
+                *LOCAL_ONLY_PATHS,
             ],
             check=False,
             capture_output=True,
@@ -232,45 +262,68 @@ def tracked_artifacts(project_root: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
-def git_ignores_artifacts(project_root: Path) -> tuple[bool, str]:
+def tracked_artifacts(project_root: Path) -> list[str]:
+    return [
+        path
+        for path in tracked_local_only_paths(project_root)
+        if path == "Artifacts" or path.startswith("Artifacts/")
+    ]
+
+
+def git_ignores_local_only_paths(project_root: Path) -> tuple[bool, str]:
     gitignore = project_root / ".gitignore"
     if not gitignore.is_file():
         return False, ".gitignore does not exist"
 
-    try:
-        result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(project_root),
-                "check-ignore",
-                "--quiet",
-                "--no-index",
-                "--",
-                ARTIFACTS_CHECK_PATH,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
+    tracked = tracked_local_only_paths(project_root)
+    if tracked:
+        preview = ", ".join(tracked[:3])
+        suffix = "" if len(tracked) <= 3 else ", ..."
+        return (
+            False,
+            "Harness local-only paths contain files already tracked by Git: "
+            f"{preview}{suffix}. Remove them from the Git index before continuing.",
         )
-    except FileNotFoundError:
-        result = None
 
-    if result is not None and result.returncode == 0:
-        tracked = tracked_artifacts(project_root)
-        if tracked:
-            preview = ", ".join(tracked[:3])
-            suffix = "" if len(tracked) <= 3 else ", ..."
-            return (
-                False,
-                "Artifacts contains files already tracked by Git: "
-                f"{preview}{suffix}. Remove them from the Git index "
-                "before continuing.",
+    git_results: list[tuple[str, subprocess.CompletedProcess[str]]] = []
+    try:
+        for check_path in GITIGNORE_CHECK_PATHS:
+            git_results.append(
+                (
+                    check_path,
+                    subprocess.run(
+                        [
+                            "git",
+                            "-C",
+                            str(project_root),
+                            "check-ignore",
+                            "--quiet",
+                            "--no-index",
+                            "--",
+                            check_path,
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    ),
+                )
             )
-        return True, f"Git ignores {ARTIFACTS_CHECK_PATH}"
-    if result is not None and result.returncode not in (1, 128):
-        detail = result.stderr.strip() or f"git check-ignore exited {result.returncode}"
-        return False, detail
+    except FileNotFoundError:
+        git_results = []
+
+    if git_results and all(
+        result.returncode == 0 for _, result in git_results
+    ):
+        return True, "Git ignores all harness local-only paths"
+    for check_path, result in git_results:
+        if result.returncode not in (0, 1, 128):
+            detail = (
+                result.stderr.strip()
+                or f"git check-ignore exited {result.returncode}"
+            )
+            return False, detail
+        if result.returncode == 1:
+            return False, f"Git does not ignore {check_path}"
 
     try:
         existing = read_gitignore(gitignore)
@@ -278,15 +331,19 @@ def git_ignores_artifacts(project_root: Path) -> tuple[bool, str]:
     except ValueError as error:
         return False, str(error)
     if not has_managed_gitignore_block(existing):
-        return False, "managed /Artifacts/ rule is missing"
-    return True, "Managed /Artifacts/ rule is present"
+        return False, "managed harness ignore rules are missing"
+    return True, "Managed harness ignore rules are present"
+
+
+def git_ignores_artifacts(project_root: Path) -> tuple[bool, str]:
+    return git_ignores_local_only_paths(project_root)
 
 
 def check_installation(project_root: Path) -> None:
-    ignored, detail = git_ignores_artifacts(project_root)
+    ignored, detail = git_ignores_local_only_paths(project_root)
     if not ignored:
-        raise SystemExit(f"Artifacts ignore check: FAIL\n{detail}")
-    print(f"Artifacts ignore check: PASS\n{detail}")
+        raise SystemExit(f"Harness local-path ignore check: FAIL\n{detail}")
+    print(f"Harness local-path ignore check: PASS\n{detail}")
 
 
 def main() -> int:
@@ -306,12 +363,13 @@ def main() -> int:
         gitignore_action, gitignore_text = plan_gitignore_update(project_root)
     except ValueError as error:
         raise SystemExit(str(error)) from error
-    tracked = tracked_artifacts(project_root)
+    tracked = tracked_local_only_paths(project_root)
     if tracked:
         preview = "\n".join(f"  - {path}" for path in tracked[:10])
         suffix = "\n  - ..." if len(tracked) > 10 else ""
         raise SystemExit(
-            "Installation stopped because Artifacts contains files already "
+            "Installation stopped because harness local-only paths contain "
+            "files already "
             f"tracked by Git:\n{preview}{suffix}\n"
             "Remove them from the Git index, then rerun the installer."
         )
@@ -374,6 +432,11 @@ def main() -> int:
     )
     if not args.dry_run:
         check_installation(project_root)
+        print(
+            "External dependencies are not bundled. Check them with:\n"
+            "  python3 scripts/unity_codex_harness/"
+            "check_external_dependencies.py --project-root ."
+        )
     return 0
 
 

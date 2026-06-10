@@ -987,6 +987,38 @@ class HarnessLockValidationTests(unittest.TestCase):
             errors,
         )
 
+    def test_rejects_bundled_external_dependency(self):
+        manifest = self.load_manifest()
+        manifest["externalDependencies"]["unityMcp"]["distribution"][
+            "bundled"
+        ] = True
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.10f1",
+        )
+
+        self.assertTrue(
+            any("unityMcp.distribution.bundled" in error for error in errors),
+            errors,
+        )
+
+    def test_requires_commit_pinned_unity_mcp_install_url(self):
+        manifest = self.load_manifest()
+        manifest["externalDependencies"]["unityMcp"]["install"][
+            "unityPackageUrl"
+        ] = "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main"
+
+        errors = repository_validator.validate_harness_lock_data(
+            manifest,
+            "6000.4.10f1",
+        )
+
+        self.assertTrue(
+            any("unityMcp.install.unityPackageUrl" in error for error in errors),
+            errors,
+        )
+
 
 class InstallerSourceTests(unittest.TestCase):
     def test_maps_unity_template_into_project_paths(self):
@@ -1017,6 +1049,10 @@ class InstallerSourceTests(unittest.TestCase):
             relative_paths,
         )
         self.assertIn("harness.lock.json", relative_paths)
+        self.assertIn(
+            "scripts/unity_codex_harness/check_external_dependencies.py",
+            relative_paths,
+        )
         config = next(
             item
             for item in sources
@@ -1156,6 +1192,26 @@ class InstallerGitignoreTests(unittest.TestCase):
 
             self.assertFalse(ignored)
 
+    def test_check_rejects_rule_negated_later_in_gitignore(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            subprocess.run(
+                ["git", "init", "--quiet", str(project_root)],
+                check=True,
+            )
+            (project_root / ".gitignore").write_text(
+                self.installer.GITIGNORE_BLOCK
+                + "\n!/.codex/external/\n",
+                encoding="utf-8",
+            )
+
+            ignored, detail = (
+                self.installer.git_ignores_local_only_paths(project_root)
+            )
+
+            self.assertFalse(ignored)
+            self.assertIn(".codex/external", detail)
+
     def test_check_rejects_artifacts_already_tracked_by_git(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
@@ -1225,7 +1281,10 @@ class InstallerGitignoreTests(unittest.TestCase):
             self.assertEqual(install.returncode, 0, install.stderr)
             self.assertIn("update: .gitignore", install.stdout)
             self.assertEqual(check.returncode, 0, check.stderr)
-            self.assertIn("Artifacts ignore check: PASS", check.stdout)
+            self.assertIn(
+                "Harness local-path ignore check: PASS",
+                check.stdout,
+            )
             self.assertIn(
                 self.installer.GITIGNORE_BLOCK,
                 (project_root / ".gitignore").read_text(encoding="utf-8"),

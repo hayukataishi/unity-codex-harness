@@ -383,6 +383,9 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         '<a id="debug-003"></a>',
         "### DEBUG-003:",
         "DEBUG-003-AC04",
+        '<a id="debug-004"></a>',
+        "### DEBUG-004:",
+        "DEBUG-004-AC04",
         "Run ID衝突",
         "競合やdry-run時",
     ),
@@ -418,6 +421,12 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_required_saved_assets_have_meta_files",
         "test_assembly_boundaries_are_explicit",
         "test_asset_validation_config_covers_saved_assets",
+    ),
+    "tests/test_external_dependencies.py": (
+        "class ExternalDependencyCheckTests",
+        "test_missing_dependencies_report_fixed_install_steps",
+        "test_pinned_project_installation_passes",
+        "test_unity_mcp_version_mismatch_fails",
     ),
 }
 
@@ -797,6 +806,47 @@ def validate_harness_lock_data(
                 f"harness.lock.json {dependency_name}.ref must not be empty"
             )
 
+        distribution = dependency.get("distribution")
+        if not isinstance(distribution, dict):
+            errors.append(
+                f"harness.lock.json {dependency_name}.distribution "
+                "must be an object"
+            )
+        else:
+            if distribution.get("bundled") is not False:
+                errors.append(
+                    f"harness.lock.json {dependency_name}.distribution.bundled "
+                    "must be false"
+                )
+            if distribution.get("installMode") != "explicit-user-action":
+                errors.append(
+                    "harness.lock.json "
+                    f"{dependency_name}.distribution.installMode "
+                    "must be explicit-user-action"
+                )
+            license_name = distribution.get("license")
+            if not isinstance(license_name, str) or not license_name:
+                errors.append(
+                    f"harness.lock.json {dependency_name}.distribution.license "
+                    "must not be empty"
+                )
+            license_url = distribution.get("licenseUrl")
+            if (
+                not isinstance(license_url, str)
+                or not license_url.startswith("https://github.com/")
+            ):
+                errors.append(
+                    "harness.lock.json "
+                    f"{dependency_name}.distribution.licenseUrl "
+                    "must be a GitHub HTTPS URL"
+                )
+
+        install = dependency.get("install")
+        if not isinstance(install, dict):
+            errors.append(
+                f"harness.lock.json {dependency_name}.install must be an object"
+            )
+
         sources = dependency.get("sources")
         if (
             not isinstance(sources, list)
@@ -847,6 +897,20 @@ def validate_harness_lock_data(
             errors.append(
                 "harness.lock.json unityMcp.unityPackagePath is invalid"
             )
+        install = unity_mcp.get("install")
+        expected_package_url = (
+            f"{unity_mcp.get('repository')}.git"
+            f"?path=/{unity_mcp.get('unityPackagePath')}"
+            f"#{unity_mcp.get('commit')}"
+        )
+        if (
+            not isinstance(install, dict)
+            or install.get("unityPackageUrl") != expected_package_url
+        ):
+            errors.append(
+                "harness.lock.json unityMcp.install.unityPackageUrl "
+                "must pin the recorded commit"
+            )
 
     sprite_forge = dependencies.get("agentSpriteForge")
     if isinstance(sprite_forge, dict):
@@ -872,6 +936,26 @@ def validate_harness_lock_data(
             errors.append(
                 "harness.lock.json agentSpriteForge.ref must equal commit"
             )
+        install = sprite_forge.get("install")
+        if isinstance(install, dict):
+            project_path = install.get("projectCheckoutPath")
+            user_path = install.get("userCheckoutPath")
+            skill_names = install.get("skillNames")
+            if project_path != ".codex/external/agent-sprite-forge":
+                errors.append(
+                    "harness.lock.json "
+                    "agentSpriteForge.install.projectCheckoutPath is invalid"
+                )
+            if user_path != "external/agent-sprite-forge":
+                errors.append(
+                    "harness.lock.json "
+                    "agentSpriteForge.install.userCheckoutPath is invalid"
+                )
+            if skill_names != ["generate2dsprite", "generate2dmap"]:
+                errors.append(
+                    "harness.lock.json "
+                    "agentSpriteForge.install.skillNames is invalid"
+                )
 
     return errors
 

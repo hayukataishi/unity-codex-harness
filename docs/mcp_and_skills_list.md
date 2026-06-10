@@ -9,6 +9,15 @@
 
 正確なrepository、channel、commit、実行要件、公式参照元は`../harness.lock.json`で管理する。固定参照を記録しただけでは互換性確認済みとは扱わず、実接続または実生成を行うまでは`NOT RUN`とする。
 
+### 導入と配布
+
+- Unity MCPとagent-sprite-forgeは本ハーネスへ同梱せず、標準インストーラーも自動取得しない。
+- 固定参照、commit固定URL、license名、固定参照のlicense URLは`harness.lock.json`を正とする。
+- 利用者は上流licenseを確認し、READMEの手順で明示的に導入する。ライセンス確認は法的助言を代替しない。
+- 導入先では`python3 scripts/unity_codex_harness/check_external_dependencies.py --project-root .`を実行し、Package、checkout commit、Skill配置を確認する。
+- `.codex/external/`と外部SkillコピーはGit管理外とする。Unity Packageの`manifest.json`と`packages-lock.json`は再現性情報としてGit管理する。
+- 静的診断の`PASS`はUnity MCPのServer、Codex connector、Editor接続を証明しない。実接続は別のsmoke testと証拠Runで確認する。
+
 ### 責務の境界
 
 - **Unity MCP**はUnity Editorを操作する道具であり、プロジェクト固有の設計判断や完了条件は持たせない。

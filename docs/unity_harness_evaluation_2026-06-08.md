@@ -1126,7 +1126,7 @@ Unity `6000.4.10f1`実行結果:
 
 2026-06-10に`DEBUG-001-AC04`として対応した。Compileは同じRunで生成された有効なNUnit XMLとCompiler Error不在を必要とし、License、timeout、Process起動失敗を`BLOCKED`へ分類する。期待するXML / JSONがない場合は実在するLogだけを証拠登録し、EditModeがインフラ要因で`BLOCKED`ならPlayModeとAsset validationを再実行せず同じ理由で閉じる。
 
-#### P0-2: Unity MCPが中核方針なのに導入・接続・互換性が未検証
+#### P0-2: Unity MCPが中核方針なのに導入・接続・互換性が未検証（導入診断対応済み・実接続未検証）
 
 Scene、Prefab、Component、Screenshot、Play操作はUnity MCP優先と定義しているが、InstallerはMCPを導入せず、`harness.lock.json`も`NOT RUN`である。現在のCodex sessionにもUnity MCP toolは接続されていない。
 
@@ -1136,6 +1136,17 @@ Scene、Prefab、Component、Screenshot、Play操作はUnity MCP優先と定義�
 - CodexからEditor state取得、Scene作成、Prefab接続、Compile、Play、Screenshotを実行するsmoke testを用意する
 - 導入先でMCP package、server、Codex connector、Editor接続を検査する`doctor`を追加する
 - MCPが使えない時の安全な縮退動作と、停止すべき操作を明示する
+
+2026-06-10に`DEBUG-004`として、外部OSSをハーネスへ同梱せず固定参照から明示導入する契約を追加した。
+
+- Unity MCP `v9.7.0`はrelease commit固定のUPM URLを記録し、Package不足と版違いを診断する
+- agent-sprite-forgeは固定commit checkoutと`generate2dsprite` / `generate2dmap`配置を診断する
+- 両依存の`bundled: false`、`explicit-user-action`、MIT license URLをlockへ記録する
+- Installerは診断CLIをゲームへ導入するが、外部コードの取得、Package変更、Skillコピーは行わない
+- `.codex/external/`と外部SkillコピーをGit管理外にする
+- MCP不在時はEditor serialization変更を停止し、Unity YAML直接編集へ縮退しない
+
+これにより「未導入を検出し、権利・配布境界を保った固定導入へ案内する」部分は対応した。一方、Server起動、Codex connector、Editor接続、基本Editor操作のE2E smoke testは引き続き`NOT RUN`であり、P0-2全体は未完了である。
 
 #### P0-3: `--force`更新がゲーム固有設計書を上書きできる
 
@@ -1215,3 +1226,32 @@ UnityとGitの基本セットアップができ、ゲームの方向性、承認
 - 偽Unity License失敗CLI: `COMPLETED / BLOCKED`、Compile `BLOCKED`、欠落証拠なし、integrity `PASS`
 - 実Unity fixture: Compile `PASS`、EditMode 6件`PASS`、PlayMode 2件`PASS`、Asset validation `PASS`
 - Validation Run integrity: `PASS`
+
+### 14.9 P0-2導入診断対応結果
+
+実装:
+
+- `DEBUG-004`へ外部OSSの非同梱、明示導入、固定参照、license記録、MCP不在時の停止境界を追加
+- `check_external_dependencies.py`へUnity MCP Packageとagent-sprite-forge Skillの不足・版違い検査を追加
+- Installerへ診断CLIの配布と外部checkout・SkillコピーのGit除外を追加
+- `harness.lock.json`へ固定導入URL、配布方式、固定参照のlicense URLを追加
+- READMEへUnity Package Managerと外部Skillの手動導入手順を追加
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-004-AC01` | `PASS` | lock検証が非同梱とcommit固定URLを検査 |
+| `DEBUG-004-AC02` | `PASS` | Installer回帰が診断CLIとGit除外を検査 |
+| `DEBUG-004-AC03` | `PASS` | 不足・版違いfixtureで終了コード`1`と固定導入手順を確認 |
+| `DEBUG-004-AC04` | `PASS` | 固定Package・checkout・Skill fixtureで静的診断`PASS`、接続は`NOT CHECKED` |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、88件
+
+残件:
+
+- Unity MCP Server、Codex connector、Unity `6000.4.10f1` Editorの実接続
+- CodexからEditor state、Scene、Prefab、Compile、Play、Screenshotを確認するE2E smoke test
+- agent-sprite-forgeの実生成、Unity import、Animation、Prefab接続
