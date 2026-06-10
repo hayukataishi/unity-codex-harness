@@ -342,17 +342,22 @@ VALIDATION_RUN_REQUIRED_TEXT = {
         "finalize後の`COMPLETED`",
         "RunManifest.sha256",
         "DEBUG-001-AC03",
+        "DEBUG-001-AC04",
+        "未生成path",
     ),
     "docs/unity_harness_engineering.md": (
         "Validation Runのライフサイクル",
         "schema version 2",
         "--blocked-reason",
         "verify_validation_run.py",
+        "有効なNUnit XML",
+        "未生成path",
     ),
     ".codex/skills/validate-unity-change/SKILL.md": (
         "## Finalize and verify",
         "--blocked-reason",
         "verify_validation_run.py",
+        "Never add an expected but missing",
     ),
     ".codex/skills/validate-unity-change/scripts/create_validation_run.py": (
         '"schemaVersion": 2',

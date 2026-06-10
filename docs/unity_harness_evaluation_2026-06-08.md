@@ -1082,8 +1082,9 @@ Unity `6000.4.10f1`実行結果:
 | テンプレート自己回帰 | Python `unittest` 75件 | `PASS` |
 | Unity Editor検出 | `/Applications/Unity/Hub/Editor/6000.4.10f1` | `PASS` |
 | 過去Unity fixture Run | `20260609T062753Z`: Compile、EditMode 6件、PlayMode 2件、Asset validation | `PASS` |
-| 現在Unity fixture Run | `20260610T003455Z`: Licensing Client protocol mismatch | `BLOCKED` |
-| 現在Runの整合性検証 | Completed BLOCKED RunのManifestとartifact hash | `PASS` |
+| 障害再現Unity fixture Run | `20260610T003455Z`: Licensing Client protocol mismatch | `BLOCKED` |
+| 修正後Unity fixture Run | `20260610T024841Z`: Compile、EditMode 6件、PlayMode 2件、Asset validation | `PASS` |
+| 修正後Runの整合性検証 | Completed PASS RunのManifestとartifact hash | `PASS` |
 | 最新GitHub Actions Repository job | Run 14、commit `1577fcf` | `PASS` |
 | 最新GitHub Actions Unity job | Secret検査で停止、Unity testsはskip | `FAIL` |
 | Unity MCP接続 | fixtureとCodex sessionへ未導入 | `NOT RUN` |
@@ -1110,7 +1111,7 @@ Unity `6000.4.10f1`実行結果:
 
 ### 14.4 新しいP0
 
-#### P0-1: Unity起動失敗時にCompileが誤ってPASSになる
+#### P0-1: Unity起動失敗時にCompileが誤ってPASSになる（対応済み）
 
 `run_unity_validation.py`はログに`error CSxxxx`がない場合、Unityの終了コードやNUnit XMLの有無に関係なくCompileを`PASS`にする。今回、Unityがライセンス初期化前に終了してEditMode XMLを生成しなかったRunでもCompileが`PASS`になった。
 
@@ -1122,6 +1123,8 @@ Unity `6000.4.10f1`実行結果:
 - License、Editor起動、timeout、crashをCompile失敗と分離して`BLOCKED`または`FAIL`へ分類する
 - 存在しない証拠pathをManifestとAC evidenceへ登録しない
 - UnityがXML / JSONを生成しない異常系でも、完成Runのintegrity verificationが`PASS`する回帰テストを追加する
+
+2026-06-10に`DEBUG-001-AC04`として対応した。Compileは同じRunで生成された有効なNUnit XMLとCompiler Error不在を必要とし、License、timeout、Process起動失敗を`BLOCKED`へ分類する。期待するXML / JSONがない場合は実在するLogだけを証拠登録し、EditModeがインフラ要因で`BLOCKED`ならPlayModeとAsset validationを再実行せず同じ理由で閉じる。
 
 #### P0-2: Unity MCPが中核方針なのに導入・接続・互換性が未検証
 
@@ -1172,7 +1175,7 @@ Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位とし
 
 ### 14.6 100点の完了条件
 
-1. P0-1からP0-4を解消し、失敗経路を含むValidation Runが必ず整合性検証を通る
+1. 残るP0-2からP0-4を解消する。P0-1の失敗経路整合性は対応済み
 2. 固定版Unity MCPを導入したE2E fixtureをCodexから実行し、Editor操作証拠を残す
 3. 導入先CI templateとBuild Profile Player buildを少なくともmacOSまたはWindowsの一系統で成功させる
 4. Installerをinstall / doctor / upgradeへ分離し、ゲーム所有ファイルをbackupなしで上書きしない
@@ -1188,3 +1191,27 @@ Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位とし
 > **現時点では、Codexへ安全に多くのUnity作業を任せるための優秀な基盤である。ただし、インストールだけで誰でも制作全体を完全委任できる製品ではない。**
 
 UnityとGitの基本セットアップができ、ゲームの方向性、承認、主観的品質判断を人間が担うなら、小規模試作から継続開発の土台として実用可能である。非技術者がセットアップなしで完成ゲーム、ビルド、配布まで任せる用途には、P0解消とE2E実証が必要である。
+
+### 14.8 P0-1対応結果
+
+実装:
+
+- `DEBUG-001-AC04`へCompile証明、インフラ障害分類、実在証拠限定を追加
+- `run_unity_validation.py`へLicense、timeout、Process起動失敗の`BLOCKED`分類を追加
+- 有効なNUnit XMLがない場合はCompileを`PASS`にしない
+- 未生成のEditMode / PlayMode XMLとAsset validation JSONを証拠登録しない
+- EditModeのインフラ障害後は後続Unity processを繰り返さず、理由付き`BLOCKED`で閉じる
+- License警告後に正常復旧してXMLが生成された場合は誤って`BLOCKED`にしない
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-001-AC04` | `PASS` | Python異常系回帰とUnity `6000.4.10f1` Validation Run `20260610T024841Z` |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、80件
+- 偽Unity License失敗CLI: `COMPLETED / BLOCKED`、Compile `BLOCKED`、欠落証拠なし、integrity `PASS`
+- 実Unity fixture: Compile `PASS`、EditMode 6件`PASS`、PlayMode 2件`PASS`、Asset validation `PASS`
+- Validation Run integrity: `PASS`

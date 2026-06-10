@@ -626,6 +626,9 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 新規Runはschema version 2、`state: RUNNING`、`result: NOT RUN`で開始する。検証終了時は成功・失敗にかかわらずfinalizeし、`state: COMPLETED`、`completedAtUtc`、`durationSeconds`、Check・AC別結果、最終結果を確定する。
 
 - `run_unity_validation.py`はCheck結果を書き出した後に`finalize_validation_run.py`を実行し、続けて`verify_validation_run.py`で完成状態とハッシュを検証する。
+- Compileは`error CSxxxx`がないことだけで`PASS`にしない。新しいRun内にUnityが生成した有効なNUnit XMLがあり、Compiler Errorがない場合にcompile完了を証明する。
+- Unity License、Editor起動、Process timeout、実行権限などで期待するXMLまたはJSONが生成されなかった場合は、製品コードの失敗と区別して理由付き`BLOCKED`にする。
+- CheckとACの`evidence`へは実在する成果物だけを登録する。期待したXMLまたはJSONが未生成の場合は、存在するUnity Logを証拠にし、未生成pathを記録しない。
 - 手動作成したRunは、機械可読な結果JSONを`--results`へ渡してfinalizeする。
 - Unity Editor、ライセンス、外部SDK、人間レビュー待ちなどで継続不能になったRunは放置せず、`--blocked-reason "<理由>"`で`BLOCKED`として完了させる。
 - finalizerは宣言済みAC以外の結果、不正な結果値、Run外のresults path、空のCheck一覧を拒否する。

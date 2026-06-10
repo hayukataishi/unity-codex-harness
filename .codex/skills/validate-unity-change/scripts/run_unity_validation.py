@@ -14,6 +14,30 @@ from pathlib import Path
 
 
 COMPILER_ERROR_RE = re.compile(r"\berror CS\d{4}\b")
+TIMEOUT_EXIT_CODE = 124
+EXECUTION_ERROR_EXIT_CODE = 127
+BLOCKED_LOG_MARKERS = (
+    (
+        "attempt to write a readonly database",
+        "Unity could not write its licensing or support database",
+    ),
+    (
+        "Licensing initialization failed",
+        "Unity licensing initialization failed",
+    ),
+    (
+        "No valid Unity Editor license found",
+        "No valid Unity Editor license was available",
+    ),
+    (
+        "'com.unity.editor.headless' was not found",
+        "The Unity headless license entitlement was unavailable",
+    ),
+    (
+        "Unsupported protocol version",
+        "Unity Editor and the Licensing Client use incompatible protocols",
+    ),
+)
 
 
 def unity_version(project_root: Path) -> str:
@@ -44,9 +68,34 @@ def resolve_unity_editor(project_root: Path, provided: str | None) -> Path:
     return candidate
 
 
-def parse_nunit_result(path: Path, exit_code: int) -> tuple[str, str]:
+def read_log(path: Path | None) -> str:
+    if path is None or not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def infrastructure_blocker(exit_code: int, log_path: Path | None) -> str | None:
+    if exit_code == TIMEOUT_EXIT_CODE:
+        return "Unity command timed out"
+    if exit_code == EXECUTION_ERROR_EXIT_CODE:
+        return "Unity process could not be started"
+    log = read_log(log_path)
+    for marker, reason in BLOCKED_LOG_MARKERS:
+        if marker in log:
+            return reason
+    return None
+
+
+def parse_nunit_result(
+    path: Path,
+    exit_code: int,
+    log_path: Path | None = None,
+) -> tuple[str, str]:
     if not path.is_file():
-        return "FAIL", f"Unity exited {exit_code}; test result XML was not created"
+        blocker = infrastructure_blocker(exit_code, log_path)
+        result = "BLOCKED" if blocker else "FAIL"
+        reason = blocker or f"Unity exited {exit_code}"
+        return result, f"{reason}; test result XML was not created"
     try:
         root = ET.parse(path).getroot()
     except ET.ParseError as error:
@@ -63,11 +112,18 @@ def parse_nunit_result(path: Path, exit_code: int) -> tuple[str, str]:
     return "FAIL", f"exit={exit_code}, total={total}, failed={failed}, result={result}"
 
 
-def parse_asset_validation_result(path: Path, exit_code: int) -> tuple[str, str]:
+def parse_asset_validation_result(
+    path: Path,
+    exit_code: int,
+    log_path: Path | None = None,
+) -> tuple[str, str]:
     if not path.is_file():
+        blocker = infrastructure_blocker(exit_code, log_path)
+        result = "BLOCKED" if blocker else "FAIL"
+        reason = blocker or f"Unity exited {exit_code}"
         return (
-            "FAIL",
-            f"Unity exited {exit_code}; asset validation JSON was not created",
+            result,
+            f"{reason}; asset validation JSON was not created",
         )
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
@@ -84,6 +140,42 @@ def parse_asset_validation_result(path: Path, exit_code: int) -> tuple[str, str]
         "FAIL",
         f"exit={exit_code}, status={status}, errors={errors}, warnings={warnings}",
     )
+
+
+def parse_compile_result(
+    test_result_path: Path,
+    log_path: Path,
+    exit_code: int,
+) -> tuple[str, str]:
+    log = read_log(log_path)
+    if COMPILER_ERROR_RE.search(log):
+        return "FAIL", "C# compiler errors detected"
+    if test_result_path.is_file():
+        try:
+            root = ET.parse(test_result_path).getroot()
+        except ET.ParseError as error:
+            return "FAIL", f"Compile completion artifact is invalid: {error}"
+        if root.tag != "test-run":
+            return "FAIL", "Compile completion artifact is not an NUnit test run"
+        return "PASS", "Valid Unity test result generated with no C# compiler errors"
+    blocker = infrastructure_blocker(exit_code, log_path)
+    if blocker:
+        return "BLOCKED", f"{blocker}; compilation completion was not proven"
+    return (
+        "FAIL",
+        f"Unity exited {exit_code}; compilation completion was not proven",
+    )
+
+
+def add_evidence(
+    check: dict[str, str],
+    candidates: list[tuple[Path, str]],
+) -> dict[str, str]:
+    for path, relative in candidates:
+        if path.is_file():
+            check["evidence"] = relative
+            break
+    return check
 
 
 def display_command(command: list[str], unity_editor: Path, project_root: Path) -> str:
@@ -232,24 +324,100 @@ def main() -> int:
             "exitCode": preflight_exit,
         }
     )
+    preflight_path = project_root / preflight_relative
     checks.append(
-        {
-            "name": "Static preflight",
-            "result": "PASS" if preflight_exit == 0 else "FAIL",
-            "evidence": f"{run_relative}/Logs/Preflight.json",
-            "notes": f"exit={preflight_exit}",
-        }
+        add_evidence(
+            {
+                "name": "Static preflight",
+                "result": "PASS" if preflight_exit == 0 else "FAIL",
+                "notes": f"exit={preflight_exit}",
+            },
+            [(preflight_path, preflight_relative)],
+        )
     )
 
-    test_data: list[tuple[str, str]] = [
-        ("EditMode", "EditMode"),
-        ("PlayMode", "PlayMode"),
+    edit_result_relative = f"{run_relative}/Tests/EditMode.xml"
+    edit_log_relative = f"{run_relative}/Logs/EditMode.log"
+    edit_result_path = project_root / edit_result_relative
+    edit_log_path = project_root / edit_log_relative
+    edit_command = [
+        str(unity_editor),
+        "-batchmode",
+        "-nographics",
+        "-projectPath",
+        str(project_root),
+        "-runTests",
+        "-testPlatform",
+        "EditMode",
+        "-testResults",
+        str(edit_result_path),
+        "-logFile",
+        str(edit_log_path),
     ]
-    compiler_error = False
-    for check_name, platform in test_data:
-        result_relative = f"{run_relative}/Tests/{check_name}.xml"
-        log_relative = f"{run_relative}/Logs/{check_name}.log"
-        command = [
+    edit_exit = run_command(edit_command, args.timeout_seconds)
+    commands.append(
+        {
+            "name": "EditMode",
+            "command": display_command(edit_command, unity_editor, project_root),
+            "exitCode": edit_exit,
+        }
+    )
+    edit_result, edit_notes = parse_nunit_result(
+        edit_result_path,
+        edit_exit,
+        edit_log_path,
+    )
+    compile_result, compile_notes = parse_compile_result(
+        edit_result_path,
+        edit_log_path,
+        edit_exit,
+    )
+    checks.append(
+        add_evidence(
+            {
+                "name": "Compile",
+                "result": compile_result,
+                "notes": compile_notes,
+            },
+            [(edit_log_path, edit_log_relative)],
+        )
+    )
+    checks.append(
+        add_evidence(
+            {
+                "name": "EditMode",
+                "result": edit_result,
+                "notes": edit_notes,
+            },
+            [
+                (edit_result_path, edit_result_relative),
+                (edit_log_path, edit_log_relative),
+            ],
+        )
+    )
+
+    if edit_result == "BLOCKED" or compile_result == "BLOCKED":
+        skipped_notes = (
+            "Skipped because EditMode infrastructure was blocked: "
+            f"{edit_notes}"
+        )
+        for check_name in ("PlayMode", "Asset validation"):
+            checks.append(
+                add_evidence(
+                    {
+                        "name": check_name,
+                        "result": "BLOCKED",
+                        "notes": skipped_notes,
+                    },
+                    [(edit_log_path, edit_log_relative)],
+                )
+            )
+    else:
+        play_result_relative = f"{run_relative}/Tests/PlayMode.xml"
+        play_log_relative = f"{run_relative}/Logs/PlayMode.log"
+        play_result_path = project_root / play_result_relative
+        play_log_path = project_root / play_log_relative
+        play_command = [
             str(unity_editor),
             "-batchmode",
             "-nographics",
@@ -257,87 +425,92 @@ def main() -> int:
             str(project_root),
             "-runTests",
             "-testPlatform",
-            platform,
+            "PlayMode",
             "-testResults",
-            str(project_root / result_relative),
+            str(play_result_path),
             "-logFile",
-            str(project_root / log_relative),
+            str(play_log_path),
         ]
-        exit_code = run_command(command, args.timeout_seconds)
+        play_exit = run_command(play_command, args.timeout_seconds)
         commands.append(
             {
-                "name": check_name,
-                "command": display_command(command, unity_editor, project_root),
-                "exitCode": exit_code,
+                "name": "PlayMode",
+                "command": display_command(
+                    play_command,
+                    unity_editor,
+                    project_root,
+                ),
+                "exitCode": play_exit,
             }
         )
-        result, notes = parse_nunit_result(project_root / result_relative, exit_code)
+        play_result, play_notes = parse_nunit_result(
+            play_result_path,
+            play_exit,
+            play_log_path,
+        )
         checks.append(
+            add_evidence(
+                {
+                    "name": "PlayMode",
+                    "result": play_result,
+                    "notes": play_notes,
+                },
+                [
+                    (play_result_path, play_result_relative),
+                    (play_log_path, play_log_relative),
+                ],
+            )
+        )
+
+        asset_result_relative = f"{run_relative}/Logs/AssetValidation.json"
+        asset_log_relative = f"{run_relative}/Logs/AssetValidation.log"
+        asset_result_path = project_root / asset_result_relative
+        asset_log_path = project_root / asset_log_relative
+        asset_command = [
+            str(unity_editor),
+            "-batchmode",
+            "-nographics",
+            "-projectPath",
+            str(project_root),
+            "-executeMethod",
+            "UnityCodexHarness.Validation.Editor.AssetValidationBatch.Run",
+            "-harnessAssetValidationConfig",
+            args.asset_config,
+            "-harnessAssetValidationOutput",
+            str(asset_result_path),
+            "-logFile",
+            str(asset_log_path),
+        ]
+        asset_exit = run_command(asset_command, args.timeout_seconds)
+        commands.append(
             {
-                "name": check_name,
-                "result": result,
-                "evidence": result_relative,
-                "notes": notes,
+                "name": "Asset validation",
+                "command": display_command(
+                    asset_command,
+                    unity_editor,
+                    project_root,
+                ),
+                "exitCode": asset_exit,
             }
         )
-        log_path = project_root / log_relative
-        if log_path.is_file() and COMPILER_ERROR_RE.search(
-            log_path.read_text(encoding="utf-8", errors="replace")
-        ):
-            compiler_error = True
-
-    asset_result_relative = f"{run_relative}/Logs/AssetValidation.json"
-    asset_log_relative = f"{run_relative}/Logs/AssetValidation.log"
-    asset_command = [
-        str(unity_editor),
-        "-batchmode",
-        "-nographics",
-        "-projectPath",
-        str(project_root),
-        "-executeMethod",
-        "UnityCodexHarness.Validation.Editor.AssetValidationBatch.Run",
-        "-harnessAssetValidationConfig",
-        args.asset_config,
-        "-harnessAssetValidationOutput",
-        str(project_root / asset_result_relative),
-        "-logFile",
-        str(project_root / asset_log_relative),
-    ]
-    asset_exit = run_command(asset_command, args.timeout_seconds)
-    commands.append(
-        {
-            "name": "Asset validation",
-            "command": display_command(asset_command, unity_editor, project_root),
-            "exitCode": asset_exit,
-        }
-    )
-    asset_result, asset_notes = parse_asset_validation_result(
-        project_root / asset_result_relative,
-        asset_exit,
-    )
-    checks.append(
-        {
-            "name": "Asset validation",
-            "result": asset_result,
-            "evidence": asset_result_relative,
-            "notes": asset_notes,
-        }
-    )
-    asset_log_path = project_root / asset_log_relative
-    if asset_log_path.is_file() and COMPILER_ERROR_RE.search(
-        asset_log_path.read_text(encoding="utf-8", errors="replace")
-    ):
-        compiler_error = True
-
-    checks.insert(
-        1,
-        {
-            "name": "Compile",
-            "result": "FAIL" if compiler_error else "PASS",
-            "evidence": f"{run_relative}/Logs/EditMode.log",
-            "notes": "C# compiler errors detected" if compiler_error else "No C# compiler errors",
-        },
-    )
+        asset_result, asset_notes = parse_asset_validation_result(
+            asset_result_path,
+            asset_exit,
+            asset_log_path,
+        )
+        checks.append(
+            add_evidence(
+                {
+                    "name": "Asset validation",
+                    "result": asset_result,
+                    "notes": asset_notes,
+                },
+                [
+                    (asset_result_path, asset_result_relative),
+                    (asset_log_path, asset_log_relative),
+                ],
+            )
+        )
 
     results_path.write_text(
         json.dumps(

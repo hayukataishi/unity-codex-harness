@@ -1994,6 +1994,9 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 - Validation Runはschema version 2の`RunManifest.json`を持ち、作成時の`RUNNING`からfinalize後の`COMPLETED`へ一方向に遷移する。
 - finalize時は`completedAtUtc`、`durationSeconds`、コマンド終了コード、Check結果、AC別結果、最終結果、成果物の相対パス・サイズ・SHA-256を記録する。
 - CheckまたはACに`FAIL`、`BLOCKED`、`NOT RUN`があれば、Runの最終結果を`PASS`にしない。
+- CompileはCompiler Errorがないことだけで合格にせず、Unityが有効なTest結果を生成してcompile完了を証明できた場合だけ`PASS`にする。
+- Unity Editor、License、timeout、Process起動などの実行環境障害は、製品コードの失敗と区別して理由付き`BLOCKED`にする。
+- XML、JSON、Logなど実在する成果物だけをCheckとACの証拠へ登録し、未生成pathを証拠として記録しない。
 - 継続不能なRunは理由を記録して`BLOCKED`で完了できる。`RUNNING`のまま成功扱いにしない。
 - 完了時に`RunManifest.sha256`を生成し、Manifestと記録済み成果物の改変、欠落、未記録ファイルを検証できるようにする。
 - `COMPLETED` Runは再finalize・上書きせず、追加検証や証拠修正は新しいRunで行う。
@@ -2005,6 +2008,7 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 | `DEBUG-001-AC01` | `有効` | `AUTO:STATIC` | 新規Runがschema version 2の`RUNNING`で始まり、finalize後に完了日時・duration・Check・AC・最終結果を持つ`COMPLETED`になる | Python CLI回帰テスト |
 | `DEBUG-001-AC02` | `有効` | `AUTO:STATIC` | 完了済みRunの再finalizeが拒否され、途中Runを理由付き`BLOCKED`で完了できる | Python CLI回帰テスト |
 | `DEBUG-001-AC03` | `有効` | `AUTO:STATIC` | Manifest sidecar hash、Check・AC証拠パス、成果物のサイズ・SHA-256を検証し、欠落と完了後の変更を検出できる | Python CLI回帰テスト |
+| `DEBUG-001-AC04` | `有効` | `AUTO:STATIC` | Unity起動・License・timeoutでXMLやJSONが未生成でもCompileを`PASS`にせず、実在するLogだけを証拠に`BLOCKED`または`FAIL`で完了し、Run整合性検証が成功する | Python CLI回帰テスト |
 
 <a id="debug-002"></a>
 

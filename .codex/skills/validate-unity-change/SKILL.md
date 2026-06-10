@@ -75,6 +75,13 @@ separately when Unity-facing behavior can be affected.
    - Trigger asset refresh and script compilation through Unity MCP or the approved batch command.
    - Wait for compilation and domain reload to finish.
    - Save searchable Editor and Console logs.
+   - Do not infer `PASS` only because the log has no `error CSxxxx`. Require a
+     valid Unity-generated test result or another explicit compile-completion
+     artifact from the same run.
+   - Classify license initialization, Editor launch, process timeout, and
+     execution-permission failures as `BLOCKED` with the available log.
+   - Record only evidence files that exist. Never add an expected but missing
+     XML or JSON path to a Check or AC.
 3. **EditMode**
    - Run affected tests first, then the broader relevant suite.
    - Save NUnit-compatible XML to `Tests/EditMode.xml`.

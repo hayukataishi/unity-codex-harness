@@ -111,6 +111,80 @@ class UnityVersionTests(unittest.TestCase):
         self.assertEqual(result, "FAIL")
         self.assertIn("was not created", notes)
 
+    def test_missing_nunit_from_license_failure_is_blocked(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            log_path = Path(temporary_directory) / "EditMode.log"
+            log_path.write_text(
+                "ResponseStatus: Unsupported protocol version '1.18.1'.\n",
+                encoding="utf-8",
+            )
+
+            result, notes = runner.parse_nunit_result(
+                Path(temporary_directory) / "EditMode.xml",
+                1,
+                log_path,
+            )
+
+            self.assertEqual(result, "BLOCKED")
+            self.assertIn("incompatible protocols", notes)
+
+    def test_missing_asset_report_after_timeout_is_blocked(self):
+        result, notes = runner.parse_asset_validation_result(
+            Path("/not-created/AssetValidation.json"),
+            runner.TIMEOUT_EXIT_CODE,
+        )
+
+        self.assertEqual(result, "BLOCKED")
+        self.assertIn("timed out", notes)
+
+    def test_compile_requires_a_valid_unity_result(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            log_path = root / "EditMode.log"
+            log_path.write_text(
+                "Unity exited before creating test results.\n",
+                encoding="utf-8",
+            )
+
+            result, notes = runner.parse_compile_result(
+                root / "EditMode.xml",
+                log_path,
+                1,
+            )
+
+            self.assertEqual(result, "FAIL")
+            self.assertIn("completion was not proven", notes)
+
+    def test_compile_passes_when_license_warning_recovers_and_xml_exists(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            log_path = root / "EditMode.log"
+            result_path = root / "EditMode.xml"
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "ResponseStatus: Unsupported protocol version '1.18.1'.",
+                        "Successfully connected to LicensingClient.",
+                        "Test run completed. Exiting with code 0.",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result_path.write_text(
+                '<test-run total="1" failed="0" result="Passed" />\n',
+                encoding="utf-8",
+            )
+
+            result, notes = runner.parse_compile_result(
+                result_path,
+                log_path,
+                0,
+            )
+
+            self.assertEqual(result, "PASS")
+            self.assertIn("Valid Unity test result", notes)
+
     def test_rejects_non_numeric_nunit_attributes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             result_path = Path(temporary_directory) / "EditMode.xml"
@@ -130,6 +204,10 @@ class ValidationRunLifecycleTests(unittest.TestCase):
         project = root / "UnityProject"
         (project / "Assets").mkdir(parents=True)
         (project / "Packages").mkdir()
+        (project / "Packages" / "manifest.json").write_text(
+            '{"dependencies": {}}\n',
+            encoding="utf-8",
+        )
         (project / "ProjectSettings").mkdir()
         (project / "ProjectSettings" / "ProjectVersion.txt").write_text(
             "m_EditorVersion: 6000.4.10f1\n",
@@ -301,6 +379,88 @@ class ValidationRunLifecycleTests(unittest.TestCase):
             self.assertEqual(
                 manifest["acceptanceCriteria"][0]["result"],
                 "BLOCKED",
+            )
+            self.assertEqual(verify_run.verify_run(project, run_dir), [])
+
+    def test_runner_finalizes_license_failure_without_missing_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            project = self.create_project(root)
+            fake_unity = root / "fake_unity.py"
+            fake_unity.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env python3",
+                        "import pathlib",
+                        "import sys",
+                        "arguments = sys.argv[1:]",
+                        "log_index = arguments.index('-logFile') + 1",
+                        "log_path = pathlib.Path(arguments[log_index])",
+                        "log_path.parent.mkdir(parents=True, exist_ok=True)",
+                        "log_path.write_text(",
+                        "    \"ResponseStatus: Unsupported protocol version "
+                        "'1.18.1'.\\n\",",
+                        "    encoding='utf-8',",
+                        ")",
+                        "raise SystemExit(1)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            fake_unity.chmod(0o755)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "run_unity_validation.py"),
+                    "--project-root",
+                    str(project),
+                    "--unity-editor",
+                    str(fake_unity),
+                    "--design-id",
+                    "DEBUG-001",
+                    "--ac-id",
+                    "DEBUG-001-AC04",
+                    "--timeout-seconds",
+                    "5",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            run_relative = completed.stdout.strip().splitlines()[-1]
+            run_dir = project / run_relative
+            manifest = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            checks = {
+                check["name"]: check
+                for check in manifest["checks"]
+            }
+
+            self.assertEqual(manifest["state"], "COMPLETED")
+            self.assertEqual(manifest["result"], "BLOCKED")
+            self.assertEqual(checks["Compile"]["result"], "BLOCKED")
+            self.assertEqual(checks["EditMode"]["result"], "BLOCKED")
+            self.assertEqual(checks["PlayMode"]["result"], "BLOCKED")
+            self.assertEqual(
+                checks["Asset validation"]["result"],
+                "BLOCKED",
+            )
+            self.assertEqual(
+                [command["name"] for command in manifest["commands"]],
+                ["Preflight", "EditMode"],
+            )
+            evidence = verify_run.evidence_values(manifest)
+            self.assertFalse(
+                any(
+                    value.endswith((".xml", "AssetValidation.json"))
+                    for value in evidence
+                ),
+                evidence,
             )
             self.assertEqual(verify_run.verify_run(project, run_dir), [])
 
