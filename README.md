@@ -477,9 +477,40 @@ fixtureにはRuntime / Editor / EditMode / PlayMode asmdef、保存済みPrefab�
 
 `tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.codex/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
 
-Unity jobにはGitHub Actions Secretsとして`UNITY_EMAIL`、`UNITY_PASSWORD`、および`UNITY_LICENSE`または`UNITY_SERIAL`が必要です。Secretを取得できないfork由来Pull RequestではUnity jobを実行せず、`Repository` jobだけを実行します。
+Unity `6000.4.10f1`は維持し、GameCI imageを次へ固定しています。
 
-GameCIが正確な`6000.4.10f1` Docker imageを提供していることも実行条件です。2026-06-08の確認時点では該当imageを確認できていないため、ローカルUnity検証はPASS、GitHub上のUnity jobは未実行です。
+```text
+unityci/editor:ubuntu-6000.4.10f1-linux-il2cpp-3.2.2@sha256:53b1b2a66f4cfe5629b81799d2de8ac8082fccb99298871f11d09a3225bff552
+```
+
+Workflowは上記を一つの`tag@digest` referenceとして`customImage`へ渡します。Repository jobでは次を実行し、Docker Hub上のactive tag、Linux amd64 image、OCI digestを`harness.lock.json`と照合します。
+
+```bash
+python3 scripts/check_gameci_image.py --verify-remote
+```
+
+2026-06-10時点でimage availabilityは`PASS`です。ただし、これはUnity testの成功ではありません。GitHub Actions上のremote executionはUnity License Secret未設定のため`BLOCKED`です。
+
+### Unity License Secretを設定する
+
+GitHubの対象リポジトリで`Settings > Secrets and variables > Actions`を開き、`New repository secret`から設定します。
+
+Unity Personal:
+
+1. Unity HubへCIで使用するUnity accountでログインする。
+2. `Preferences > Licenses > Add > Get a free personal license`で手動activationする。
+3. macOSでは`/Library/Application Support/Unity/Unity_lic.ulf`の内容全体を`UNITY_LICENSE`へ登録する。
+4. Unity accountのemailを`UNITY_EMAIL`、passwordを`UNITY_PASSWORD`へ登録する。
+
+Unity Pro:
+
+1. Unity subscriptionのserialを`UNITY_SERIAL`へ登録する。
+2. Unity accountのemailを`UNITY_EMAIL`、passwordを`UNITY_PASSWORD`へ登録する。
+3. `UNITY_LICENSE`は不要である。
+
+Secret値をWorkflow、Issue、Pull Request、Logへ貼り付けないでください。Secretを取得できないfork由来Pull RequestではUnity jobを実行せず、`Repository` jobだけを実行します。設定後はGitHubの`Actions > Validate Harness > Run workflow`から手動実行し、`Unity 6.4 Fixture`と`unity-validation-<run_id>` Artifactを確認します。
+
+公式手順: [GameCI Activation](https://game.ci/docs/github/activation/)
 
 ## ライセンス
 

@@ -17,6 +17,8 @@ permissions:
 env:
   FIXTURE_PROJECT_PATH: tests/fixtures/UnityValidationFixture
   UNITY_VERSION: 6000.4.10f1
+  UNITY_IMAGE: >-
+    unityci/editor:ubuntu-6000.4.10f1-linux-il2cpp-3.2.2@sha256:53b1b2a66f4cfe5629b81799d2de8ac8082fccb99298871f11d09a3225bff552
 
 jobs:
   repository:
@@ -34,6 +36,9 @@ jobs:
 
       - name: Validate repository
         run: python3 scripts/validate_repository.py
+
+      - name: Verify pinned GameCI image
+        run: python3 scripts/check_gameci_image.py --verify-remote
 
       - name: Run Python tests
         run: python3 -m unittest discover -s tests -p "test_*.py" -v
@@ -92,6 +97,7 @@ jobs:
         with:
           projectPath: ${{ env.FIXTURE_PROJECT_PATH }}
           unityVersion: ${{ env.UNITY_VERSION }}
+          customImage: ${{ env.UNITY_IMAGE }}
           testMode: all
           artifactsPath: artifacts/unity-tests
           runAsHostUser: true

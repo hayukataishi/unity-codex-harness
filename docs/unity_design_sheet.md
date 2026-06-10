@@ -2101,6 +2101,30 @@ Packageや外部Serviceを使用しない自作実装では、Package / Service�
 | `DEBUG-005-AC03` | `有効` | `AUTO:STATIC` | harness-managed置換時に元ファイルとhash付きBackup Manifestが先に生成され、`--force-file`は指定したharness-managedファイルだけを置換する | Installer CLI回帰テスト |
 | `DEBUG-005-AC04` | `有効` | `AUTO:STATIC` | project-owned template更新時にmigration bundleがbase・local・incoming・diffを持ち、localを変更せずbaselineだけを新しいtemplateへ進める | Installer CLI回帰テスト |
 
+<a id="debug-006"></a>
+
+### DEBUG-006: GameCIのUnity実行環境を固定して可用性を事前検査する
+
+**仕様**
+
+- ハーネスfixtureのUnity Editorは`6000.4.10f1`を維持し、CI都合だけで別patchへ変更しない。
+- `harness.lock.json`へ`game-ci/unity-test-runner`の固定commitと、`unityci/editor`の完全なtag、OCI digest、platform、GameCI image version、Docker Hub API URLを記録する。
+- Linux test runnerが選択する`linux-il2cpp` imageを固定し、Workflowの`customImage`へ`tag@digest`形式で渡す。
+- Unity test前にDocker Hub metadataを取得し、tagのactive状態、Linux amd64 image、OCI digestをlockと照合する。
+- lock内のUnity version、image tag、reference、Workflowの`UNITY_VERSION`、`UNITY_IMAGE`、test runner commitが一致しない場合は静的検証を失敗させる。
+- image availabilityとGitHub Actions上のUnity実行結果を分離する。image確認済みでも、License Secret未設定またはUnity test未完了ならremote executionを`PASS`にしない。
+- License、email、password、serialはGitHub Actions Secretsで管理し、リポジトリ、lock、Log、Artifactへ保存しない。
+
+#### 受け入れ条件
+
+| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
+|---|---|---|---|---|
+| `DEBUG-006-AC01` | `有効` | `AUTO:STATIC` | lockのUnity version、test runner commit、`linux-il2cpp` image tag、OCI digest、`tag@digest` referenceが相互に一致する | lock検証回帰テスト |
+| `DEBUG-006-AC02` | `有効` | `AUTO:STATIC` | Workflowがlockと同じUnity version、test runner commit、`customImage` referenceを使用する | リポジトリWorkflow検査 |
+| `DEBUG-006-AC03` | `有効` | `AUTO:STATIC` | image検査CLIがactiveな一致metadataをPASSとし、inactive、Linux amd64不足、digest不一致をFAILとして検出する | Python CLI回帰テスト |
+| `DEBUG-006-AC04` | `有効` | `AUTO:STATIC` | README、lock、評価レポートがimage availabilityとremote executionを別状態で記録し、License Secretをリポジトリへ保存しない | リポジトリ文書検査 |
+| `DEBUG-006-AC05` | `有効` | `AUTO:EDIT` | GitHub Actions Unity jobが固定imageでEditMode / PlayModeを完了し、test Artifactを保持する | GitHub Actions実行結果 |
+
 ---
 
 ## 付録A：ジャンル別 追加検討項目

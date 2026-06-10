@@ -146,9 +146,9 @@ Runを上書きせず、承認済みの比較基準だけを`TestBaselines/`へ�
 - GitHub Actions上でのUnity job実行確認
 - 導入先ゲーム向けCIテンプレート
 
-GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供する正確な`6000.4.10f1` imageが必要である。Workflowは定義済みだが、2026-06-08時点では後者を確認できず、リモート実行結果は`NOT RUN`である。
+GitHub ActionsのUnity jobにはUnityライセンスSecretと、GameCIが提供する正確な`6000.4.10f1` imageが必要である。2026-06-08時点では後者を確認できなかったが、2026-06-10に`ubuntu-6000.4.10f1-linux-il2cpp-3.2.2`のactive tagとOCI digestを確認し、Workflowへ固定した。リモートUnity実行はLicense Secret未設定のため引き続き`BLOCKED`である。
 
-**改善案:** 次にCode Coverageと代表Build Profileの`build-player`を追加する。GameCI image公開後にGitHub Actionsを実行し、リモート証拠を確定する。
+**改善案:** Unity License Secret設定後にGitHub Actionsを実行してEditMode / PlayMode Artifactを確定し、その後Code Coverageと代表Build Profileの`build-player`を追加する。
 
 ### P0: Missing Referenceと必須資産検査が実装されていない（対応済み）
 
@@ -418,7 +418,8 @@ Build Profileの実際の保存場所はプロジェクト規約で決定し、U
 | EditMode / PlayMode | PASS | EditMode 6件、PlayMode 2件 |
 | Unity fixture契約 | PASS | Unity 6.4、4 asmdef、Prefab、Scene、Build Profile、正常系・異常系 |
 | GitHub Actions静的job | 定義済み | Workflow構文とローカル相当コマンドはPASS、GitHub上はNOT RUN |
-| GitHub Actions Unity job | NOT RUN | Unity Secretと正確なGameCI imageが必要 |
+| GameCI Unity image | PASS | `6000.4.10f1` linux-il2cpp imageのactive tagとOCI digestを固定 |
+| GitHub Actions Unity job | BLOCKED | GameCI imageは利用可能。Unity License Secret未設定 |
 | AssetDatabase参照検査 | PASS | Missing Referenceと必須参照の正常系・異常系 |
 | 外部依存マニフェスト | PASS | Unity MCPとagent-sprite-forgeのcommit、要件、`NOT RUN`理由を検査 |
 | Build Profile文書規約 | PASS | `BUILD-001`、3分類、Scene List、Defines、Clean Build、CI指定 |
@@ -843,7 +844,7 @@ Unity `6000.4.10f1`実行結果:
 既知の境界:
 
 - GitHub Actions Repository jobは定義とローカル相当コマンドが`PASS`だが、GitHub上ではまだ`NOT RUN`
-- GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
+- GameCI Unity imageは利用可能だが、GitHub Actions Unity jobはUnity License Secret未設定のため`BLOCKED`
 - Unity fixtureはハーネス基盤の非回帰を確認する最小プロジェクトであり、実ゲーム固有のScene、Build Profile、Package構成は導入先ごとに追加検証する
 
 ### 2026-06-09: P1-5 Unity 6.4実動fixture
@@ -889,7 +890,7 @@ Unity `6000.4.10f1`実行結果:
 既知の境界:
 
 - 保存済みBuild Profileを使用したPlayer buildはまだ`NOT RUN`
-- GitHub Actions Unity jobはUnityライセンスSecretと正確なGameCI Unity imageが未準備のため`NOT RUN`
+- GameCI Unity imageは利用可能だが、GitHub Actions Unity jobはUnity License Secret未設定のため`BLOCKED`
 - fixtureはハーネス自身の回帰専用であり、`scripts/install.py`から導入先ゲームへコピーしない
 
 ### 2026-06-09: P1-6 横断機能採否ゲート
@@ -1087,6 +1088,7 @@ Unity `6000.4.10f1`実行結果:
 | 修正後Runの整合性検証 | Completed PASS RunのManifestとartifact hash | `PASS` |
 | 最新GitHub Actions Repository job | Run 14、commit `1577fcf` | `PASS` |
 | 最新GitHub Actions Unity job | Secret検査で停止、Unity testsはskip | `FAIL` |
+| GameCI `6000.4.10f1` image metadata | active tag、Linux amd64、OCI digest一致 | `PASS` |
 | Unity MCP接続 | fixtureとCodex sessionへ未導入 | `NOT RUN` |
 | agent-sprite-forge | 未導入・未生成 | `NOT RUN` |
 | Build Profile Player build | 未実行 | `NOT RUN` |
@@ -1172,14 +1174,22 @@ Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位とし
 - project-owned template更新は`--prepare-migration`でbase、local、incoming、unified diffを出力し、localを変更しない
 - `--dry-run`ではmanifest、baseline、backup、migrationを含め対象プロジェクトへ書き込まない
 
-#### P0-4: 公開CIのUnity jobが赤い
+#### P0-4: 公開CIのUnity jobが赤い（image対応済み・Secret未設定）
 
 2026-06-10の最新GitHub ActionsではRepository jobは成功したが、Unity jobは`Verify Unity license secrets`で失敗した。Unity test runner、GameCI image、artifact取得まで到達していない。
 
-必要な改善:
+2026-06-10の追加確認で、`unity-test-runner v4.3.1`がLinux fixture testに使用する`linux-il2cpp` imageを特定し、次を実施した。
+
+- Unity fixtureは`6000.4.10f1`を維持
+- test runnerをcommit `0ff419b913a3630032cbe0de48a0099b5a9f0ed9`へ固定
+- `ubuntu-6000.4.10f1-linux-il2cpp-3.2.2`とOCI digestをlockへ記録
+- Workflowの`customImage`へ完全な`tag@digest` referenceを指定
+- Docker Hub metadataのactive状態、Linux amd64、digestを検査するCLIと回帰テストを追加
+- image availabilityを`PASS`、remote executionをLicense Secret未設定の`BLOCKED`として分離
+
+残る改善:
 
 - Unity license Secretを設定してworkflowを成功させる
-- 正確な`6000.4.10f1` image利用可否を実runで確定する
 - 成功したEditMode / PlayMode artifactを保持し、READMEとlockへ最終成功runを記録する
 - Secret未設定時は全workflowを赤くするか、明示的な`BLOCKED / SKIPPED`表示にするか運用方針を決める
 
@@ -1292,3 +1302,32 @@ UnityとGitの基本セットアップができ、ゲームの方向性、承認
 - Unity fixture: `NOT RUN`。Unity資産とEditor実装を変更していないため
 
 Unity Scene、Prefab、Package、GUIDの変更はない。InstallerとPython回帰だけの変更であるため、Unity fixtureはこの対応では再実行しない。
+
+### 14.11 P0-4 GameCI image固定対応結果
+
+実装:
+
+- `DEBUG-006`へUnity version維持、GameCI test runner、image tag、OCI digest、事前可用性検査を追加
+- Unity `6000.4.10f1`を維持し、`linux-il2cpp-3.2.2` imageを完全な`tag@digest`で固定
+- `check_gameci_image.py`へlock整合性、Docker Hub active tag、Linux amd64、digest検査を追加
+- Workflowへremote image検査と`customImage`指定を追加
+- READMEへPersonal / ProのUnity License Secret設定手順を追加
+- lockでimage availabilityを`PASS`、remote executionを`BLOCKED`として分離
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-006-AC01` | `PASS` | lockのUnity version、test runner commit、image tag、OCI digest、reference整合性 |
+| `DEBUG-006-AC02` | `PASS` | WorkflowのUnity version、action commit、`customImage`がlockと一致 |
+| `DEBUG-006-AC03` | `PASS` | Docker Hub remote metadata照合とPython正常・異常系回帰 |
+| `DEBUG-006-AC04` | `PASS` | README、lock、評価レポートでavailabilityとremote executionを分離 |
+| `DEBUG-006-AC05` | `BLOCKED` | Unity License Secret未設定。GitHub Actions Unity test Artifactは未生成 |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、103件
+- GameCI remote image metadata: `PASS`
+- Unity fixture: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+P0-4はGameCI image未対応問題を解消した。残件はUnity License Secret設定、remote Unity job成功、EditMode / PlayMode Artifactの記録である。

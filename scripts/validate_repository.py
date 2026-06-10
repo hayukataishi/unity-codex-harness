@@ -19,6 +19,7 @@ GITHUB_ACTION_RE = re.compile(
 )
 PINNED_ACTION_RE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
 COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+OCI_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PACKAGE_REQUIREMENT_RE = re.compile(r"^(?:~=|==|!=|>=|<=|>|<)\S+$")
 VALID_RESULTS = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
@@ -389,6 +390,9 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         '<a id="debug-005"></a>',
         "### DEBUG-005:",
         "DEBUG-005-AC04",
+        '<a id="debug-006"></a>',
+        "### DEBUG-006:",
+        "DEBUG-006-AC04",
         "Run ID衝突",
         "競合やdry-run時",
     ),
@@ -400,11 +404,15 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         ".unity-codex-harness/install-manifest.json",
         "--force-file <relative-path>",
         "--prepare-migration",
+        "GameCI Unity image固定方針",
+        "tag@digest",
         "Static preflight",
         "unittest discover",
     ),
     ".github/workflows/validate-harness.yml": (
         'python3 -m unittest discover -s tests -p "test_*.py" -v',
+        "python3 scripts/check_gameci_image.py --verify-remote",
+        "customImage: ${{ env.UNITY_IMAGE }}",
     ),
     "tests/test_installer_cli.py": (
         "class InstallerCliRegressionTests",
@@ -437,6 +445,22 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_missing_dependencies_report_fixed_install_steps",
         "test_pinned_project_installation_passes",
         "test_unity_mcp_version_mismatch_fails",
+    ),
+    "tests/test_gameci_image.py": (
+        "class GameCiImageTests",
+        "test_repository_lock_configuration_is_valid",
+        "test_repository_workflow_matches_lock",
+        "test_rejects_unity_version_mismatch",
+        "test_rejects_remote_digest_mismatch",
+        "test_rejects_workflow_image_drift",
+        "test_remote_network_failure_is_blocked",
+        "test_cli_validates_lock_without_network",
+    ),
+    "scripts/check_gameci_image.py": (
+        "def validate_lock_configuration",
+        "def validate_remote_payload",
+        "def verify_remote_image",
+        "GameCI image check: BLOCKED",
     ),
 }
 
@@ -739,6 +763,43 @@ def validate_template_regression_suite(root: Path) -> list[str]:
     return errors
 
 
+def validate_gameci_workflow(root: Path) -> list[str]:
+    errors: list[str] = []
+    lock_path = root / "harness.lock.json"
+    workflow_path = root / ".github" / "workflows" / "validate-harness.yml"
+    if not lock_path.is_file() or not workflow_path.is_file():
+        return errors
+
+    try:
+        manifest = json.loads(lock_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return errors
+
+    try:
+        gameci = manifest["ci"]["gameCI"]
+        image = gameci["editorImage"]
+        runner = gameci["unityTestRunner"]
+        unity_version = manifest["harness"]["unityFixtureVersion"]
+    except (KeyError, TypeError):
+        return errors
+
+    workflow = workflow_path.read_text(encoding="utf-8")
+    required_values = (
+        f"UNITY_VERSION: {unity_version}",
+        image.get("reference"),
+        "customImage: ${{ env.UNITY_IMAGE }}",
+        "python3 scripts/check_gameci_image.py --verify-remote",
+        f"game-ci/unity-test-runner@{runner.get('commit')}",
+    )
+    for required in required_values:
+        if not isinstance(required, str) or required not in workflow:
+            errors.append(
+                "GameCI workflow does not match harness.lock.json: "
+                f"{required}"
+            )
+    return errors
+
+
 def validate_harness_lock_data(
     manifest: Any,
     fixture_unity_version: str,
@@ -778,6 +839,140 @@ def validate_harness_lock_data(
                     f"harness.lock.json harness.python.{key} "
                     "must be a major.minor version"
                 )
+
+    ci = manifest.get("ci")
+    if not isinstance(ci, dict):
+        errors.append("harness.lock.json ci must be an object")
+    else:
+        gameci = ci.get("gameCI")
+        if not isinstance(gameci, dict):
+            errors.append("harness.lock.json ci.gameCI must be an object")
+        else:
+            runner = gameci.get("unityTestRunner")
+            if not isinstance(runner, dict):
+                errors.append(
+                    "harness.lock.json ci.gameCI.unityTestRunner "
+                    "must be an object"
+                )
+            else:
+                if (
+                    runner.get("repository")
+                    != "https://github.com/game-ci/unity-test-runner"
+                ):
+                    errors.append(
+                        "harness.lock.json GameCI test runner repository "
+                        "is invalid"
+                    )
+                if runner.get("version") != "v4.3.1":
+                    errors.append(
+                        "harness.lock.json GameCI test runner version "
+                        "must be v4.3.1"
+                    )
+                runner_commit = runner.get("commit")
+                if (
+                    not isinstance(runner_commit, str)
+                    or not COMMIT_SHA_RE.fullmatch(runner_commit)
+                ):
+                    errors.append(
+                        "harness.lock.json GameCI test runner commit "
+                        "must be pinned"
+                    )
+
+            image = gameci.get("editorImage")
+            if not isinstance(image, dict):
+                errors.append(
+                    "harness.lock.json ci.gameCI.editorImage "
+                    "must be an object"
+                )
+            else:
+                repository = image.get("repository")
+                tag = image.get("tag")
+                digest = image.get("digest")
+                image_version = image.get("imageVersion")
+                expected_tag = (
+                    f"ubuntu-{fixture_unity_version}-linux-il2cpp-"
+                    f"{image_version}"
+                )
+                if repository != "unityci/editor":
+                    errors.append(
+                        "harness.lock.json GameCI image repository is invalid"
+                    )
+                if image_version != "3.2.2":
+                    errors.append(
+                        "harness.lock.json GameCI imageVersion must be 3.2.2"
+                    )
+                if image.get("platform") != "linux-il2cpp":
+                    errors.append(
+                        "harness.lock.json GameCI image platform "
+                        "must be linux-il2cpp"
+                    )
+                if tag != expected_tag:
+                    errors.append(
+                        "harness.lock.json GameCI image tag does not match "
+                        "the Unity fixture"
+                    )
+                if (
+                    not isinstance(digest, str)
+                    or not OCI_DIGEST_RE.fullmatch(digest)
+                ):
+                    errors.append(
+                        "harness.lock.json GameCI image digest "
+                        "must be sha256"
+                    )
+                expected_reference = f"{repository}:{tag}@{digest}"
+                if image.get("reference") != expected_reference:
+                    errors.append(
+                        "harness.lock.json GameCI image reference "
+                        "must pin tag and digest"
+                    )
+                expected_api_url = (
+                    "https://hub.docker.com/v2/repositories/"
+                    f"{repository}/tags/{tag}"
+                )
+                if image.get("dockerHubApiUrl") != expected_api_url:
+                    errors.append(
+                        "harness.lock.json GameCI Docker Hub API URL "
+                        "does not match the tag"
+                    )
+                availability = image.get("availability")
+                if (
+                    not isinstance(availability, dict)
+                    or availability.get("status") != "PASS"
+                ):
+                    errors.append(
+                        "harness.lock.json GameCI image availability "
+                        "must be PASS"
+                    )
+                else:
+                    try:
+                        date.fromisoformat(availability.get("verifiedAt"))
+                    except (TypeError, ValueError):
+                        errors.append(
+                            "harness.lock.json GameCI image verifiedAt "
+                            "must be an ISO date"
+                        )
+
+            remote_execution = gameci.get("remoteExecution")
+            if not isinstance(remote_execution, dict):
+                errors.append(
+                    "harness.lock.json GameCI remoteExecution "
+                    "must be an object"
+                )
+            else:
+                status = remote_execution.get("status")
+                if status not in VALID_RESULTS:
+                    errors.append(
+                        "harness.lock.json GameCI remoteExecution status "
+                        "is invalid"
+                    )
+                reason = remote_execution.get("reason")
+                if status != "PASS" and (
+                    not isinstance(reason, str) or not reason
+                ):
+                    errors.append(
+                        "harness.lock.json GameCI remoteExecution reason "
+                        "is required unless status is PASS"
+                    )
 
     dependencies = manifest.get("externalDependencies")
     if not isinstance(dependencies, dict):
@@ -1017,6 +1212,7 @@ def main() -> int:
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)
         + validate_harness_lock(root)
+        + validate_gameci_workflow(root)
     )
     if errors:
         print("\n".join(f"ERROR: {error}" for error in errors))

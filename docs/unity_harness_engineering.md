@@ -195,6 +195,21 @@ Unity 6プロジェクトでは、`Assets`以下へ保存したBuild Profileア�
 - 最初のビルド、Unity・Build Target・Scripting Backend・Architecture・Player Settings override・Addressables構成の変更後、Release候補、キャッシュ不整合の疑いがある場合はClean Buildを使う。通常の反復開発ではincremental buildを使う。
 - 旧Unityまたは移行前案件ではLegacy Build Settingsを互換経路として扱い、Unity 6 Profileへの移行は人間の承認と差分確認を伴う。
 
+<a id="gameci-image-policy"></a>
+
+### GameCI Unity image固定方針
+
+ハーネス自身のGitHub ActionsでUnity fixtureを実行する場合、Unity Editorの完全バージョンだけでなく、GameCI test runnerとUnity Editor imageも`harness.lock.json`へ固定する。
+
+- `game-ci/unity-test-runner`はrelease tagではなく40文字commit SHAで固定する。
+- `unityci/editor`はUnity version、runner platform、GameCI image versionを含む完全なtagとOCI digestを記録し、Workflowの`customImage`へ`tag@digest`形式で渡す。
+- Linux上の`unity-test-runner v4.3.1`はUnity 2020以降の既定targetに`linux-il2cpp` imageを選ぶため、fixture test用imageを`base`と推測しない。
+- `scripts/check_gameci_image.py --verify-remote`でDocker Hubのtagが`active`であり、Linux amd64 imageとOCI digestがlockに一致することをUnity実行前に確認する。
+- Docker Hubのmetadata確認が通信障害で完了しない場合は`BLOCKED`、tag欠落、inactive、digest不一致、lockとWorkflowの不一致は`FAIL`として区別する。
+- image availabilityの`PASS`は、Unity License、Editor起動、EditMode、PlayMode、Artifact生成の成功を意味しない。リモートUnity jobは別の`remoteExecution`状態として記録する。
+- Unity Licenseの内容、Unity accountのemail、password、serialをlock、Workflow、Log、Artifactへ保存しない。GitHub Actions Secretsからのみ渡す。
+- Unity version、GameCI image version、test runner、runner OSを変更する場合は、lock、Workflow、存在確認、Python回帰、Unity fixtureを同じ変更で再検証する。
+
 ---
 
 ## 3. 基本原則

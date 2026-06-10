@@ -9,6 +9,33 @@
       "ci": "3.11"
     }
   },
+  "ci": {
+    "gameCI": {
+      "unityTestRunner": {
+        "repository": "https://github.com/game-ci/unity-test-runner",
+        "version": "v4.3.1",
+        "commit": "0ff419b913a3630032cbe0de48a0099b5a9f0ed9"
+      },
+      "editorImage": {
+        "repository": "unityci/editor",
+        "tag": "ubuntu-6000.4.10f1-linux-il2cpp-3.2.2",
+        "digest": "sha256:53b1b2a66f4cfe5629b81799d2de8ac8082fccb99298871f11d09a3225bff552",
+        "reference": "unityci/editor:ubuntu-6000.4.10f1-linux-il2cpp-3.2.2@sha256:53b1b2a66f4cfe5629b81799d2de8ac8082fccb99298871f11d09a3225bff552",
+        "imageVersion": "3.2.2",
+        "platform": "linux-il2cpp",
+        "dockerHubApiUrl": "https://hub.docker.com/v2/repositories/unityci/editor/tags/ubuntu-6000.4.10f1-linux-il2cpp-3.2.2",
+        "availability": {
+          "status": "PASS",
+          "verifiedAt": "2026-06-10",
+          "method": "Docker Hub tag metadata and OCI digest match"
+        }
+      },
+      "remoteExecution": {
+        "status": "BLOCKED",
+        "reason": "GitHub Actions Unity license secrets are not configured; the pinned image is available but the Unity test job has not completed."
+      }
+    }
+  },
   "externalDependencies": {
     "unityMcp": {
       "repository": "https://github.com/CoplayDev/unity-mcp",
