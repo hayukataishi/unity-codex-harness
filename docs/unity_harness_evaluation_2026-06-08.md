@@ -1,7 +1,7 @@
 # Unity Codex Harness 評価レポート
 
 - 評価日: 2026-06-08
-- 最終更新日: 2026-06-09
+- 最終更新日: 2026-06-10
 - 評価対象: Unity Codex Harness リポジトリ全体
 - 評価目的: 最新のUnityゲーム開発をジャンル・規模・対象プラットフォームに依存せず進めるための汎用ハーネスとして、設計、実装支援、検証、再現性、安全性を評価する
 
@@ -29,6 +29,30 @@
 | **総合** | **63 / 100** |
 
 別の言い方をすると、**運用設計テンプレートとしては8/10、ターンキー開発環境としては4/10**である。
+
+### 2026-06-10 再評価サマリー
+
+初回レポートで挙げたP0からP2は、設計契約、Skills、Installer、静的検証、Unity fixtureの範囲では大きく改善した。同じ評価軸での現在値は**78 / 100**、Codex向けUnityハーネス基盤としては**82 / 100**と評価する。
+
+ただし、今回の問いである「Unityプロジェクトへ取り込めば、誰でもCodexへゲーム制作を任せられるか」に対するターンキー評価は**61 / 100**であり、回答は**まだNo**である。
+
+現状で任せやすい範囲:
+
+- 自然言語要求を設計IDと受け入れ条件へ整理する
+- C#中心の小規模機能を実装し、静的プリフライトとUnity Test Frameworkで検証する
+- Missing Script、Missing Reference、必須資産・必須参照をEditor APIで検査する
+- 変更、証拠、未実行、人間レビュー項目を追跡可能に報告する
+
+まだ人間またはプロジェクト固有セットアップが必要な範囲:
+
+- Unity MCPの導入、Codex接続、固定版との互換性確認
+- Unityライセンス、Build Support、CI Secret、GameCI実行環境
+- Build Profileを使った実Player Build、署名、配布、Store提出
+- ゲーム固有Package、入力、Addressables、性能、オンライン機能
+- アート方向性、面白さ、操作感、難易度、最終品質の判断
+- ハーネス更新時のゲーム固有設計書・設定の安全な移行
+
+詳細な再評価、実行証拠、新しいP0 / P1は[Section 14](#14-2026-06-10-再評価codexへゲーム制作を任せられるか)へ記録する。
 
 ## 2. 評価範囲と制約
 
@@ -1034,3 +1058,133 @@ Unity `6000.4.10f1`実行結果:
 - `PROJECT-002`へ実際のHosting、Branch、LFS quota、size閾値、Owner、Serialization modeを記録する
 - 採用したPathだけを`.gitattributes`へ追加し、CI / Build machineでLFS object取得とpointer検査を行う
 - 既存ProjectをForce TextまたはLFSへ移行する場合は、通常機能変更と分離して人間承認を得る
+
+## 14. 2026-06-10 再評価: Codexへゲーム制作を任せられるか
+
+### 14.1 判定
+
+**Codexと人間が共同でUnityゲームを作るためのハーネスとしては採用を推奨する。インストールだけで、Unity未経験者を含む誰もが制作全体をCodexへ完全委任できる状態ではない。**
+
+このハーネスはゲームエンジン、完成済みゲームフレームワーク、アセット集ではない。Codexが設計、実装、検証、報告を一貫した契約で行うための制御基盤である。その目的にはかなり近づいたが、Editor操作、CI、Build、外部制作ツール、更新経路の実証が不足している。
+
+| 評価 | 点数 | 意味 |
+|---|---:|---|
+| 初回レポート互換の総合評価 | **78 / 100** | 初回63点から、Installer、Unity fixture、Editor API検査、回帰テスト、横断設計を改善 |
+| Codex向けハーネス基盤 | **82 / 100** | 設計・安全・追跡・ローカル検証の基盤品質 |
+| 「誰でも完全委任」のターンキー性 | **61 / 100** | 導入後の外部設定、MCP、CI、Build、人間判断を含む実利用評価 |
+
+### 14.2 実査した結果
+
+| 検証 | 2026-06-10の結果 | 判定 |
+|---|---|---|
+| リポジトリ静的検証 | `python3 scripts/validate_repository.py` | `PASS` |
+| Python構文 | HarnessとValidation scripts | `PASS` |
+| テンプレート自己回帰 | Python `unittest` 75件 | `PASS` |
+| Unity Editor検出 | `/Applications/Unity/Hub/Editor/6000.4.10f1` | `PASS` |
+| 過去Unity fixture Run | `20260609T062753Z`: Compile、EditMode 6件、PlayMode 2件、Asset validation | `PASS` |
+| 現在Unity fixture Run | `20260610T003455Z`: Licensing Client protocol mismatch | `BLOCKED` |
+| 現在Runの整合性検証 | Completed BLOCKED RunのManifestとartifact hash | `PASS` |
+| 最新GitHub Actions Repository job | Run 14、commit `1577fcf` | `PASS` |
+| 最新GitHub Actions Unity job | Secret検査で停止、Unity testsはskip | `FAIL` |
+| Unity MCP接続 | fixtureとCodex sessionへ未導入 | `NOT RUN` |
+| agent-sprite-forge | 未導入・未生成 | `NOT RUN` |
+| Build Profile Player build | 未実行 | `NOT RUN` |
+
+最新CI証拠:
+
+- [Validate Harness run 14](https://github.com/hayukataishi/unity-codex-harness/actions/runs/27243709575)
+- [Repository job: success](https://github.com/hayukataishi/unity-codex-harness/actions/runs/27243709575/job/80452971299)
+- [Unity 6.4 Fixture job: failure](https://github.com/hayukataishi/unity-codex-harness/actions/runs/27243709575/job/80453000473)
+
+ローカルの現在Runでは、Unity `6000.4.10f1`がUnity Hub側のLicensing Client `1.18.1`とのhandshakeを拒否し、`Unsupported protocol version '1.18.1'`で停止した。これはfixtureコードの失敗ではないが、導入者がUnity Hub、Editor、Licenseを正しく揃えないと自動検証が動かないことを示す。
+
+### 14.3 強み
+
+- `AGENTS.md`から必須文書とSkillへ誘導でき、Codexの作業順序が安定している。
+- 設計ID、AC ID、`PASS / FAIL / BLOCKED / NOT RUN`、証拠Runが一貫している。
+- Scene、Prefab、GUID、`.meta`、Package、Save、Git LFSなどUnity特有の破壊リスクを具体的に抑制している。
+- Small / Standard / Large、横断機能採否、Save互換性、Git運用を固定解ではなく選択ゲートにしている。
+- Installerは初回導入、競合停止、dry-run、冪等性、`Artifacts/`除外を回帰テストしている。
+- Unity 6.4 fixtureにRuntime、Editor、EditMode、PlayMode、Prefab、Scene、Build Profile、参照検査が存在する。
+- 失敗や未実行を成功扱いしない原則が文書とReport Skillへ浸透している。
+
+### 14.4 新しいP0
+
+#### P0-1: Unity起動失敗時にCompileが誤ってPASSになる
+
+`run_unity_validation.py`はログに`error CSxxxx`がない場合、Unityの終了コードやNUnit XMLの有無に関係なくCompileを`PASS`にする。今回、Unityがライセンス初期化前に終了してEditMode XMLを生成しなかったRunでもCompileが`PASS`になった。
+
+さらに、EditMode、PlayMode、Asset validationの出力が存在しない場合も、そのpathをAC証拠へ登録するため、finalize済みRunが`verify_validation_run.py`でmissing evidenceになる。
+
+必要な改善:
+
+- CompileはUnity process成功とcompile完了を示すログまたは生成物がある場合だけ`PASS`にする
+- License、Editor起動、timeout、crashをCompile失敗と分離して`BLOCKED`または`FAIL`へ分類する
+- 存在しない証拠pathをManifestとAC evidenceへ登録しない
+- UnityがXML / JSONを生成しない異常系でも、完成Runのintegrity verificationが`PASS`する回帰テストを追加する
+
+#### P0-2: Unity MCPが中核方針なのに導入・接続・互換性が未検証
+
+Scene、Prefab、Component、Screenshot、Play操作はUnity MCP優先と定義しているが、InstallerはMCPを導入せず、`harness.lock.json`も`NOT RUN`である。現在のCodex sessionにもUnity MCP toolは接続されていない。
+
+必要な改善:
+
+- 固定版Unity MCPをfixtureまたは統合fixtureへ導入する
+- CodexからEditor state取得、Scene作成、Prefab接続、Compile、Play、Screenshotを実行するsmoke testを用意する
+- 導入先でMCP package、server、Codex connector、Editor接続を検査する`doctor`を追加する
+- MCPが使えない時の安全な縮退動作と、停止すべき操作を明示する
+
+#### P0-3: `--force`更新がゲーム固有設計書を上書きできる
+
+Installerは`.codex/skills`、`docs`、Unity templateを同じ更新単位として扱う。既存保持対象はAsset validation設定だけで、`--force`はゲーム側で編集した`docs/unity_design_sheet.md`を含む全競合ファイルをbackupなしで置換できる。
+
+設計書をSource of Truthとするハーネスで、その設計書を更新時に失う可能性があるため、継続運用の重大リスクである。
+
+必要な改善:
+
+- Harness管理ファイルとゲーム所有ファイルを分離する
+- 設計書はtemplateから初回生成し、upgrade対象から外す
+- versioned manifest、backup、diff、三方向mergeまたはmigrationを追加する
+- `--force`をファイル単位に限定し、ゲーム所有ファイルへの使用を拒否する
+
+#### P0-4: 公開CIのUnity jobが赤い
+
+2026-06-10の最新GitHub ActionsではRepository jobは成功したが、Unity jobは`Verify Unity license secrets`で失敗した。Unity test runner、GameCI image、artifact取得まで到達していない。
+
+必要な改善:
+
+- Unity license Secretを設定してworkflowを成功させる
+- 正確な`6000.4.10f1` image利用可否を実runで確定する
+- 成功したEditMode / PlayMode artifactを保持し、READMEとlockへ最終成功runを記録する
+- Secret未設定時は全workflowを赤くするか、明示的な`BLOCKED / SKIPPED`表示にするか運用方針を決める
+
+### 14.5 P1
+
+- 導入先ゲーム用のCI templateまたは生成コマンドがない
+- Build Profileを指定したPlayer build、Build artifact、起動smoke testがない
+- Python、Unity、Build Support、License、MCP、Git、LFS、Packageを一括診断するbootstrap / doctorがない
+- 要求入力から設計、C#、Scene、Prefab、Play、Screenshot、Reportまで通した小さな実ゲームE2E sampleがない
+- Input System、Addressables、Tag、Layer、Profiler、Memory、Code Coverageは文書中心で自動検査が不足する
+- agent-sprite-forgeは固定しただけで、生成、import、animation、Prefab接続が未検証
+- 3D、Audio、UI、Shader、VFX、Localization、Online、Releaseは採否ゲートが中心で、実装Skillとfixtureがない
+- `harness.release`が`UNRELEASED`でGit tagもなく、互換Version、更新履歴、migration policyがない
+- 2,000行を超える設計書を毎回必須読込するため、Codexのcontext効率と初心者の記入負荷が高い
+
+### 14.6 100点の完了条件
+
+1. P0-1からP0-4を解消し、失敗経路を含むValidation Runが必ず整合性検証を通る
+2. 固定版Unity MCPを導入したE2E fixtureをCodexから実行し、Editor操作証拠を残す
+3. 導入先CI templateとBuild Profile Player buildを少なくともmacOSまたはWindowsの一系統で成功させる
+4. Installerをinstall / doctor / upgradeへ分離し、ゲーム所有ファイルをbackupなしで上書きしない
+5. 小さなPlayable sampleを自然言語要求から設計、実装、Play、Screenshot、Reportまで完走する
+6. Input、Addressables、Profiler、Coverage、Buildの代表検査を自動化する
+7. versioned release、changelog、migration、互換性表を公開する
+8. Unity初心者がREADMEだけで導入し、Codexへの最初の依頼と検証完了まで到達するユーザーテストを行う
+
+### 14.7 最終回答
+
+「このハーネスを取り込めば誰でもCodexにお任せしてゲーム制作ができるか」への回答は、次の通り。
+
+> **現時点では、Codexへ安全に多くのUnity作業を任せるための優秀な基盤である。ただし、インストールだけで誰でも制作全体を完全委任できる製品ではない。**
+
+UnityとGitの基本セットアップができ、ゲームの方向性、承認、主観的品質判断を人間が担うなら、小規模試作から継続開発の土台として実用可能である。非技術者がセットアップなしで完成ゲーム、ビルド、配布まで任せる用途には、P0解消とE2E実証が必要である。
