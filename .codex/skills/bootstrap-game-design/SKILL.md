@@ -1,6 +1,6 @@
 ---
 name: bootstrap-game-design
-description: Guide a user through the initial design of a Unity game, explaining required and recommended harness decisions, asking focused questions phase by phase, recording only confirmed answers in the canonical game design sheet, tracking deferred decisions, and using an independent read-only subagent audit when available. Use for new projects, incomplete design sheets, idea-to-spec onboarding, milestone planning, or requests to decide the game design comprehensively before implementation.
+description: Guide a user through the initial design of a Unity game, explaining required and recommended harness decisions, asking focused questions phase by phase, recording only confirmed answers in the canonical game design sheet, tracking deferred decisions, and using an independent read-only subagent audit when explicitly authorized and available. Use for new projects, incomplete design sheets, idea-to-spec onboarding, milestone planning, or requests to decide the game design comprehensively before implementation.
 ---
 
 # Bootstrap Game Design
@@ -11,6 +11,15 @@ Run a resumable initial-design conversation that covers both inherited
 `HREQ-*` decisions and game-specific design without overwhelming the user.
 This Skill owns the conversation flow. Use `$maintain-game-design` for later
 incremental changes after the initial design reaches its target milestone.
+
+The conversation has three visible lanes:
+
+- `STANDARD_RECOMMENDED`: an inherited `HREQ-*` decision, applicability, or
+  approved exception that the user must understand and decide
+- `GAME_SPECIFIC`: player-facing behavior, content, rules, presentation, or
+  other project-owned design
+- `MIXED`: an HREQ constrains a game-specific choice and both records must be
+  updated together
 
 ## Integrity gate
 
@@ -50,6 +59,8 @@ Resolve `UNITY_PROJECT_ROOT` from `Assets/`, `Packages/`, and
 - Use the user's language and experience level. Define Unity terminology when
   it first matters.
 - Distinguish `確定`, `提案`, `仮定`, `要確認`, and `対象外`.
+- Prefix each question summary with `[標準推奨]`, `[ゲーム個別]`, or `[両方]`.
+  Record its lane and related `HREQ-*` IDs in the dialogue evidence.
 - Never convert silence, uncertainty, an example, or the harness recommendation
   into a confirmed game decision.
 - Offer a recommendation when evidence supports one, but keep the user's
@@ -96,17 +107,34 @@ Resolve `UNITY_PROJECT_ROOT` from `Assets/`, `Packages/`, and
    decisions, deferrals, and the next topic.
 9. When an upstream decision changes, mark every affected approved phase
    `再検討` and list the reason before continuing.
-10. At final review, check all phases, unresolved decisions, design IDs, active
-    ACs, approval state, and implementation readiness. Set the session to
-    `マイルストーン承認済` only after explicit user approval.
+10. At final review, present the complete milestone scope and obtain explicit
+    user approval. After approval, update the session and review states, then
+    run:
+
+    ```bash
+    python3 scripts/unity_codex_harness/validate_design_readiness.py \
+      --project-root "$UNITY_PROJECT_ROOT" \
+      --milestone "<TargetMilestone>" \
+      --output "Artifacts/DesignReadiness/<TargetMilestone>.json"
+    ```
+
+    In the harness source repository, use `scripts/validate_design_readiness.py`
+    directly. If it fails, reopen the affected phase, resolve the error, and
+    obtain approval again for any changed decision.
+11. Check all phases, unresolved decisions, design IDs, active ACs, approval
+    state, and implementation readiness. Treat the milestone as complete only
+    when explicit user approval and the subsequent readiness report both pass.
 
 ## Subagent audit
 
 The main agent remains the only user-facing interviewer and the only writer of
 the game design sheet.
 
-When multi-agent tools are available, use `spawn_agent` to start one read-only
-subagent and `wait_agent` only when its findings are needed:
+When the user has explicitly authorized subagents and multi-agent tools are
+available, use `spawn_agent` with the project custom agent
+`game_design_auditor`, defined in
+`.codex/agents/game-design-auditor.toml`. Use `wait_agent` only when its
+findings are needed:
 
 - after each phase before marking it `人間承認済`
 - once more before final approval
@@ -115,9 +143,10 @@ subagent and `wait_agent` only when its findings are needed:
 Give it the current design sheet, applicable HREQ text, the active phase
 rubric, the relevant dialogue evidence rows, and
 [subagent-audit.md](references/subagent-audit.md). The evidence must include
-the question, options and explained tradeoffs, answer summary, proposed
-record, and confirmation state. Do not leak an intended answer that was not
-shown to the user or ask the subagent to agree with the main agent.
+the dialogue lane, related HREQ IDs, question, options and explained
+tradeoffs, answer summary, proposed record, and confirmation state. Do not
+leak an intended answer that was not shown to the user or ask the subagent to
+agree with the main agent.
 
 The subagent may identify omissions, contradictions, leading questions,
 unsupported confirmation, or missing tradeoff explanations. It must not edit
@@ -125,8 +154,11 @@ files, decide subjective requirements, or speak to the user directly.
 
 The main agent reviews the findings, rejects false positives, and asks the user
 only the questions needed to resolve valid findings. Record audit status in the
-progress table. If multi-agent tools are unavailable, perform the same
-checklist locally and record `SELF REVIEW`; do not pretend it was independent.
+progress table. If the custom agent is unavailable in the current session,
+explain that a new Codex session may be required to discover a newly installed
+project agent. If multi-agent tools are unavailable or the user has not
+authorized their use, perform the same checklist locally and record
+`SELF REVIEW`; do not pretend it was independent.
 
 ## Phase completion rule
 
@@ -142,6 +174,7 @@ A phase cannot become `人間承認済` while any of these is true:
 - the subagent or self-review has an unresolved blocking finding
 - the user has not confirmed a subjective or high-impact choice
 - a changed upstream decision has not reopened affected downstream phases
+- `validate_design_readiness.py` reports an error for the target milestone
 
 ## Writing rules
 
@@ -169,5 +202,6 @@ The final handoff must state:
 - approved game-specific design IDs and ACs
 - independent audit status or `SELF REVIEW`
 - whether implementation may begin, and which design unit is ready first
+- readiness report path and `PASS` status
 
 Use `$report-unity-work` for the human-reviewable final report.

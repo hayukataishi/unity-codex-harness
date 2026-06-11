@@ -32,6 +32,9 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
   `例外承認` record with reason, impact, mitigation, approver, and date.
 - Before implementation or acceptance, run
   `scripts/unity_codex_harness/validate_design_contract.py` for affected HREQs.
+- Before claiming a Concept, Prototype, Vertical Slice, Alpha, Beta, or Release
+  design complete, run `scripts/unity_codex_harness/validate_design_readiness.py`
+  for that milestone and require `PASS`.
 - During ordinary game work, update only `docs/unity_design_sheet.md`. Change
   the standard requirements only for an explicitly requested harness change.
 - Resolve the Unity project root by verifying `Assets/`, `Packages/`, and `ProjectSettings/ProjectVersion.txt`; never persist a machine-specific absolute path.
@@ -52,3 +55,15 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 5. Use `$validate-unity-change` after code, asset, scene, prefab, or settings changes.
 6. Use `$review-gameplay` for player-facing observation and evidence collection.
 7. Use `$report-unity-work` for the final human-reviewable report.
+
+## Initial-design orchestration
+
+- Keep standard-recommended `HREQ-*` decisions and game-specific design in one
+  traceable conversation, but label every question as `[標準推奨]`,
+  `[ゲーム個別]`, or `[両方]`.
+- The main agent is the only user-facing interviewer and design-sheet writer.
+- When the user explicitly authorizes subagents, spawn the project custom agent
+  `game_design_auditor` after each initial-design phase and before final
+  approval. It is read-only and may report findings only.
+- `.codex/skills/*/agents/openai.yaml` is Skill UI and dependency metadata. It
+  is not a Subagent definition.

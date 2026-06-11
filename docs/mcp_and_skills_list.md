@@ -64,12 +64,17 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 2. Vision、Player Context、Core Loop、Presentation、Technical Baseline、Save、Repository、Build、横断機能、TraceabilityをPhase順に対話する。
 3. 選択前に目的、現実的な選択肢、推奨理由、代替案、トレードオフを説明する。
 4. 確定、提案、仮定、要確認、対象外を分離し、無回答や推奨を自動確定しない。
-5. マイルストーン別の必須深度を使い、現時点で不要な判断は責任者と期限付きで保留する。
-6. 各Phaseの進捗、Blocking未決事項、関連設計ID、人間承認、監査状態と、非規範な対話証跡を設計書へ記録する。
-7. multi-agent機能がある場合は、読み取り専用Subagentに設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを独立監査させる。
-8. Subagent findingsと人間承認を経て、対象マイルストーン単位で初期設計を完了する。
+5. 質問を`標準推奨`、`ゲーム個別`、`両方`へ分類し、関連HREQ IDを証跡へ残す。
+6. マイルストーン別の必須深度を使い、現時点で不要な判断は責任者と期限付きで保留する。
+7. 各Phaseの進捗、Blocking未決事項、関連設計ID、人間承認、監査状態と、非規範な対話証跡を設計書へ記録する。
+8. ユーザーがSubagent利用を明示した場合、公式Project Custom Agentの`game_design_auditor`に設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを独立監査させる。
+9. `validate_design_readiness.py`で必須Phase、設計欄、HREQ、未決事項、
+   横断機能、設計ID・AC、監査、承認を機械判定する。
+10. Subagent findings、完成度検査`PASS`、人間承認を経て、対象マイルストーン単位で初期設計を完了する。
 
 Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認を代行しない。主Agentが唯一の対話窓口と書込み主体になる。
+`agents/openai.yaml`はSkill metadataであり、実行時Subagentは
+`.codex/agents/game-design-auditor.toml`で定義する。
 
 ---
 
@@ -255,6 +260,8 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 ```text
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/
+│  ├─ agents/
+│  │  └─ game-design-auditor.toml
 │  └─ skills/
 │     ├─ bootstrap-game-design/
 │     ├─ maintain-game-design/

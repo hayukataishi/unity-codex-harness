@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -1150,6 +1151,51 @@ class InitialDesignDialogueTests(unittest.TestCase):
                 errors,
             )
 
+    def test_custom_design_auditor_is_read_only(self):
+        agent = tomllib.loads(
+            (
+                ROOT
+                / ".codex"
+                / "agents"
+                / "game-design-auditor.toml"
+            ).read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(agent["name"], "game_design_auditor")
+        self.assertEqual(agent["sandbox_mode"], "read-only")
+        self.assertIn("STANDARD_RECOMMENDED", agent["developer_instructions"])
+        self.assertIn("GAME_SPECIFIC", agent["developer_instructions"])
+
+
+class DesignReadinessContractTests(unittest.TestCase):
+    def test_repository_defines_design_readiness_validator(self):
+        self.assertEqual(
+            repository_validator.validate_design_readiness_contract(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_readiness_cli(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.DESIGN_READINESS_REQUIRED_TEXT.items()
+            ):
+                if relative == "scripts/validate_design_readiness.py":
+                    continue
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(required_values), encoding="utf-8")
+
+            errors = repository_validator.validate_design_readiness_contract(
+                root
+            )
+
+            self.assertIn(
+                "missing design readiness file: "
+                "scripts/validate_design_readiness.py",
+                errors,
+            )
+
 
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
@@ -1292,6 +1338,10 @@ class InstallerSourceTests(unittest.TestCase):
             "subagent-audit.md",
             relative_paths,
         )
+        self.assertIn(
+            ".codex/agents/game-design-auditor.toml",
+            relative_paths,
+        )
         self.assertIn("harness.lock.json", relative_paths)
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
@@ -1299,6 +1349,10 @@ class InstallerSourceTests(unittest.TestCase):
         )
         self.assertIn(
             "scripts/unity_codex_harness/validate_design_contract.py",
+            relative_paths,
+        )
+        self.assertIn(
+            "scripts/unity_codex_harness/validate_design_readiness.py",
             relative_paths,
         )
         self.assertIn(
@@ -1341,6 +1395,13 @@ class InstallerSourceTests(unittest.TestCase):
             == ".codex/skills/bootstrap-game-design/SKILL.md"
         )
         self.assertEqual(bootstrap_skill.ownership, installer.OWNERSHIP_HARNESS)
+        design_auditor = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == ".codex/agents/game-design-auditor.toml"
+        )
+        self.assertEqual(design_auditor.ownership, installer.OWNERSHIP_HARNESS)
         validator = next(
             item
             for item in sources

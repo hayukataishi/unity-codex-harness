@@ -39,7 +39,10 @@ checks with modified harness code. In the harness source repository, use
    pairing, ownership, and conflict-resolution evidence.
 9. Run `scripts/unity_codex_harness/validate_design_contract.py` with
    `--require` for every affected decision or conditional HREQ.
-10. Build a requirements matrix before testing:
+10. Run `scripts/unity_codex_harness/validate_design_readiness.py` for the
+    approved target milestone. Treat a readiness error as a design mismatch,
+    not a passing implementation validation.
+11. Build a requirements matrix before testing:
 
 ```markdown
 | Requirement | Source | Verification type | Planned check | Evidence target |

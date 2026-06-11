@@ -36,6 +36,7 @@
 | `HCAP-DOCS-001` | 実装済み | 標準実装、標準・推奨要件、ゲーム個別設計の所有境界を検査する | Repository validator、Installer回帰 | `DEBUG-007` |
 | `HCAP-INTEGRITY-001` | 実装済み | 導入済みharness-managedファイルの未承認改変を検出して作業を停止する | verifier、Installer check、Skills、CI、回帰テスト | なし |
 | `HCAP-DESIGN-BOOTSTRAP-001` | 実装済み | 初期ゲーム設計をマイルストーン別の対話Phaseで決定し、独立Subagent監査する | `bootstrap-game-design`、対話進捗表、Repository回帰 | なし |
+| `HCAP-DESIGN-READINESS-001` | 実装済み | 対象マイルストーンの設計完成度を機械判定する | readiness CLI、JSON report、Skills、回帰テスト | なし |
 
 <a id="hcap-validation-001-validation-run"></a>
 ## HCAP-VALIDATION-001 Validation Run
@@ -160,6 +161,8 @@
 - 技術選択の前に目的、選択肢、推奨理由、代替案、トレードオフを説明する。
 - 一度に一つ、最大でも密接に関連する三つまでの質問に制限する。
 - 無回答、例、推奨、仮定を確定仕様へ変換せず、人間の明示確認を要求する。
+- 質問と証跡を`標準推奨`、`ゲーム個別`、`両方`へ分類し、関連HREQ IDを
+  記録する。HREQ決定とゲーム固有仕様のどちらか一方だけで完了扱いにしない。
 - 対話Run、現在Phase、次の質問、Blocking未決事項、関連設計ID、
   人間承認、監査結果をゲーム設計書へ記録する。
 - 回答後の確認待ちでも再開できるよう、質問、提示した選択肢とトレードオフ、
@@ -168,13 +171,30 @@
   責任者と期限付きで保留できる。
 - 上流判断の変更時は影響Phaseを`再検討`へ戻す。
 - 主Agentだけがユーザー対話と設計書更新を行う。
-- multi-agent toolがある場合はPhase終了時と最終承認前に読み取り専用Subagentを
-  起動し、設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを監査する。
+- ユーザーがSubagent利用を明示し、multi-agent toolがある場合はPhase終了時と
+  最終承認前に`.codex/agents/game-design-auditor.toml`の読み取り専用
+  Project Custom Agentを起動し、設計書と対話証跡から漏れ、矛盾、誘導、
+  未説明トレードオフを監査する。
 - Subagentはユーザーへ直接質問せず、設計書を変更せず、主観判断や承認を代行しない。
+- Skill内の`agents/openai.yaml`はUI metadataであり、Subagent定義には使用しない。
 - multi-agent toolがない場合は同じrubricを`SELF REVIEW`として実行し、
   独立監査と偽らない。
 
-残件:
+Subagent監査は対話品質を補助するが、人間の製品判断を代替しない。
 
-- マイルストーン別の必須項目と完成度を機械判定するValidatorは未実装。
-- Subagent監査は対話品質を補助するが、人間の製品判断を代替しない。
+<a id="hcap-design-readiness-001"></a>
+## HCAP-DESIGN-READINESS-001 マイルストーン別設計完成度
+
+状態: `実装済み`
+
+- `validate_design_readiness.py`がConcept、Prototype、Vertical Slice、
+  Alpha、Beta、Releaseごとの必須深度を適用する。
+- 必須Phaseの人間承認と監査、HREQ解決、主要設計欄、コアループ、
+  勝敗・終了、横断機能、期限付き保留、未決事項を検査する。
+- Prototype以降はApproved設計IDと有効AC、入力、Development Build Profile、
+  Save採否を要求する。
+- Vertical Slice以降は代表Scene、遷移、UI、性能、Build詳細を要求し、
+  Alpha以降は実装単位とDraft残存、ReleaseではRelease Build Profileと
+  signing・配布経路まで検査する。
+- JSON reportを`Artifacts/DesignReadiness/`へ保存できる。
+- `FAIL`中は初期設計完了、実装開始、受け入れ完了を主張しない。

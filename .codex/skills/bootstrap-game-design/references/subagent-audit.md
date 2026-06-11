@@ -11,6 +11,7 @@ conversation.
 - dialogue evidence for the active phase, including the question, shown
   options and tradeoffs, answer summary, proposed record, and confirmation
   state
+- the dialogue lane and related `HREQ-*` IDs
 
 ## Constraints
 
@@ -38,6 +39,8 @@ Check for:
 10. unnecessary decisions being forced too early for the target milestone
 11. missing dialogue evidence that makes questions, tradeoffs, or confirmation
     impossible to audit
+12. a standard-recommended HREQ decision being mistaken for game-specific
+    design, or game-specific behavior being omitted because an HREQ was resolved
 
 ## Output
 

@@ -30,24 +30,27 @@ sidecar. In the harness source repository, use
 4. Run `scripts/unity_codex_harness/validate_design_contract.py` and pass each
    affected decision or conditional HREQ with `--require`. Stop on `未決定`,
    an undocumented exclusion, or an unapproved exception.
-5. If the requested behavior is not approved, use `$maintain-game-design`
+5. Run `scripts/unity_codex_harness/validate_design_readiness.py` for the
+   target milestone recorded in the design sheet. Stop if it cannot infer the
+   milestone or reports any readiness error.
+6. If the requested behavior is not approved, use `$maintain-game-design`
    before implementation. A game requirement may not silently weaken an HREQ.
-6. Check the cross-cutting adoption matrix before work involving packages,
+7. Check the cross-cutting adoption matrix before work involving packages,
    external services, networking, accounts, collected data, analytics,
    monetization, ads, UGC, moderation, accessibility, localization,
    performance budgets, diagnostics, or XR. Stop if the affected row is
    `未決定`, `保留`, or contradicts the requested implementation.
-7. Read the selected architecture profile and its reason. If it is empty, keep
+8. Read the selected architecture profile and its reason. If it is empty, keep
    the existing architecture for a narrow change and use
    `$maintain-game-design` before introducing new boundaries or global patterns.
-8. Before changing saved fields, stable IDs, storage, schema, or cloud state,
+9. Before changing saved fields, stable IDs, storage, schema, or cloud state,
    read `HREQ-SAVE-001`, supported-version fixtures, migration, recovery, downgrade,
    platform, privacy, and conflict rules.
-9. Before adding or changing large assets, scenes, prefabs, project settings,
+10. Before adding or changing large assets, scenes, prefabs, project settings,
    Git attributes, or LFS tracking, read `HREQ-REPO-001` and inspect repository
    size rules, serialization mode, merge driver, ownership, and locks.
-10. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-11. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+11. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+12. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 

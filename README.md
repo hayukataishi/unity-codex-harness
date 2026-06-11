@@ -93,7 +93,9 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 ```text
 <UNITY_PROJECT_ROOT>/
-├─ .codex/skills/                              Codex用Unity開発Skill
+├─ .codex/
+│  ├─ agents/                                  Project Custom Subagent
+│  └─ skills/                                  Codex用Unity開発Skill
 ├─ .gitignore                                  成果物・外部ツールのローカル配置を除外
 ├─ .unity-codex-harness/
 │  ├─ install-manifest.json                    所有区分とsource hash
@@ -110,6 +112,7 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 ├─ scripts/unity_codex_harness/
 │  ├─ check_external_dependencies.py           外部依存の未導入・版違い検査
 │  ├─ validate_design_contract.py              HREQ適用・例外・未決定の検査
+│  ├─ validate_design_readiness.py             マイルストーン別設計完成度の検査
 │  └─ verify_harness_integrity.py              標準実装の欠落・改変検査
 └─ AGENTS.md                                   Codex向けリポジトリ指示
 ```
@@ -148,6 +151,20 @@ python3 scripts/unity_codex_harness/validate_design_contract.py \
   --require HREQ-ARCH-001
 ```
 
+対象マイルストーンのPhase、設計欄、HREQ、保留、設計ID・AC、監査、
+人間承認をまとめて検査:
+
+```bash
+python3 scripts/unity_codex_harness/validate_design_readiness.py \
+  --project-root "/path/to/YourUnityProject" \
+  --milestone Prototype \
+  --output "Artifacts/DesignReadiness/Prototype.json"
+```
+
+Concept、Prototype、Vertical Slice、Alpha、Beta、Releaseの順に必須範囲が
+広がります。現在のマイルストーンをBlockingする未決事項、期限切れの保留、
+未承認Phase、未解決HREQ、Approved設計IDのAC不足が一つでもあれば`FAIL`です。
+
 Codex Skillsは実装・受け入れ前に関連HREQを確認します。通常のゲーム設計では`unity_design_sheet.md`だけを更新し、標準要件自体を変える場合だけ明示的なハーネス改善として`unity_harness_requirements.md`を変更します。
 
 ### 最初のゲーム設計対話
@@ -157,7 +174,7 @@ Codexへ次のように依頼します。
 
 ```text
 $bootstrap-game-design を使って、このゲームのPrototype向け初期設計を
-一問ずつ進めてください。
+一問ずつ進め、game_design_auditor Subagentでも各Phaseを監査してください。
 ```
 
 Skillは対象マイルストーンを確認し、Vision、Player Context、Core Loop、
@@ -167,10 +184,23 @@ Presentation、Technical Baseline、Save、Repository、Build、横断機能、
 ConceptやPrototypeでは、その時点に不要なRelease級の決定を期限付きで
 保留できます。
 
+一つの対話内で、`HREQ-*`の採否・方式・例外を決める`[標準推奨]`と、
+プレイヤー体験、ルール、コンテンツ、個別制約を決める`[ゲーム個別]`を
+明示します。両者が結びつく質問は`[両方]`とし、HREQ適合記録とゲーム詳細を
+同時に更新します。標準推奨を決めただけでゲーム仕様を決めたことにはせず、
+ゲーム仕様を書いただけで関連HREQを解決したことにもしません。
+
 主Agentが唯一の対話窓口と設計書更新担当です。multi-agent機能が利用できる場合、
-各Phase終了時と最終承認前に読み取り専用Subagentを起動し、質問漏れ、
-設計矛盾、誘導質問、未説明のトレードオフを監査します。Subagentはユーザーへ
-直接質問せず、設計書を書き換えず、最終判断を代行しません。
+ユーザーがSubagent利用を明示した対話では、公式Project Custom Agentの
+`.codex/agents/game-design-auditor.toml`を各Phase終了時と最終承認前に起動し、
+質問漏れ、設計矛盾、誘導質問、未説明のトレードオフを監査します。
+Subagentはユーザーへ直接質問せず、設計書を書き換えず、最終判断を代行しません。
+新しくAgentを導入した直後のセッションで認識されない場合はCodexを再起動します。
+
+`.codex/skills/bootstrap-game-design/agents/openai.yaml`はSkillの表示名、
+既定プロンプトなどのmetadataであり、Subagent定義ではありません。
+`AGENTS.md`はRepository全体の役割分担、Skillは対話手順、`.codex/agents/*.toml`は
+実際にspawnされる専門Agentを担当します。
 
 進行状態と、現在の質問、提示した選択肢、回答要約、反映案、確認状態は
 `unity_design_sheet.md`の非規範な対話証跡へ保存されます。このため回答後の

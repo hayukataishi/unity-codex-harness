@@ -18,6 +18,21 @@ target milestone.
 `保留` is allowed only when the decision is not required at the target
 milestone and has an owner plus a later milestone or date.
 
+## Dialogue lanes
+
+Every question and evidence row must identify one lane.
+
+| Lane | Meaning | Typical outputs |
+|---|---|---|
+| `STANDARD_RECOMMENDED` | Explain and decide a binding HREQ's project-specific applicability or method | HREQ conformance, adopted method, `対象外`, `例外承認` |
+| `GAME_SPECIFIC` | Decide the individual game's experience and specification | concept, mechanics, content, presentation, design IDs, ACs |
+| `MIXED` | A standard requirement constrains a game-specific decision | synchronized HREQ record and detailed game design |
+
+Do not replace one lane with the other. For example, selecting
+`HREQ-ARCH-001: Small` does not define the core loop, and describing a saveable
+progression loop does not resolve `HREQ-SAVE-001` recovery and migration
+decisions.
+
 ## Phase depth by milestone
 
 `Required` means the phase must reach human approval. `Scoped` means only the
@@ -42,6 +57,8 @@ Approve the milestone-scoped output and link the deferred decisions.
 
 ## Phase 00: Session and milestone
 
+Lane: `MIXED`
+
 Purpose: establish who decides, how far this session must go, and what existing
 material is authoritative.
 
@@ -60,6 +77,8 @@ Start with:
 
 ## Phase 01: Vision and scope
 
+Lane: `GAME_SPECIFIC`
+
 Purpose: define the player promise before technical choices.
 
 Design sheet:
@@ -74,6 +93,8 @@ Design sheet:
 Do not accept genre labels as a substitute for observable player experience.
 
 ## Phase 02: Player context and delivery constraints
+
+Lane: `MIXED`
 
 Related requirement: `HREQ-PLATFORM-001`
 
@@ -95,6 +116,8 @@ known.
 
 ## Phase 03: Core loop and mechanics
 
+Lane: `GAME_SPECIFIC`
+
 Purpose: turn the idea into testable player actions and outcomes.
 
 Design sheet:
@@ -109,6 +132,8 @@ For Prototype, prioritize one complete loop over a broad feature list.
 Create design IDs and binary ACs for the first implementable behavior.
 
 ## Phase 04: Presentation and interaction
+
+Lane: `MIXED`
 
 Related requirements: `HREQ-ART-001`, `HREQ-CAMERA-001`
 
@@ -127,6 +152,8 @@ For conditional requirements, record adopted details or a justified
 `対象外` with reevaluation trigger.
 
 ## Phase 05: Technical baseline, shape, and Unity assets
+
+Lane: `MIXED`
 
 Related requirements: `HREQ-PLATFORM-001`, `HREQ-PROJECT-001`,
 `HREQ-ARCH-001`
@@ -150,6 +177,8 @@ platform constraints justify more. Do not introduce speculative abstractions.
 
 ## Phase 06: Persistence, data, and content delivery
 
+Lane: `MIXED`
+
 Related requirement: `HREQ-SAVE-001`
 
 Purpose: separate runtime state, configuration, progression, and content.
@@ -168,6 +197,9 @@ settings, and why the full save requirement is not applicable.
 
 ## Phase 07: Repository, production, build, and diagnostics
 
+Lane: `MIXED`; most workflow choices begin from standard-recommended HREQs,
+while build contents and diagnostic needs are game-specific.
+
 Related requirements: `HREQ-REPO-001`, `HREQ-BUILD-001`
 
 Purpose: make the design producible and releasable by the actual team.
@@ -184,6 +216,8 @@ Explain and decide:
 Do not prescribe a branch model or LFS extensions without repository evidence.
 
 ## Phase 08: Cross-cutting product decisions
+
+Lane: `MIXED`
 
 Related requirement: `HREQ-CROSS-001`
 
@@ -216,6 +250,8 @@ High-impact legal, privacy, monetization, account, online, UGC, and target
 region decisions require explicit human approval.
 
 ## Phase 09: Traceability and approval
+
+Lane: `MIXED`
 
 Related requirements: `HREQ-DESIGN-001`, `HREQ-VALIDATION-001`
 

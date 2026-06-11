@@ -79,23 +79,26 @@ either contract to simplify implementation.
    the standard-requirement conformance table.
 6. Run `validate_design_contract.py` for structure and require each HREQ that
    must be resolved before the requested work.
-7. Check the cross-cutting adoption matrix for affected services, data, online,
+7. If the change claims or preserves milestone readiness, run
+   `validate_design_readiness.py --milestone <TargetMilestone>` and treat any
+   error as a design blocker.
+8. Check the cross-cutting adoption matrix for affected services, data, online,
    monetization, accessibility, localization, performance, diagnostics, UGC,
    and XR concerns.
-8. Check the active `Small`, `Standard`, or `Large` architecture profile,
+9. Check the active `Small`, `Standard`, or `Large` architecture profile,
    its recorded reason, and migration triggers. Do not infer `Standard` as the
    default or add future-scale abstractions without an observed need.
-9. For saved fields, stable IDs, account state, or cloud synchronization, check
+10. For saved fields, stable IDs, account state, or cloud synchronization, check
    `HREQ-SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
    rules before approving a change.
-10. For large assets, scenes, prefabs, project settings, or repository policy,
+11. For large assets, scenes, prefabs, project settings, or repository policy,
    check `HREQ-REPO-001`, LFS criteria, serialization, merge, ownership, and
    history-migration decisions.
-11. Update the smallest coherent project-owned section in
+12. Update the smallest coherent project-owned section in
    `docs/unity_design_sheet.md`.
-12. Add or revise game-specific design item IDs and acceptance criteria.
-13. Separate changes that require approval from changes safe to implement immediately.
-14. Report the affected HREQ IDs, edited sections, unresolved questions, and the next implementable unit.
+13. Add or revise game-specific design item IDs and acceptance criteria.
+14. Separate changes that require approval from changes safe to implement immediately.
+15. Report the affected HREQ IDs, edited sections, unresolved questions, and the next implementable unit.
 
 ## Architecture profile gate
 

@@ -129,7 +129,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-agents",
         action="store_true",
-        help="Do not install the repository-level AGENTS.md",
+        help=(
+            "Do not install the repository-level AGENTS.md. "
+            "Project custom agents under .codex/agents are still installed."
+        ),
     )
     parser.add_argument(
         "--check",
@@ -153,6 +156,7 @@ def validate_unity_project(project_root: Path) -> None:
 
 def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource]:
     mappings = [
+        (repository_root / ".codex" / "agents", Path(".codex/agents")),
         (repository_root / ".codex" / "skills", Path(".codex/skills")),
         (repository_root / "docs", Path("docs")),
         (repository_root / "templates" / "unity", Path(".")),
@@ -208,6 +212,15 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             source=repository_root / "scripts" / "validate_design_contract.py",
             relative=Path(
                 "scripts/unity_codex_harness/validate_design_contract.py"
+            ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=repository_root / "scripts" / "validate_design_readiness.py",
+            relative=Path(
+                "scripts/unity_codex_harness/validate_design_readiness.py"
             ),
             ownership=OWNERSHIP_HARNESS,
         )
@@ -1008,6 +1021,12 @@ def main() -> int:
             "Validate inherited HREQ entries with:\n"
             "  python3 scripts/unity_codex_harness/"
             "validate_design_contract.py --project-root ."
+        )
+        print(
+            "Validate milestone design readiness with:\n"
+            "  python3 scripts/unity_codex_harness/"
+            "validate_design_readiness.py --project-root . "
+            "--milestone Prototype"
         )
     return 0
 

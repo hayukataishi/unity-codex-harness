@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -461,6 +462,16 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_required_unresolved_requirement_fails",
         "test_approved_exception_requires_reason_mitigation_and_approval",
     ),
+    "tests/test_design_readiness.py": (
+        "class DesignReadinessTests",
+        "test_complete_concept_passes",
+        "test_unapproved_required_phase_fails",
+        "test_question_blocking_required_phase_fails",
+        "test_prototype_requires_approved_design_item",
+        "test_mandatory_hreq_cannot_be_target_excluded",
+        "test_adopted_cross_cutting_requires_design_id_and_ac",
+        "test_cli_writes_json_report",
+    ),
     "tests/test_harness_integrity.py": (
         "class HarnessIntegrityTests",
         "test_modified_harness_managed_file_fails",
@@ -473,6 +484,16 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "def validate_contract",
         "--require-all-resolved",
         "Design contract validation: PASS",
+    ),
+    "scripts/validate_design_readiness.py": (
+        "MILESTONES",
+        "PHASE_REQUIREMENTS",
+        "HREQ_REQUIREMENTS",
+        "FIELD_REQUIREMENTS",
+        "def validate_readiness",
+        "--milestone",
+        "--output",
+        "Design readiness validation: PASS",
     ),
     "scripts/check_gameci_image.py": (
         "def validate_lock_configuration",
@@ -569,11 +590,16 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "open form before narrowing to options",
         "explicit user confirmation",
         "non-normative dialogue evidence table",
+        "`STANDARD_RECOMMENDED`",
+        "`GAME_SPECIFIC`",
+        "`MIXED`",
         "## Session workflow",
         "`人間承認済`",
         "mark every affected approved phase",
         "## Subagent audit",
         "use `spawn_agent`",
+        "`game_design_auditor`",
+        ".codex/agents/game-design-auditor.toml",
         "main agent remains the only user-facing interviewer",
         "It must not edit",
         "## Phase completion rule",
@@ -584,6 +610,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
     ".codex/skills/bootstrap-game-design/references/interview-phases.md": (
         "## Milestone depth",
         "## Phase depth by milestone",
+        "## Dialogue lanes",
         "## Phase 00:",
         "## Phase 01:",
         "## Phase 02:",
@@ -606,6 +633,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "Do not invent or approve game decisions",
         "leading questions",
         "dialogue evidence for the active phase",
+        "dialogue lane and related `HREQ-*` IDs",
         "Phase recommendation: COMPLETE / NEEDS FOLLOW-UP",
         "Next user questions:",
     ),
@@ -613,6 +641,16 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         'display_name: "Bootstrap Game Design"',
         "initial Unity game design",
         "$bootstrap-game-design",
+    ),
+    ".codex/agents/game-design-auditor.toml": (
+        'name = "game_design_auditor"',
+        'sandbox_mode = "read-only"',
+        "developer_instructions",
+        "STANDARD_RECOMMENDED",
+        "GAME_SPECIFIC",
+        "MIXED",
+        "Do not edit files",
+        "Do not ask the user questions directly",
     ),
     "docs/unity_design_sheet.md": (
         "### 初期設計対話",
@@ -629,6 +667,8 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "#### 対話チェックポイント",
         "#### 対話証跡",
         "非規範記録",
+        "| 質問区分 |",
+        "| 関連HREQ ID |",
     ),
     ".codex/skills/maintain-game-design/SKILL.md": (
         "use `$bootstrap-game-design` first",
@@ -637,25 +677,99 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
     "AGENTS.md": (
         "Use `$bootstrap-game-design` for a new game",
         "Use `$maintain-game-design` for later",
+        "`game_design_auditor`",
+        "is not a Subagent definition",
     ),
     "README.md": (
         "### 最初のゲーム設計対話",
         "$bootstrap-game-design",
-        "読み取り専用Subagent",
+        ".codex/agents/game-design-auditor.toml",
+        "公式Project Custom Agent",
         "唯一の対話窓口",
         "非規範な対話証跡",
+        "game_design_auditor",
     ),
     "docs/unity_harness_engineering.md": (
         "### 5.0 初期ゲーム設計",
         "$bootstrap-game-design",
-        "読み取り専用Subagent",
+        ".codex/agents/game-design-auditor.toml",
+        "読み取り専用Custom Agent",
         "主Agentだけがユーザーへ質問",
     ),
     "docs/unity_harness_capabilities.md": (
         "HCAP-DESIGN-BOOTSTRAP-001",
         "10 Phase",
-        "読み取り専用Subagent",
-        "マイルストーン別の必須項目と完成度を機械判定するValidatorは未実装",
+        ".codex/agents/game-design-auditor.toml",
+        "Project Custom Agent",
+        "HCAP-DESIGN-READINESS-001",
+    ),
+}
+
+DESIGN_READINESS_REQUIRED_TEXT = {
+    "scripts/validate_design_readiness.py": (
+        "Concept",
+        "Prototype",
+        "Vertical Slice",
+        "Alpha",
+        "Beta",
+        "Release",
+        "APPROVED_PHASE_STATE",
+        "PASSING_AUDITS",
+        "validate_open_questions",
+        "validate_design_items",
+        "validate_cross_cutting",
+        "Design readiness validation: PASS",
+    ),
+    "tests/test_design_readiness.py": (
+        "class DesignReadinessTests",
+        "test_complete_concept_passes",
+        "test_unapproved_required_phase_fails",
+        "test_question_blocking_required_phase_fails",
+        "test_prototype_requires_approved_design_item",
+        "test_mandatory_hreq_cannot_be_target_excluded",
+        "test_adopted_cross_cutting_requires_design_id_and_ac",
+        "test_cli_writes_json_report",
+    ),
+    "scripts/install.py": (
+        "validate_design_readiness.py",
+        "Validate milestone design readiness",
+    ),
+    "docs/unity_design_sheet.md": (
+        "影響・Blocking対象",
+        "| 領域 | 状態 | 理由・対象範囲 | Package / Service |",
+        "| 決定者 |",
+    ),
+    ".codex/skills/bootstrap-game-design/SKILL.md": (
+        "validate_design_readiness.py",
+        "Artifacts/DesignReadiness/",
+        "readiness report path and `PASS` status",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "validate_design_readiness.py",
+        "cannot infer the",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "validate_design_readiness.py",
+        "readiness error as a design mismatch",
+    ),
+    "AGENTS.md": (
+        "validate_design_readiness.py",
+        "require `PASS`",
+    ),
+    "README.md": (
+        "validate_design_readiness.py",
+        "Artifacts/DesignReadiness/Prototype.json",
+        "未承認Phase",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "validate_design_readiness.py",
+        "完成度検査`PASS`",
+    ),
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-DESIGN-READINESS-001",
+        "状態: `実装済み`",
+        "JSON report",
+        "`FAIL`中は初期設計完了",
     ),
 }
 
@@ -676,6 +790,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "HCAP-DOCS-001",
         "HCAP-INTEGRITY-001",
         "HCAP-DESIGN-BOOTSTRAP-001",
+        "HCAP-DESIGN-READINESS-001",
         "未承認の改変は`HCAP-INTEGRITY-001`",
     ),
     "docs/unity_harness_requirements.md": (
@@ -1190,6 +1305,43 @@ def validate_initial_design_dialogue(root: Path) -> list[str]:
                     f"missing initial design dialogue contract: "
                     f"{relative} -> {required}"
                 )
+
+    agent_path = root / ".codex/agents/game-design-auditor.toml"
+    if agent_path.is_file():
+        try:
+            agent = tomllib.loads(agent_path.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError as error:
+            errors.append(f"invalid game design auditor TOML: {error}")
+        else:
+            if agent.get("name") != "game_design_auditor":
+                errors.append(
+                    "game design auditor name must be game_design_auditor"
+                )
+            if agent.get("sandbox_mode") != "read-only":
+                errors.append(
+                    "game design auditor sandbox_mode must be read-only"
+                )
+            if not str(agent.get("developer_instructions", "")).strip():
+                errors.append(
+                    "game design auditor requires developer_instructions"
+                )
+    return errors
+
+
+def validate_design_readiness_contract(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in DESIGN_READINESS_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing design readiness file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing design readiness contract: "
+                    f"{relative} -> {required}"
+                )
     return errors
 
 
@@ -1644,6 +1796,7 @@ def main() -> int:
         + validate_design_document_boundaries(root)
         + validate_harness_integrity_contract(root)
         + validate_initial_design_dialogue(root)
+        + validate_design_readiness_contract(root)
         + validate_harness_lock(root)
         + validate_gameci_workflow(root)
     )

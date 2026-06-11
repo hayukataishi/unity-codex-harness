@@ -111,6 +111,25 @@ class HarnessIntegrityTests(unittest.TestCase):
                 errors,
             )
 
+    def test_missing_design_readiness_validator_fails(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            managed = (
+                project
+                / "scripts"
+                / "unity_codex_harness"
+                / "validate_design_readiness.py"
+            )
+            managed.unlink()
+
+            errors = integrity.validate_integrity(project)
+
+            self.assertIn(
+                "missing harness-managed file: "
+                "scripts/unity_codex_harness/validate_design_readiness.py",
+                errors,
+            )
+
     def test_project_owned_file_may_change(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))

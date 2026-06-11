@@ -519,6 +519,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     project
                     / "scripts"
                     / "unity_codex_harness"
+                    / "validate_design_readiness.py"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    project
+                    / "scripts"
+                    / "unity_codex_harness"
                     / "verify_harness_integrity.py"
                 ).is_file()
             )
@@ -538,6 +546,10 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertIn(
                 "Validate inherited HREQ entries",
+                result.stdout,
+            )
+            self.assertIn(
+                "Validate milestone design readiness",
                 result.stdout,
             )
             self.assertIn(

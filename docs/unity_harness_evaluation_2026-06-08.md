@@ -1527,6 +1527,8 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
   漏れ、矛盾、誘導質問、未説明トレードオフを独立確認する
 - multi-agent機能がない場合は同じrubricを`SELF REVIEW`として実行し、
   独立Subagent監査と偽らない
+- 公式Codex Subagent仕様を再確認し、Project Custom Agentは
+  `.codex/agents/*.toml`で定義する構成へ更新した
 
 実装:
 
@@ -1539,6 +1541,13 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
   トレードオフを説明する契約を追加した
 - 無回答、例、推奨、仮定を確定仕様として扱わず、人間の明示確認を要求した
 - `spawn_agent`を使う読み取り専用Subagent audit rubricを同梱した
+- `.codex/agents/game-design-auditor.toml`へ`game_design_auditor`を追加し、
+  `sandbox_mode = "read-only"`、高reasoning、編集・直接質問・承認禁止を設定した
+- `AGENTS.md`をRepository全体の役割契約、Skillを対話workflow、
+  `agents/openai.yaml`をSkill metadata、Custom Agent TOMLを実行時役割へ分離した
+- 標準推奨要件とゲーム個別仕様は同じ10 Phaseに含まれていたが、質問単位の
+  境界表示が弱かったため、`標準推奨`、`ゲーム個別`、`両方`の区分と
+  関連HREQ IDを対話証跡へ追加した
 - ゲーム設計書へ対話Run、対象マイルストーン、現在Phase、次の質問、
   Blocking未決事項、関連設計ID、確認者、監査状態を追加した
 - 回答後の確認待ちでも再開できるよう、質問、提示した選択肢と
@@ -1560,8 +1569,11 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
 
 - Skill Creator `quick_validate.py`: `PASS`
 - リポジトリ検証: `PASS`
-- Python回帰テスト: `PASS`、129件
-- Installer dry-run: `PASS`。Skill本体、Agent metadata、2つのreferenceを配布予定として確認
+- Python回帰テスト: `PASS`、130件
+- Installer dry-run: `PASS`。Skill本体、Skill metadata、2つのreference、
+  Project Custom Agent TOMLを配布予定として確認
+- Custom Agent TOML検査: `PASS`。公式必須field、`game_design_auditor`名、
+  `sandbox_mode = "read-only"`、両対話区分の監査指示を確認
 - 初期設計契約の異常系: Subagent書込み禁止、`PHASE-09`、
   マイルストーン別深度、対話証跡の欠落を期待どおり検出
 - 独立Subagent設計レビュー: 初期実装前に実施し、Phase状態、対話Run、
@@ -1574,8 +1586,8 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
 
 | 評価項目 | 対応前 | 対応後 | 判定 |
 |---|---:|---:|---|
-| 標準推奨要件を理解して決定する対話フロー | 58 / 100 | 88 / 100 | Skillとして達成 |
-| ゲーム個別仕様・設計を一通り更新する対話フロー | 52 / 100 | 84 / 100 | 再開・監査証跡まで達成、機械的完成度判定は残る |
+| 標準推奨要件を理解して決定する対話フロー | 58 / 100 | 90 / 100 | 質問区分とHREQ追跡まで達成 |
+| ゲーム個別仕様・設計を一通り更新する対話フロー | 52 / 100 | 86 / 100 | 再開・独立監査まで達成、機械的完成度判定は残る |
 
 残件:
 
@@ -1585,4 +1597,73 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
   過不足なく機能するかのE2E user test
 
 4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
-標準推奨対話`88`、ゲーム個別対話`84`として`87 / 100`へ更新する。
+標準推奨対話`90`、ゲーム個別対話`86`として`88 / 100`へ更新する。
+
+### 14.18 HCAP-DESIGN-READINESS-001 マイルストーン別設計完成度
+
+14.14の改善順序4へ対応した。
+
+実装:
+
+- `scripts/validate_design_readiness.py`を追加した
+- Concept、Prototype、Vertical Slice、Alpha、Beta、Releaseの順に、
+  必須Phase、HREQ、設計欄、実装準備情報を累積的に厳しくする
+- 必須Phaseの`人間承認済`、確認者・日付、`SELF REVIEW`または
+  `SUBAGENT PASS`、Blocking未決事項なしを検査する
+- 対象マイルストーンと設計書の現在・対象マイルストーン、
+  `Approved`、`マイルストーン承認済`の一致を検査する
+- HREQ適合表の形式検査を再利用し、マイルストーン必須HREQの
+  `未決定`を拒否する
+- コアループ、勝利・失敗・終了、メカニクス、Platform、Presentation、
+  Architecture、Save、Repository、Build、性能などを深度別に検査する
+- Prototype以降はApproved設計ID、有効AC、検証種別、入力、
+  Development Build Profileを要求する
+- Vertical Slice以降は状態、Scene、遷移、UI、性能を要求し、
+  Alpha以降はPrefab、Component、Draft残存、QA Build Profileを検査する
+- ReleaseではRelease Build Profile、signing、配布経路まで要求する
+- 横断機能の`採用 / 不採用 / 保留`、理由、依存、データ、安全性、
+  設計ID・AC、保留責任者、期限を検査する
+- 未決事項へ`状態`と`影響・Blocking対象`、横断機能へ`決定者`を追加し、
+  現在の必須PhaseをBlockingする質問、対象マイルストーン以前の期限、
+  期限切れ日付を拒否する
+- `--output`で`Artifacts/DesignReadiness/<Milestone>.json`へ
+  machine-readable reportを保存できる
+- Bootstrap、Maintain、Implement、Validate、Report Skillと`AGENTS.md`へ
+  完成度`PASS`ゲートを組み込んだ
+- Installerと完全性manifestへValidatorを追加した
+
+検証結果:
+
+- Repository検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、140件
+- Concept正常fixture: `PASS`
+- 未承認必須Phase、現在PhaseをBlockingする未決事項、
+  対象マイルストーン期限、PrototypeのApproved設計ID不足、
+  必須HREQの不正な`対象外`、採用横断機能の設計ID・AC不足:
+  期待どおり`FAIL`
+- JSON report生成: `PASS`
+- Installer dry-run: `PASS`。導入先へreadiness Validatorを配布予定として確認
+- 一時Unityプロジェクトへの実Installer後CLI: `PASS`。未記入Conceptを
+  exit code 1で拒否し、JSON reportを生成
+- Unity 6.4 fixture静的preflight: `PASS`
+- Unity fixture Editor実行: `NOT RUN`。Unity資産、Package、Editor実装を
+  変更していないため
+
+再評価:
+
+| 評価項目 | 対応前 | 対応後 | 判定 |
+|---|---:|---:|---|
+| 標準推奨要件を理解して決定する対話フロー | 90 / 100 | 94 / 100 | HREQ解決を完成度ゲートへ接続 |
+| ゲーム個別仕様・設計を一通り更新する対話フロー | 86 / 100 | 95 / 100 | マイルストーン別の機械判定まで達成 |
+
+残余リスク:
+
+- Validatorは構造、明示状態、追跡可能性を判定する。面白さ、可読性、
+  難易度、アート品質などの主観品質は人間レビューが必要
+- ゲーム固有の特殊要件は汎用fieldだけでは判定できないため、
+  Approved設計IDとACで追加する
+- 実利用者との長時間E2E対話試験は引き続き必要
+
+4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
+標準推奨対話`94`、ゲーム個別対話`95`として`92 / 100`へ更新する。
