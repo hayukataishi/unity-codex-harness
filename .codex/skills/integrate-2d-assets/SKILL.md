@@ -5,6 +5,13 @@ description: Integrate generated or supplied 2D art into a Unity project using t
 
 # Integrate 2D Assets
 
+## Integrity gate
+
+Before asset integration in an installed game project, run
+`scripts/unity_codex_harness/verify_harness_integrity.py --project-root
+"$UNITY_PROJECT_ROOT"`. Stop if it fails. In the harness source repository,
+use `python3 scripts/validate_repository.py`.
+
 ## Gate the work
 
 1. Read:

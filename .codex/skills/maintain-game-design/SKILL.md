@@ -5,6 +5,20 @@ description: Convert human requests, gameplay feedback, and review findings into
 
 # Maintain Game Design
 
+## Integrity gate
+
+Before reading or updating design in an installed game project, run:
+
+```bash
+python3 scripts/unity_codex_harness/verify_harness_integrity.py \
+  --project-root "$UNITY_PROJECT_ROOT"
+```
+
+Stop if it fails. Do not update the manifest or its sidecar to legitimize a
+local edit. If the install manifest is missing, require harness installation
+or migration first. In the harness source repository, run
+`python3 scripts/validate_repository.py` instead.
+
 ## Canonical documents
 
 Read these files before editing:

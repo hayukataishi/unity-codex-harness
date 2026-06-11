@@ -511,7 +511,7 @@ SAVE-001
 
 ### Installerの所有権と更新
 
-Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/install-manifest.json`へschema version、harness release、path、ownership、source SHA-256を記録する。
+Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/install-manifest.json`へschema version 2、harness release、専有管理root、path、ownership、source SHA-256を記録する。`install-manifest.sha256`はmanifest本体の意図しない変更を検出する。
 
 - `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書、`docs/unity_harness_capabilities.md`、`docs/unity_harness_requirements.md`など、ハーネス更新で置換可能な標準契約。
 - `project-owned`: `docs/unity_design_sheet.md`、MCP・Skill採否、`AGENTS.md`、外部依存lock、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
@@ -525,6 +525,31 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
 - 旧Installerからの更新でbaselineがない既存project-ownedは、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、incomingとの差分を生成してから新baselineを記録する。
 - migration bundle生成後もlocalは変更しない。人間またはCodexが差分をレビューしてゲーム所有ファイルへ必要な変更だけを統合する。
 - `--dry-run`ではbackup、migration、baseline、install manifestを含め一切書き込まない。
+
+### Harness-managed完全性ゲート
+
+導入済みゲームでは、設計、実装、Asset統合、検証、Gameplay review、
+受け入れ報告の前に次を実行する。
+
+```bash
+python3 scripts/unity_codex_harness/verify_harness_integrity.py \
+  --project-root "$UNITY_PROJECT_ROOT"
+```
+
+- manifest sidecar、schema、path、ownership、source SHA-256を検査する。
+- harness-managedファイルの欠落、変更、symlink化を拒否する。
+- `Assets/UnityCodexHarness`、ハーネスSkill、検証scriptなどの専有管理rootに
+  manifest未登録ファイルが追加されていれば拒否する。
+- project-ownedファイルの内容は検査対象外とし、ゲーム固有設計を妨げない。
+- 完全性失敗中はCodex作業と受け入れを開始せず、CIも失敗させる。
+- 復旧は信頼するハーネスcheckoutからInstallerを再実行し、
+  置換対象をbackupする。manifestの手編集で追認しない。
+- 独自標準実装はハーネス本体をforkし、そのInstallerが新しいsource hashを
+  発行する明示的な運用とする。
+
+このゲートは未レビュー変更と誤操作を検出する。リポジトリ管理者による
+検査コード、manifest、sidecarの同時改ざんまで暗号学的に防ぐものではない。
+その保証には署名付きreleaseと外部trust rootが必要である。
 
 設計文書を旧版から移行する場合:
 
@@ -694,7 +719,7 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 - ハーネスの通常インストールでは、プロジェクトルートの`.gitignore`末尾へ管理マーカー付きの`/Artifacts/`ルールを追加する。
 - インストーラーは既存`.gitignore`を置換せず、既存ルール、コメント、LFまたはCRLFの改行形式を保持する。
 - 再インストールでは管理ブロックだけを正規化し、重複を作らない。マーカーが壊れている場合は自動修復せず停止する。
-- `python3 scripts/install.py <UNITY_PROJECT_ROOT> --check`で、Gitの実際のignore判定と追跡済み`Artifacts`ファイルの有無を検査する。
+- `python3 scripts/install.py <UNITY_PROJECT_ROOT> --check`で、Gitの実際のignore判定、追跡済みローカル専用ファイル、harness-managed完全性を検査する。
 - `Artifacts`内のファイルがすでにGit追跡済みの場合、インストーラーはindexからの削除を自動実行しない。対象を確認して追跡解除した後に再実行する。
 - 同じRunディレクトリを再利用・上書きしない。再実行は新しいRun IDで保存する。
 - `COMPLETED` Run内のファイルを変更しない。`verify_validation_run.py`が失敗したRunは証拠として信頼せず、新しいRunで再検証する。
@@ -732,20 +757,21 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 
 Codexは最低限、次を確認する。
 
-1. 本書
-2. [Unityハーネス標準実装](./unity_harness_capabilities.md)
-3. [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)
-4. [Unityゲーム個別要件・設計書](./unity_design_sheet.md)
-5. [Unity MCP・Codex Skills一覧](./mcp_and_skills_list.md)
-6. リポジトリ内のCodex向け指示
-7. Unityバージョン、対象プラットフォーム、導入パッケージ
-8. Unityバージョン・対象プラットフォーム決定ゲートの完了状態
-9. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
-10. 対象機能に関係する横断機能採否ゲートの状態
-11. アーキテクチャプロファイルの選択、理由、移行条件
-12. セーブへ影響する場合は、HREQ-SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
-13. 大容量Asset、Scene、Prefab、ProjectSettingsへ影響する場合は、HREQ-REPO-001、LFS、Serialization、Owner
-14. 関連コード、Scene、Prefab、テスト
+1. 導入済みゲームではHarness-managed完全性検査が`PASS`
+2. 本書
+3. [Unityハーネス標準実装](./unity_harness_capabilities.md)
+4. [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)
+5. [Unityゲーム個別要件・設計書](./unity_design_sheet.md)
+6. [Unity MCP・Codex Skills一覧](./mcp_and_skills_list.md)
+7. リポジトリ内のCodex向け指示
+8. Unityバージョン、対象プラットフォーム、導入パッケージ
+9. Unityバージョン・対象プラットフォーム決定ゲートの完了状態
+10. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
+11. 対象機能に関係する横断機能採否ゲートの状態
+12. アーキテクチャプロファイルの選択、理由、移行条件
+13. セーブへ影響する場合は、HREQ-SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
+14. 大容量Asset、Scene、Prefab、ProjectSettingsへ影響する場合は、HREQ-REPO-001、LFS、Serialization、Owner
+15. 関連コード、Scene、Prefab、テスト
 
 ### 作業中
 

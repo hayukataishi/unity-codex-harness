@@ -389,6 +389,7 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "DEBUG-006-AC04",
         "HCAP-DOCS-001",
         "DEBUG-007-AC04",
+        "HCAP-INTEGRITY-001",
         "異常系",
         "dry-run",
     ),
@@ -459,6 +460,13 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_required_unresolved_requirement_fails",
         "test_approved_exception_requires_reason_mitigation_and_approval",
     ),
+    "tests/test_harness_integrity.py": (
+        "class HarnessIntegrityTests",
+        "test_modified_harness_managed_file_fails",
+        "test_modified_manifest_without_sidecar_update_fails",
+        "test_project_owned_file_may_change",
+        "test_unexpected_file_in_exclusive_root_fails",
+    ),
     "scripts/validate_design_contract.py": (
         "PROJECT_REQUIREMENT_IDS",
         "def validate_contract",
@@ -470,6 +478,79 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "def validate_remote_payload",
         "def verify_remote_image",
         "GameCI image check: BLOCKED",
+    ),
+}
+
+HARNESS_INTEGRITY_REQUIRED_TEXT = {
+    "scripts/verify_harness_integrity.py": (
+        "SUPPORTED_SCHEMA_VERSION = 2",
+        "install-manifest.sha256",
+        "exclusiveManagedRoots",
+        "harness-managed SHA-256 mismatch",
+        "unexpected file in exclusive managed root",
+        "Harness integrity verification: PASS",
+    ),
+    "scripts/install.py": (
+        "INSTALL_MANIFEST_HASH_PATH",
+        "EXCLUSIVE_MANAGED_ROOTS",
+        '"schemaVersion": 2',
+        "verify_harness_integrity.py",
+        "verify_installed_harness",
+    ),
+    "AGENTS.md": (
+        "verify_harness_integrity.py",
+        "Stop if it fails",
+        "scripts/validate_repository.py",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+        "Stop if it fails",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+        "Stop on any missing, modified",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+        "Treat failure as `BLOCKED`",
+    ),
+    ".codex/skills/integrate-2d-assets/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+    ),
+    ".codex/skills/review-gameplay/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+    ),
+    ".codex/skills/report-unity-work/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+        "do not claim acceptance",
+    ),
+    ".github/workflows/validate-harness.yml": (
+        "Run harness integrity regression",
+        '-p "test_harness_integrity.py" -v',
+    ),
+    "README.md": (
+        "Harness integrity verification: PASS",
+        "verify_harness_integrity.py",
+        "manifestや`install-manifest.sha256`を手編集して追認しない",
+        "Verify Unity Codex Harness integrity",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "### Harness-managed完全性ゲート",
+        "verify_harness_integrity.py",
+        "完全性失敗中はCodex作業と受け入れを開始せず",
+        "署名付きreleaseと外部trust root",
+    ),
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-INTEGRITY-001",
+        "状態: `実装済み`",
+        "install-manifest.sha256",
+        "専有管理ディレクトリ内の未知ファイル",
     ),
 }
 
@@ -489,7 +570,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "HCAP-CI-001",
         "HCAP-DOCS-001",
         "HCAP-INTEGRITY-001",
-        "未承認の改変を常時検出",
+        "未承認の改変は`HCAP-INTEGRITY-001`",
     ),
     "docs/unity_harness_requirements.md": (
         "UNITY_CODEX_HARNESS_REQUIREMENTS: NORMATIVE AND HARNESS-MANAGED",
@@ -972,6 +1053,23 @@ def validate_design_document_boundaries(root: Path) -> list[str]:
     return errors
 
 
+def validate_harness_integrity_contract(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in HARNESS_INTEGRITY_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing harness integrity file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing harness integrity contract: "
+                    f"{relative} -> {required}"
+                )
+    return errors
+
+
 def validate_gameci_workflow(root: Path) -> list[str]:
     errors: list[str] = []
     lock_path = root / "harness.lock.json"
@@ -1421,6 +1519,7 @@ def main() -> int:
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)
         + validate_design_document_boundaries(root)
+        + validate_harness_integrity_contract(root)
         + validate_harness_lock(root)
         + validate_gameci_workflow(root)
     )

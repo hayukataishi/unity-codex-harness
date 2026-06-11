@@ -37,6 +37,11 @@ jobs:
       - name: Validate repository
         run: python3 scripts/validate_repository.py
 
+      - name: Run harness integrity regression
+        run: >-
+          python3 -m unittest discover -s tests
+          -p "test_harness_integrity.py" -v
+
       - name: Verify pinned GameCI image
         run: python3 scripts/check_gameci_image.py --verify-remote
 

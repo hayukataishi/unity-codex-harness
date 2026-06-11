@@ -1450,5 +1450,66 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
 
 残件:
 
-- `HCAP-INTEGRITY-001`は未実装であり、ユーザーがharness-managedファイルを直接編集すること自体はまだ防止・常時検出できない
+- この時点では`HCAP-INTEGRITY-001`が未実装だった。14.16で改変検知と停止ゲートを追加した
 - 標準推奨要件の案内型対話フローと、ゲーム設計全章の完成度フローは改善順序3、4で対応する
+
+### 14.16 HCAP-INTEGRITY-001 標準実装の改変防止
+
+14.14の改善順序2へ対応した。
+
+実装:
+
+- install manifestをschema version 2へ更新し、全配布fileのownership、
+  source SHA-256、専有管理rootを記録した
+- `install-manifest.sha256`を生成し、manifest単体の意図しない変更を検出するようにした
+- `verify_harness_integrity.py`を追加し、harness-managed fileの欠落、
+  SHA不一致、symlink化、危険なmanifest path、専有管理root内の未知fileを拒否した
+- project-owned fileは完全性検査対象から除外し、ゲーム固有設計の更新を許可した
+- Installer完了時と`--check`へ完全性検査を統合した
+- `AGENTS.md`と6つのUnity Skillで、設計・実装・Asset統合・検証・Gameplay review・
+  受け入れ報告前の完全性`PASS`を必須にした
+- GitHub Actionsへ完全性回帰を明示的に追加し、ゲーム側CI用コマンドをREADMEへ記載した
+- 意図的な独自変更はmanifest手編集ではなく、ハーネス本体をforkして
+  そのInstallerから再配布する契約にした
+
+検証対象:
+
+- 正常な導入
+- harness-managed fileの内容変更と欠落
+- project-owned file変更の許可
+- manifest変更とsidecar不一致
+- `../`を含む危険なmanifest path
+- Skill専有rootへの未知file追加
+- Installer `--check`による改変停止
+
+検証結果:
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、124件
+- HREQ契約検査: `PASS`
+- Installer dry-run: `PASS`。verifier、schema 2 manifest、manifest sidecarを配布予定として確認
+- Unity fixture静的preflight: `PASS`、29 Asset / Directoryと29 `.meta`を検査
+- 完全性正常fixture: `PASS`
+- harness-managed改変、欠落、manifest改変、危険path、未知file異常系:
+  期待どおり`FAIL`
+- project-owned設計変更: 完全性`PASS`
+- Unity fixture Editor実行: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+再評価:
+
+| 評価項目 | 対応前 | 対応後 | 判定 |
+|---|---:|---:|---|
+| 標準実装の未承認改変防止 | 30 / 100 | 85 / 100 | 運用上達成 |
+
+残余リスク:
+
+- リポジトリ管理者が検査code、manifest、sidecarを同時に意図的改ざんする攻撃は、
+  同一Repository内のhashだけでは暗号学的に防げない
+- これを100点へ上げるには、署名付きrelease、保護された公開鍵、署名検証を
+  Repository外のtrust rootとして導入する必要がある
+- 一般的なゲーム制作での誤操作、Codexの無断変更、未レビュー差分については、
+  作業開始とCIで検出・停止できる
+
+4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
+標準推奨対話`58`、ゲーム個別対話`52`として`72 / 100`へ更新する。

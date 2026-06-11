@@ -1008,6 +1008,41 @@ class DesignDocumentBoundaryTests(unittest.TestCase):
             )
 
 
+class HarnessIntegrityContractTests(unittest.TestCase):
+    def test_repository_defines_harness_integrity_gate(self):
+        self.assertEqual(
+            repository_validator.validate_harness_integrity_contract(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_skill_integrity_gate(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.HARNESS_INTEGRITY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = list(required_values)
+                if relative == ".codex/skills/implement-unity-feature/SKILL.md":
+                    values.remove("verify_harness_integrity.py")
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_harness_integrity_contract(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "implement-unity-feature/SKILL.md" in error
+                    and "verify_harness_integrity.py" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(
@@ -1149,6 +1184,10 @@ class InstallerSourceTests(unittest.TestCase):
             "scripts/unity_codex_harness/validate_design_contract.py",
             relative_paths,
         )
+        self.assertIn(
+            "scripts/unity_codex_harness/verify_harness_integrity.py",
+            relative_paths,
+        )
         config = next(
             item
             for item in sources
@@ -1168,6 +1207,16 @@ class InstallerSourceTests(unittest.TestCase):
             if item.relative.as_posix() == "docs/unity_harness_requirements.md"
         )
         self.assertEqual(requirements.ownership, installer.OWNERSHIP_HARNESS)
+        integrity_checker = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == "scripts/unity_codex_harness/verify_harness_integrity.py"
+        )
+        self.assertEqual(
+            integrity_checker.ownership,
+            installer.OWNERSHIP_HARNESS,
+        )
         validator = next(
             item
             for item in sources

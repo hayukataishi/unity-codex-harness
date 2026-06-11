@@ -10,6 +10,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
@@ -52,9 +53,20 @@ OWNERSHIP_HARNESS = "harness-managed"
 OWNERSHIP_PROJECT = "project-owned"
 INSTALL_STATE_ROOT = Path(".unity-codex-harness")
 INSTALL_MANIFEST_PATH = INSTALL_STATE_ROOT / "install-manifest.json"
+INSTALL_MANIFEST_HASH_PATH = INSTALL_STATE_ROOT / "install-manifest.sha256"
 BASELINE_ROOT = INSTALL_STATE_ROOT / "baselines"
 BACKUP_ROOT = Path("Artifacts/HarnessInstallerBackups")
 MIGRATION_ROOT = Path("Artifacts/HarnessInstallerMigrations")
+EXCLUSIVE_MANAGED_ROOTS = (
+    Path("Assets/UnityCodexHarness"),
+    Path(".codex/skills/implement-unity-feature"),
+    Path(".codex/skills/integrate-2d-assets"),
+    Path(".codex/skills/maintain-game-design"),
+    Path(".codex/skills/report-unity-work"),
+    Path(".codex/skills/review-gameplay"),
+    Path(".codex/skills/validate-unity-change"),
+    Path("scripts/unity_codex_harness"),
+)
 PROJECT_OWNED_PATHS = {
     Path("AGENTS.md"),
     Path("docs/mcp_and_skills_list.md"),
@@ -195,6 +207,15 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             source=repository_root / "scripts" / "validate_design_contract.py",
             relative=Path(
                 "scripts/unity_codex_harness/validate_design_contract.py"
+            ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=repository_root / "scripts" / "verify_harness_integrity.py",
+            relative=Path(
+                "scripts/unity_codex_harness/verify_harness_integrity.py"
             ),
             ownership=OWNERSHIP_HARNESS,
         )
@@ -563,11 +584,14 @@ def install_manifest(
                 entry["baselineSha256"] = sha256_file(baseline)
         entries.append(entry)
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "harness": {
             "release": release,
             "lockUpdatedAt": lock_updated_at,
         },
+        "exclusiveManagedRoots": [
+            path.as_posix() for path in EXCLUSIVE_MANAGED_ROOTS
+        ],
         "files": entries,
     }
 
@@ -738,11 +762,33 @@ def git_ignores_artifacts(project_root: Path) -> tuple[bool, str]:
     return git_ignores_local_only_paths(project_root)
 
 
-def check_installation(project_root: Path) -> None:
+def verify_installed_harness(
+    repository_root: Path,
+    project_root: Path,
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(repository_root / "scripts" / "verify_harness_integrity.py"),
+            "--project-root",
+            str(project_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stdout.strip() or result.stderr.strip()
+        raise SystemExit(f"Harness integrity verification: FAIL\n{detail}")
+    print(result.stdout.strip())
+
+
+def check_installation(repository_root: Path, project_root: Path) -> None:
     ignored, detail = git_ignores_local_only_paths(project_root)
     if not ignored:
         raise SystemExit(f"Harness local-path ignore check: FAIL\n{detail}")
     print(f"Harness local-path ignore check: PASS\n{detail}")
+    verify_installed_harness(repository_root, project_root)
 
 
 def main() -> int:
@@ -752,7 +798,7 @@ def main() -> int:
     validate_unity_project(project_root)
 
     if args.check:
-        check_installation(project_root)
+        check_installation(repository_root, project_root)
         return 0
 
     files = source_files(repository_root, args.skip_agents)
@@ -892,12 +938,28 @@ def main() -> int:
     operations.append((gitignore_action, Path(".gitignore")))
 
     manifest = install_manifest(repository_root, project_root, files)
+    manifest_text = json_text(manifest)
     manifest_action = write_text_if_changed(
         project_root / INSTALL_MANIFEST_PATH,
-        json_text(manifest),
+        manifest_text,
         dry_run=args.dry_run,
     )
     operations.append((f"manifest-{manifest_action}", INSTALL_MANIFEST_PATH))
+    manifest_hash = hashlib.sha256(manifest_text.encode("utf-8")).hexdigest()
+    manifest_hash_text = (
+        f"{manifest_hash}  {INSTALL_MANIFEST_PATH.name}\n"
+    )
+    manifest_hash_action = write_text_if_changed(
+        project_root / INSTALL_MANIFEST_HASH_PATH,
+        manifest_hash_text,
+        dry_run=args.dry_run,
+    )
+    operations.append(
+        (
+            f"manifest-hash-{manifest_hash_action}",
+            INSTALL_MANIFEST_HASH_PATH,
+        )
+    )
 
     prefix = "would " if args.dry_run else ""
     unchanged_actions = {
@@ -905,6 +967,7 @@ def main() -> int:
         "preserve",
         "baseline-unchanged",
         "manifest-unchanged",
+        "manifest-hash-unchanged",
     }
     for action, relative in operations:
         if action not in unchanged_actions:
@@ -929,7 +992,12 @@ def main() -> int:
         f"{changed} changed, {unchanged} unchanged"
     )
     if not args.dry_run:
-        check_installation(project_root)
+        check_installation(repository_root, project_root)
+        print(
+            "Verify harness-managed files before Codex work with:\n"
+            "  python3 scripts/unity_codex_harness/"
+            "verify_harness_integrity.py --project-root ."
+        )
         print(
             "External dependencies are not bundled. Check them with:\n"
             "  python3 scripts/unity_codex_harness/"

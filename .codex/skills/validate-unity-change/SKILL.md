@@ -5,6 +5,14 @@ description: Validate Unity changes against design IDs and acceptance criteria u
 
 # Validate Unity Change
 
+## Integrity gate
+
+Before accepting any validation evidence in an installed game project, run
+`scripts/unity_codex_harness/verify_harness_integrity.py --project-root
+"$UNITY_PROJECT_ROOT"`. Treat failure as `BLOCKED`; do not run acceptance
+checks with modified harness code. In the harness source repository, use
+`python3 scripts/validate_repository.py`.
+
 ## Establish the validation scope
 
 1. Read implemented validation capabilities in

@@ -13,6 +13,14 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 
 ## Working contract
 
+- Before Unity design, implementation, validation, asset integration,
+  gameplay review, or reporting in an installed game project, run
+  `python3 scripts/unity_codex_harness/verify_harness_integrity.py
+  --project-root .`. Stop if it fails.
+- If `.unity-codex-harness/install-manifest.json` is missing from a game
+  project that claims to use the harness, stop and reinstall or migrate the
+  harness. In the harness source repository itself, use
+  `python3 scripts/validate_repository.py` instead.
 - Treat `docs/unity_harness_capabilities.md` as the `harness-managed`
   inventory of implemented harness capabilities. Do not record game decisions
   there.

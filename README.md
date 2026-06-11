@@ -97,6 +97,7 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 ├─ .gitignore                                  成果物・外部ツールのローカル配置を除外
 ├─ .unity-codex-harness/
 │  ├─ install-manifest.json                    所有区分とsource hash
+│  ├─ install-manifest.sha256                  manifest自体の改変検知
 │  └─ baselines/                               project-owned templateの比較元
 ├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
 ├─ docs/
@@ -108,7 +109,8 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 │  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
 ├─ scripts/unity_codex_harness/
 │  ├─ check_external_dependencies.py           外部依存の未導入・版違い検査
-│  └─ validate_design_contract.py              HREQ適用・例外・未決定の検査
+│  ├─ validate_design_contract.py              HREQ適用・例外・未決定の検査
+│  └─ verify_harness_integrity.py              標準実装の欠落・改変検査
 └─ AGENTS.md                                   Codex向けリポジトリ指示
 ```
 
@@ -166,7 +168,8 @@ Cinemachineを採用する場合もPackageは自動導入されません。[HREQ
 
 ### 手順4: 導入結果を確認する
 
-まず、検証成果物と外部OSSのローカル配置がGit管理外になっていることを確認します。
+まず、検証成果物と外部OSSのローカル配置がGit管理外であり、
+harness-managed標準実装が導入時の状態から改変されていないことを確認します。
 
 ```bash
 python3 scripts/install.py "/path/to/YourUnityProject" --check
@@ -176,6 +179,27 @@ python3 scripts/install.py "/path/to/YourUnityProject" --check
 
 ```text
 Harness local-path ignore check: PASS
+Harness integrity verification: PASS
+```
+
+完全性検査だけをCodex作業前またはゲーム側CIで実行する場合:
+
+```bash
+python3 scripts/unity_codex_harness/verify_harness_integrity.py \
+  --project-root .
+```
+
+検査はharness-managedファイルの欠落、内容変更、symlink、専有管理ディレクトリ内の未知ファイル、manifest改変を失敗させます。`unity_design_sheet.md`などのproject-owned変更は許可されます。
+
+失敗時にmanifestや`install-manifest.sha256`を手編集して追認しないでください。信頼するハーネスcheckoutから`--force-file`または`--force`を使ってbackup後に復旧します。独自ハーネスへ変更する場合は、ハーネス本体を明示的にforkし、そのcheckoutのInstallerから再配布します。
+
+ゲーム側CIでは、コンパイルやテストより前に次を実行します。
+
+```yaml
+- name: Verify Unity Codex Harness integrity
+  run: >-
+    python3 scripts/unity_codex_harness/verify_harness_integrity.py
+    --project-root .
 ```
 
 続いてUnityプロジェクトへ移動し、外部依存を診断します。
@@ -273,7 +297,7 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 | オプション | 用途 |
 |---|---|
 | `--dry-run` | ファイルを変更せず、導入予定を表示する |
-| `--check` | ファイルを変更せず、`Artifacts/`のGit除外状態を検査する |
+| `--check` | ファイルを変更せず、ローカル専用pathのGit除外とharness-managed完全性を検査する |
 | `--skip-agents` | `AGENTS.md`を導入対象から外す |
 | `--force-file PATH` | 指定したharness-managedファイルだけをbackup後に置換する。複数指定可 |
 | `--force` | 内容が異なる全harness-managedファイルをbackup後に置換する |

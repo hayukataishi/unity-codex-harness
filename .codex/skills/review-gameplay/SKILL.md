@@ -5,6 +5,14 @@ description: Observe a Unity Play Mode or build play path, collect screenshots, 
 
 # Review Gameplay
 
+## Integrity gate
+
+Before gameplay review in an installed game project, run
+`scripts/unity_codex_harness/verify_harness_integrity.py --project-root
+"$UNITY_PROJECT_ROOT"`. Stop if harness-managed review or evidence tooling has
+changed. In the harness source repository, use
+`python3 scripts/validate_repository.py`.
+
 ## Define the review
 
 1. Read the relevant project-owned design items and active ACs in

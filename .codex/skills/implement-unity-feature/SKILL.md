@@ -5,6 +5,15 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 # Implement Unity Feature
 
+## Integrity gate
+
+Before implementation in an installed game project, run
+`scripts/unity_codex_harness/verify_harness_integrity.py --project-root
+"$UNITY_PROJECT_ROOT"`. Stop on any missing, modified, symlinked, or unexpected
+harness-managed file. Do not repair integrity by editing the manifest or
+sidecar. In the harness source repository, use
+`python3 scripts/validate_repository.py`.
+
 ## Prepare
 
 1. Read:

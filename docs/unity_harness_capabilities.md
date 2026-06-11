@@ -20,8 +20,8 @@
 - ゲーム固有の設計判断やHREQ適用状態をこの文書へ記録しない。
 - 通常のゲーム制作では変更せず、ハーネス改善として明示された場合だけ変更する。
 - 導入先ではInstallerが`harness-managed`として配布・更新する。
-- 未承認の改変を常時検出して作業を停止する完全性検査は未実装であり、
-  `HCAP-INTEGRITY-001`として改善対象にする。
+- 未承認の改変は`HCAP-INTEGRITY-001`の完全性検査で検出し、
+  Codex作業、受け入れ、CIを停止する。
 
 ## 標準実装一覧
 
@@ -34,7 +34,7 @@
 | `HCAP-INSTALL-001` | 実装済み | ゲーム所有ファイルを保護して導入・更新する | Installer、manifest、backup、migration bundle | `DEBUG-005` |
 | `HCAP-CI-001` | 一部BLOCKED | GameCI runnerとUnity imageを固定して可用性を検査する | Workflow、image検査CLI。remote Unity jobはLicense Secret待ち | `DEBUG-006` |
 | `HCAP-DOCS-001` | 実装済み | 標準実装、標準・推奨要件、ゲーム個別設計の所有境界を検査する | Repository validator、Installer回帰 | `DEBUG-007` |
-| `HCAP-INTEGRITY-001` | 未実装 | 導入済みharness-managedファイルの未承認改変を常時検出する | 改善ロードマップ | なし |
+| `HCAP-INTEGRITY-001` | 実装済み | 導入済みharness-managedファイルの未承認改変を検出して作業を停止する | verifier、Installer check、Skills、CI、回帰テスト | なし |
 
 <a id="hcap-validation-001-validation-run"></a>
 ## HCAP-VALIDATION-001 Validation Run
@@ -131,15 +131,20 @@
 <a id="hcap-integrity-001"></a>
 ## HCAP-INTEGRITY-001 改変検知
 
-状態: `未実装`
+状態: `実装済み`
 
-現在はInstaller再実行時にharness-managedファイルの差異を検出できるが、
-通常作業開始時、Skill実行前、CIでinstall manifestのSHAと導入済みファイルを
-照合する完全性ゲートはない。
+- install manifest schema version 2へ全配布ファイルのownershipと
+  source SHA-256を記録する。
+- `install-manifest.sha256`でmanifest自体の意図しない変更を検出する。
+- verifierはharness-managedファイルの欠落、内容変更、symlink化、
+  専有管理ディレクトリ内の未知ファイル、危険なmanifest pathを拒否する。
+- project-ownedファイルのゲーム固有変更は完全性エラーにしない。
+- Installerの通常完了時と`--check`、6つのUnity Skill、`AGENTS.md`、
+  CI回帰で完全性検査を要求する。
+- 失敗時はmanifestやsidecarを手編集して追認せず、信頼するハーネスcheckoutから
+  Installerを再実行して復旧する。
 
-完了条件:
-
-1. harness-managedファイルの欠落、内容変更、未知ファイルを検出する。
-2. Codexの設計・実装・検証開始前に検査する。
-3. CIで未承認改変を失敗させる。
-4. 意図的なforkは明示操作と記録を必要とする。
+この検査は誤操作や未レビュー変更を防ぐ運用上の完全性ゲートであり、
+リポジトリ管理者がmanifest、sidecar、検査コードを同時に悪意をもって
+改ざんする攻撃への暗号学的な防御ではない。そこまで保証するには、
+署名付きreleaseと保護された公開鍵を別のtrust rootとして導入する必要がある。

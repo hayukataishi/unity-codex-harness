@@ -328,7 +328,18 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     / "install-manifest.json"
                 ).read_text(encoding="utf-8")
             )
-            self.assertEqual(manifest["schemaVersion"], 1)
+            self.assertEqual(manifest["schemaVersion"], 2)
+            self.assertIn(
+                "scripts/unity_codex_harness",
+                manifest["exclusiveManagedRoots"],
+            )
+            self.assertTrue(
+                (
+                    project
+                    / ".unity-codex-harness"
+                    / "install-manifest.sha256"
+                ).is_file()
+            )
             by_path = {
                 entry["path"]: entry for entry in manifest["files"]
             }
@@ -503,6 +514,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     / "validate_design_contract.py"
                 ).is_file()
             )
+            self.assertTrue(
+                (
+                    project
+                    / "scripts"
+                    / "unity_codex_harness"
+                    / "verify_harness_integrity.py"
+                ).is_file()
+            )
             gitignore = (project / ".gitignore").read_text(encoding="utf-8")
             self.assertIn("/.codex/external/", gitignore)
             self.assertIn(
@@ -519,6 +538,45 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertIn(
                 "Validate inherited HREQ entries",
+                result.stdout,
+            )
+            self.assertIn(
+                "Verify harness-managed files before Codex work",
+                result.stdout,
+            )
+
+    def test_check_rejects_modified_harness_managed_file(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            (
+                project / "docs" / "unity_harness_capabilities.md"
+            ).write_text("modified\n", encoding="utf-8")
+
+            result = self.run_installer(project, "--check")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Harness integrity verification: FAIL", result.stderr)
+            self.assertIn(
+                "harness-managed SHA-256 mismatch",
+                result.stderr,
+            )
+
+    def test_check_allows_project_owned_changes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            (
+                project / "docs" / "unity_design_sheet.md"
+            ).write_text("project decision\n", encoding="utf-8")
+
+            result = self.run_installer(project, "--check")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(
+                "Harness integrity verification: PASS",
                 result.stdout,
             )
 

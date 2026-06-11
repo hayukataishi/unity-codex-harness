@@ -5,6 +5,14 @@ description: Produce a concise human-reviewable report of Unity design and imple
 
 # Report Unity Work
 
+## Integrity gate
+
+Before reporting acceptance from an installed game project, run
+`scripts/unity_codex_harness/verify_harness_integrity.py --project-root
+"$UNITY_PROJECT_ROOT"`. If it fails, report harness integrity as `BLOCKED` and
+do not claim acceptance. In the harness source repository, use
+`python3 scripts/validate_repository.py`.
+
 ## Collect facts
 
 Before writing:
