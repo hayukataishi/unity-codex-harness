@@ -229,6 +229,68 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     relative,
                 )
 
+    def test_force_updates_standard_documents_but_preserves_game_sheet(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+
+            requirements = project / "docs" / "unity_harness_requirements.md"
+            capabilities = project / "docs" / "unity_harness_capabilities.md"
+            sheet = project / "docs" / "unity_design_sheet.md"
+            requirements.write_text(
+                "outdated harness requirements\n",
+                encoding="utf-8",
+            )
+            capabilities.write_text(
+                "outdated harness capabilities\n",
+                encoding="utf-8",
+            )
+            sheet.write_text("project game decisions\n", encoding="utf-8")
+
+            result = self.run_installer(
+                project,
+                "--skip-agents",
+                "--force",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                requirements.read_bytes(),
+                (ROOT / "docs" / "unity_harness_requirements.md").read_bytes(),
+            )
+            self.assertEqual(
+                capabilities.read_bytes(),
+                (ROOT / "docs" / "unity_harness_capabilities.md").read_bytes(),
+            )
+            self.assertEqual(
+                sheet.read_text(encoding="utf-8"),
+                "project game decisions\n",
+            )
+            backup_root = next(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).iterdir()
+            )
+            self.assertEqual(
+                (
+                    backup_root
+                    / "files"
+                    / "docs"
+                    / "unity_harness_requirements.md"
+                ).read_text(encoding="utf-8"),
+                "outdated harness requirements\n",
+            )
+            self.assertEqual(
+                (
+                    backup_root
+                    / "files"
+                    / "docs"
+                    / "unity_harness_capabilities.md"
+                ).read_text(encoding="utf-8"),
+                "outdated harness capabilities\n",
+            )
+
     def test_force_file_rejects_project_owned_path_without_writes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -277,6 +339,18 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertIn(
                 "baselineSha256",
                 by_path["docs/unity_design_sheet.md"],
+            )
+            self.assertEqual(
+                by_path["docs/unity_harness_requirements.md"]["ownership"],
+                "harness-managed",
+            )
+            self.assertEqual(
+                by_path["docs/unity_harness_capabilities.md"]["ownership"],
+                "harness-managed",
+            )
+            self.assertNotIn(
+                "baselineSha256",
+                by_path["docs/unity_harness_requirements.md"],
             )
             self.assertEqual(
                 by_path[
@@ -421,6 +495,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     / "check_external_dependencies.py"
                 ).is_file()
             )
+            self.assertTrue(
+                (
+                    project
+                    / "scripts"
+                    / "unity_codex_harness"
+                    / "validate_design_contract.py"
+                ).is_file()
+            )
             gitignore = (project / ".gitignore").read_text(encoding="utf-8")
             self.assertIn("/.codex/external/", gitignore)
             self.assertIn(
@@ -433,6 +515,10 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertIn(
                 "External dependencies are not bundled",
+                result.stdout,
+            )
+            self.assertIn(
+                "Validate inherited HREQ entries",
                 result.stdout,
             )
 

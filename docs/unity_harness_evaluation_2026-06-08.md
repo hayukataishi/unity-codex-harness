@@ -1331,3 +1331,124 @@ Unity Scene、Prefab、Package、GUIDの変更はない。InstallerとPython回�
 - Unity fixture: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
 
 P0-4はGameCI image未対応問題を解消した。残件はUnity License Secret設定、remote Unity job成功、EditMode / PlayMode Artifactの記録である。
+
+### 14.12 設計ガイドとゲーム固有設計書の分離
+
+2026-06-11に`DEBUG-007`として対応した。
+
+実装:
+
+- 旧設計書の共通規則、選択肢、品質ゲート、例、ハーネス`DEBUG-*`を`docs/unity_harness_requirements.md`へ移し、`harness-managed`とした
+- `docs/unity_design_sheet.md`をゲーム企画、採用結果、設計項目ID、AC、承認履歴だけを書く`project-owned`文書として再構成した
+- GuideとSheetへ所有者マーカーを追加し、README、Engineering Guide、`AGENTS.md`で編集境界を明記した
+- 6つのUnity SkillがGuideを規約として読み、ゲーム固有の決定とACはSheetだけを正本として扱うよう更新した
+- 旧混在Sheetを自動上書き・自動分割せず、`--prepare-migration`の三者比較からゲーム固有情報だけを移す手順を追加した
+- Repository validatorへ所有境界、必須anchor、Sheet内の`DEBUG-*`混入を検出する検査を追加した
+- Installer回帰でGuideは更新・backup可能、Sheetは`--force`でも保持されることを確認した
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-007-AC01` | `PASS` | Guide / Sheetの管理マーカー、所有者説明、必須anchorを静的検査 |
+| `DEBUG-007-AC02` | `PASS` | Installer manifestでGuide=`harness-managed`、Sheet=`project-owned`を確認 |
+| `DEBUG-007-AC03` | `PASS` | Design / Implement / Validate / Review / Integrate / Report Skillの境界記述を検査 |
+| `DEBUG-007-AC04` | `PASS` | READMEとEngineering Guideの移行手順、既存Sheet保持、Guide backupを回帰テスト |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、107件
+- Unity fixture静的preflight: `PASS`、29 Asset / Directoryと29 `.meta`を検査
+- Installer dry-run: `PASS`。Guideはharness-managed作成、Sheetはproject-owned baseline作成として計画
+- Unity fixture: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+この時点の対応は所有権分離には成功したが、標準規則を「Guide」と表現したため、個別ゲームが継承する必須契約であることと、両文書の対応キーが不明確だった。次の14.13で契約モデルを再設計した。
+
+### 14.13 HREQ標準要件継承モデルへの再設計
+
+2026-06-11に`DEBUG-007`の契約を強化した。
+
+実装:
+
+- `unity_design_guide.md`という概念を廃止し、`docs/unity_harness_requirements.md`を任意参考ではないハーネス標準要件とした
+- 評価改善で追加したArchitecture、Save、Repository、Build Profile、Cinemachine、横断機能、Validation、Installer、CI等を`HREQ-*`一覧へ対応付けた
+- ゲーム設計書へ標準要件適合表を追加し、`継承`、`対象外`、`例外承認`、`未決定`を記録するようにした
+- 標準要件とゲーム個別要件の対応を章番号ではなく共通の`HREQ-*` IDへ統一した
+- 個別要件が標準を弱める場合は、理由、影響、代替策、承認者、日付を持つ`例外承認`を必須とした
+- `validate_design_contract.py`を導入先へ配布し、HREQ欠落、未解決要件、不完全な対象外・例外承認を失敗させるようにした
+- 6つのUnity Skillと`AGENTS.md`を、HREQを継承要件として実装・検証する契約へ更新した
+
+検証:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-007-AC01` | `PASS` | 標準要件、個別要件、HREQ適合表、共通anchorを静的検査 |
+| `DEBUG-007-AC02` | `PASS` | 標準要件=`harness-managed`、ゲーム設計書=`project-owned`をInstaller回帰で確認 |
+| `DEBUG-007-AC03` | `PASS` | SkillsがHREQ、適合状態、例外承認、未決定時停止を要求 |
+| `DEBUG-007-AC04` | `PASS` | 契約CLIの正常系、HREQ欠落、未決定、例外情報不足を回帰テスト |
+| `DEBUG-007-AC05` | `PASS` | 旧混在Sheetのmigrationと既存ゲーム設計保護を維持 |
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、111件
+- HREQ契約検査: `PASS`
+- `HREQ-ARCH-001`未決定を要求した異常系: 期待どおり`FAIL`
+- Unity fixture静的preflight: `PASS`、29 Asset / Directoryと29 `.meta`を検査
+- Unity fixture Editor実行: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+### 14.14 標準実装・標準推奨・ゲーム個別設計の再評価
+
+2026-06-11に、HREQ継承モデルを次の4観点で再評価した。
+
+| 評価項目 | 点数 | 判定 |
+|---|---:|---|
+| 標準実装、標準推奨、ゲーム個別設計の分離 | 70 / 100 | 文書上は区別できるが、標準要件文書へハーネス内部契約が混在 |
+| 標準実装の未承認改変防止 | 30 / 100 | Installer再実行時の競合検出はあるが、通常作業・Skill・CIでの完全性検査がない |
+| 標準推奨要件を理解して決定する対話フロー | 58 / 100 | HREQ未決定ゲートはあるが、全選択肢を説明して順番に決める案内型セッションがない |
+| ゲーム個別仕様・設計を一通り更新する対話フロー | 52 / 100 | Sheetは広範囲だが、全章を対話完了させる進行状態と完成度検査がない |
+
+総合評価は`53 / 100`とする。
+
+主な問題:
+
+1. `unity_harness_requirements.md`に、ゲームへ適用する要件とInstaller、CI、fixture、回帰テストなどの実装契約が同居している。
+2. `harness-managed`は所有区分として定義されているが、導入後の未承認改変を常時検出して作業を停止しない。
+3. `maintain-game-design`は変更要求に関係する項目を更新する方式で、標準推奨を一問ずつ説明・決定する初期設計セッションではない。
+4. `validate_design_contract.py`はHREQ適合表を検査するが、ゲーム設計書全章のマイルストーン別完成度を検査しない。
+
+改善順序:
+
+1. 標準実装、標準・推奨要件、ゲーム個別設計を物理的に3文書へ分離する。
+2. install manifestのSHAと導入済みharness-managedファイルを照合する完全性検査を追加し、Codex作業開始時とCIで失敗させる。
+3. 標準推奨要件の選択肢、推奨理由、トレードオフを一問ずつ説明して決定する初期設計Skillを追加する。
+4. Concept、Prototype、Vertical Slice、Alpha、Beta、Releaseごとの必須設計項目と完成度Validatorを追加する。
+
+### 14.15 3文書への物理分離
+
+14.14の改善順序1へ対応した。
+
+実装:
+
+- `docs/unity_harness_capabilities.md`を追加し、Installer、Validation Run、Python回帰、Unity fixture、外部依存、GameCI、文書境界を`HCAP-*`標準実装として分離した
+- `docs/unity_harness_requirements.md`から`DEBUG-*`内部契約とハーネス内部HREQを除き、`必須標準`、`決定必須`、`条件付き推奨`だけを保持する文書へ変更した
+- `docs/unity_design_sheet.md`は引き続き`project-owned`とし、ゲーム固有の決定、HREQ適用状態、例外、設計ID、ACだけを保持した
+- `AGENTS.md`、6つのUnity Skill、Engineering Guide、README、MCP・Skill一覧の必読順と責務を3文書構造へ更新した
+- Repository validatorへCapabilitiesの必須構造と、Requirementsへの`DEBUG-*`再混入、Sheetへの`HCAP-*`混入を拒否する検査を追加した
+- Installer回帰へCapabilitiesとRequirementsが`harness-managed`で更新・backupされ、Sheetが保持される検査を追加した
+
+検証:
+
+- リポジトリ検証: `PASS`
+- Python構文コンパイル: `PASS`
+- Python回帰テスト: `PASS`、112件
+- HREQ契約検査: `PASS`
+- Installer dry-run: `PASS`。Capabilities、Requirements、Sheetの3文書を配布対象として確認
+- Unity fixture静的preflight: `PASS`、29 Asset / Directoryと29 `.meta`を検査
+- Requirementsへの`DEBUG-*`再混入異常系: 期待どおり`FAIL`
+- Installer回帰: CapabilitiesとRequirementsをbackup後に更新し、ゲーム設計書を保持
+- Unity fixture Editor実行: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+残件:
+
+- `HCAP-INTEGRITY-001`は未実装であり、ユーザーがharness-managedファイルを直接編集すること自体はまだ防止・常時検出できない
+- 標準推奨要件の案内型対話フローと、ゲーム設計全章の完成度フローは改善順序3、4で対応する

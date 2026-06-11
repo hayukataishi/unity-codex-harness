@@ -552,7 +552,7 @@ class BuildProfileDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += "\nBuild Settings（登録）"
                 path.write_text(text, encoding="utf-8")
 
@@ -609,7 +609,7 @@ class CrossCuttingDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += "\n**ネットワーク同期** … マルチプレイなら必須"
                 path.write_text(text, encoding="utf-8")
 
@@ -669,7 +669,7 @@ class ArchitectureProfileDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += "\n| ServiceLocator | ☐ | 中規模向け |"
                 path.write_text(text, encoding="utf-8")
 
@@ -730,7 +730,7 @@ class SaveCompatibilityDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += (
                         "\n保存方式      : JSON ファイル / PlayerPrefs / "
                         "暗号化  （いずれか）"
@@ -788,7 +788,7 @@ class SourceControlDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += (
                         "\nGit LFS       : .psd .png .fbx .wav 等を対象"
                         "\nブランチ運用  : main / develop / feature/*"
@@ -824,7 +824,7 @@ class CinemachineDocumentationTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = "\n".join(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/unity_harness_requirements.md":
                     text += (
                         "\n| `FollowCamera` | プレイヤー追従 | "
                         "CinemachineVirtualCamera | 10 |"
@@ -910,6 +910,98 @@ class TemplateRegressionDocumentationTests(unittest.TestCase):
                 any(
                     "missing template regression file" in error
                     and "test_installer_cli.py" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
+class DesignDocumentBoundaryTests(unittest.TestCase):
+    def test_repository_separates_standard_and_game_requirements(self):
+        self.assertEqual(
+            repository_validator.validate_design_document_boundaries(ROOT),
+            [],
+        )
+
+    def test_rejects_missing_project_owned_marker(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = [
+                    value
+                    for value in required_values
+                    if "UNITY_CODEX_PROJECT_OWNED: EDIT" not in value
+                ]
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_design_document_boundaries(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "UNITY_CODEX_PROJECT_OWNED: EDIT" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_harness_debug_items_in_game_sheet(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    text += "\n### DEBUG-999: harness regression"
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_design_document_boundaries(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "design document boundary violation" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_internal_contract_in_standard_requirements(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                text = "\n".join(required_values)
+                if relative == "docs/unity_harness_requirements.md":
+                    text += "\n### DEBUG-999: internal contract"
+                path.write_text(text, encoding="utf-8")
+
+            errors = (
+                repository_validator
+                .validate_design_document_boundaries(root)
+            )
+
+            self.assertTrue(
+                any(
+                    "design document boundary violation" in error
+                    and "DEBUG-" in error
                     for error in errors
                 ),
                 errors,
@@ -1053,6 +1145,10 @@ class InstallerSourceTests(unittest.TestCase):
             "scripts/unity_codex_harness/check_external_dependencies.py",
             relative_paths,
         )
+        self.assertIn(
+            "scripts/unity_codex_harness/validate_design_contract.py",
+            relative_paths,
+        )
         config = next(
             item
             for item in sources
@@ -1066,6 +1162,12 @@ class InstallerSourceTests(unittest.TestCase):
             if item.relative.as_posix() == "docs/unity_design_sheet.md"
         )
         self.assertEqual(design.ownership, installer.OWNERSHIP_PROJECT)
+        requirements = next(
+            item
+            for item in sources
+            if item.relative.as_posix() == "docs/unity_harness_requirements.md"
+        )
+        self.assertEqual(requirements.ownership, installer.OWNERSHIP_HARNESS)
         validator = next(
             item
             for item in sources

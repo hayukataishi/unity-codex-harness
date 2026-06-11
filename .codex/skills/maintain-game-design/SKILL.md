@@ -10,11 +10,42 @@ description: Convert human requests, gameplay feedback, and review findings into
 Read these files before editing:
 
 1. `docs/unity_harness_engineering.md`
-2. `docs/unity_design_sheet.md`
-3. `docs/mcp_and_skills_list.md`
-4. Repository-level Codex instructions and any notes linked from the affected design section
+2. `docs/unity_harness_capabilities.md`
+3. `docs/unity_harness_requirements.md`
+4. `docs/unity_design_sheet.md`
+5. `docs/mcp_and_skills_list.md`
+6. Repository-level Codex instructions and any notes linked from the affected design section
 
-Treat the game design sheet as the source of truth. Do not silently change gameplay specifications to simplify implementation.
+Treat the harness requirements as inherited, binding defaults. Treat the game
+design sheet as the project-owned source of truth for game-specific
+requirements, applicability, and approved exceptions. Do not silently change
+either contract to simplify implementation.
+
+## Requirements boundary
+
+- Read `docs/unity_harness_requirements.md` for inherited `HREQ-*`
+  requirements, allowed verification types, quality gates, standard choices,
+  and examples.
+- Read `docs/unity_harness_capabilities.md` only to understand what the
+  harness already implements and which capability gaps remain. Do not turn
+  capability records into game requirements.
+- Write project name, game concept, selected options, design IDs, ACs, and
+  approval records only to `docs/unity_design_sheet.md`.
+- Maintain the standard-requirement conformance table. Use only `継承`,
+  `対象外`, `例外承認`, or `未決定`.
+- A game-specific requirement may add detail or become stricter. It may weaken
+  an inherited HREQ only through `例外承認` with reason, impact, mitigation,
+  approver, and date.
+- Never fill blanks or edit examples in the requirements document as a way to
+  record a game decision.
+- Never copy harness `HCAP-*`, `DEBUG-*`, or harness regression results into
+  the game design sheet.
+- Change the requirements document only when the user explicitly asks to
+  improve the reusable harness contract. Report that as a harness change, not
+  a game-design change.
+- If an older installation still has rules and game decisions mixed in the
+  sheet, preserve it and use the installer migration bundle or a reviewed
+  manual migration. Do not delete project decisions while separating them.
 
 ## Workflow
 
@@ -26,22 +57,27 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
    - **仮定**: temporary premise needed to continue
    - **要確認**: requires human judgment or approval
 4. Identify contradictions, missing decisions, affected systems, save compatibility, and regression risks.
-5. Check the cross-cutting adoption matrix for affected services, data, online,
+5. Identify every affected `HREQ-*` standard requirement and check its row in
+   the standard-requirement conformance table.
+6. Run `validate_design_contract.py` for structure and require each HREQ that
+   must be resolved before the requested work.
+7. Check the cross-cutting adoption matrix for affected services, data, online,
    monetization, accessibility, localization, performance, diagnostics, UGC,
    and XR concerns.
-6. Check the active `Small`, `Standard`, or `Large` architecture profile,
+8. Check the active `Small`, `Standard`, or `Large` architecture profile,
    its recorded reason, and migration triggers. Do not infer `Standard` as the
    default or add future-scale abstractions without an observed need.
-7. For saved fields, stable IDs, account state, or cloud synchronization, check
-   `SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
+9. For saved fields, stable IDs, account state, or cloud synchronization, check
+   `HREQ-SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
    rules before approving a change.
-8. For large assets, scenes, prefabs, project settings, or repository policy,
-   check `PROJECT-002`, LFS criteria, serialization, merge, ownership, and
+10. For large assets, scenes, prefabs, project settings, or repository policy,
+   check `HREQ-REPO-001`, LFS criteria, serialization, merge, ownership, and
    history-migration decisions.
-9. Update the smallest coherent design section.
-10. Add or revise design item IDs and acceptance criteria.
-11. Separate changes that require approval from changes safe to implement immediately.
-12. Report the edited sections, unresolved questions, and the next implementable unit.
+11. Update the smallest coherent project-owned section in
+   `docs/unity_design_sheet.md`.
+12. Add or revise game-specific design item IDs and acceptance criteria.
+13. Separate changes that require approval from changes safe to implement immediately.
+14. Report the affected HREQ IDs, edited sections, unresolved questions, and the next implementable unit.
 
 ## Architecture profile gate
 
@@ -96,7 +132,7 @@ Treat the game design sheet as the source of truth. Do not silently change gamep
 ## Traceability rules
 
 - Use `<DOMAIN>-<NNN>` for design items.
-- Use only domains defined in the design sheet unless no existing domain fits.
+- Use only domains defined in the harness requirements unless no existing domain fits.
 - Never change or reuse an issued ID. Mark retired items as `廃止`.
 - Split independent behaviors into separate design items.
 - Use `<DesignId>-AC<NN>` for acceptance criteria.

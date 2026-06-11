@@ -27,13 +27,17 @@ Unityゲーム開発において、人間がゲームの方向性と品質判断
 | 種別 | 対象 |
 |---|---|
 | コーディングAIエージェント | OpenAI Codex |
-| ゲーム設計書 | [Unityゲーム設計書](./unity_design_sheet.md) |
+| ハーネス標準実装 | [Unityハーネス標準実装](./unity_harness_capabilities.md) |
+| 標準・推奨要件 | [Unityハーネス標準・推奨要件](./unity_harness_requirements.md) |
+| ゲーム個別要件 | [Unityゲーム個別要件・設計書](./unity_design_sheet.md) |
 | MCP・Agent Skill一覧 | [Unity MCP・Codex Skills一覧](./mcp_and_skills_list.md) |
 | 本書 | Unity開発ハーネス自体の運用・構成・品質保証方法を定義する |
 
 ### ドキュメントの責務
 
-- **ゲーム設計書**：何を作るか、ゲームがどう振る舞うべきかを定義する。
+- **Unityハーネス標準実装**：Installer、Skills、検証script、fixture、CI、回帰テストとして実装済みの能力と証拠を定義する。`harness-managed`であり、ゲーム判断を記録しない。
+- **Unityハーネス標準・推奨要件**：導入先へ継承する必須標準と、対話で採否・方式を決める`HREQ-*`要件、品質ゲート、選択肢を定義する。`harness-managed`であり、任意参考ではない。
+- **Unityゲーム個別要件・設計書**：このゲーム固有の要件、HREQ適用状態、承認済み例外、ACを定義する。`project-owned`であり、ゲーム固有の変更はここへ記録する。
 - **本書**：Codexがどのような手順と制約で設計・実装・検証するかを定義する。
 - **MCP・Skill一覧**：利用可能な能力、用途、使用条件、制限事項を定義する。
 - **`harness.lock.json`**：ハーネスの検証環境、外部ツールの固定参照、公式根拠、実行確認状態を定義する。
@@ -117,7 +121,7 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 ### 横断機能採否ゲート
 
-新規ゲームでは企画確定から機能実装へ進む前に、[横断機能採否ゲート](./unity_design_sheet.md#cross-cutting-gate)を初回レビューする。既存ゲームでは、変更対象に関係する行を作業開始時に確認する。
+新規ゲームでは企画確定から機能実装へ進む前に、[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)を読み、[ゲーム設計書の採否記録](./unity_design_sheet.md#cross-cutting-record)を初回レビューする。既存ゲームでは、変更対象に関係する行を作業開始時に確認する。
 
 - 全領域を`採用`、`不採用`、`保留`のいずれかへ分類する。空欄を不採用と解釈しない。
 - `採用`領域は設計ID・AC ID、Package / Service、データ分類、対象地域・年齢・Store制約、検証方法を必要な範囲で記録する。
@@ -133,7 +137,7 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 ### アーキテクチャプロファイル決定ゲート
 
-新規ゲームは機能実装前に、[ARCH-001](./unity_design_sheet.md#architecture-profile-gate)の`Small`、`Standard`、`Large`から現在の制約を満たす最小のプロファイルを選び、理由と移行条件を記録する。`Standard`や4層構造を暗黙の既定値にしない。
+新規ゲームは機能実装前に、[HREQ-ARCH-001](./unity_harness_requirements.md#architecture-profile-gate)の`Small`、`Standard`、`Large`から現在の制約を満たす最小のプロファイルを選び、[ゲーム側の選択記録](./unity_design_sheet.md#architecture-profile-record)へ理由と移行条件を記録する。`Standard`や4層構造を暗黙の既定値にしない。
 
 - `Small`ではUnity既定Assemblyまたは単一Runtime asmdef、直接参照、手動Composition、局所的なイベントを許容し、DI Container、Manager群、Event Busを要求しない。
 - `Standard`ではRuntime / Editor / Testsを必要な範囲で分離し、実在するFeature境界、Pure C#ロジック、Composition Root、依存方向を明示する。
@@ -148,7 +152,7 @@ Profile変更はアーキテクチャ変更として人間の承認を得る。�
 
 ### セーブデータ耐障害性・互換性ゲート
 
-進行、設定、Unlock、所持品、永続ID、Cloud Saveへ影響する実装は、[SAVE-001](./unity_design_sheet.md#save-001)の決定と互換テストを先に確認する。
+進行、設定、Unlock、所持品、永続ID、Cloud Saveへ影響する実装は、[HREQ-SAVE-001](./unity_harness_requirements.md#save-001)と[ゲーム側の適用記録](./unity_design_sheet.md#save-decision-record)を先に確認する。
 
 - Primary Saveを直接truncateして上書きしない。Tempへの書込み、flush / close、再読込検証、Primary置換、Backup保持を一つのCommit手順として設計する。
 - `PlayerPrefs`は消失しても進行を失わない端末設定へ限定する。Serialization、暗号化、Integrity、Backupは別の責務として扱う。
@@ -165,7 +169,7 @@ Save形式、対応可能な最古Version、downgrade、Cloud conflict、鍵管�
 
 ### Git・大容量アセット・Unity Merge決定ゲート
 
-大容量Asset、Scene、Prefab、ProjectSettings、`.gitattributes`、Git LFS、Branch運用へ影響する作業は、[PROJECT-002](./unity_design_sheet.md#project-002)の選択記録を確認する。
+大容量Asset、Scene、Prefab、ProjectSettings、`.gitattributes`、Git LFS、Branch運用へ影響する作業は、[HREQ-REPO-001](./unity_harness_requirements.md#project-002)と[ゲーム側の適用記録](./unity_design_sheet.md#repository-policy-record)を確認する。
 
 - `main / develop / feature/*`を固定形にしない。Default branch、Branch寿命、Required CI、Review、Merge方式、Release / hotfix経路を実際のTeamとRelease方式から選ぶ。
 - LFSは拡張子一律で決めず、Path、実測size、変更頻度、Merge可否、Hosting quota、CI / Build machine対応から判断する。`.png`は自動的なLFS対象ではない。
@@ -185,7 +189,7 @@ Codexは既存のBranch、LFS pattern、Merge driver、Serialization mode、Asse
 Unity 6プロジェクトでは、`Assets`以下へ保存したBuild Profileアセットをビルド構成の正とする。Build ProfilesウィンドウのPlatform profileや、Editorで最後に選択していた状態だけに依存してビルドしない。
 
 - 対象プラットフォームごとにDevelopmentとReleaseを作成し、継続的な受け入れ確認が必要ならQAを追加する。
-- Profileアセットと`.meta`をVersion Controlへ含め、保存場所と命名は[BUILD-001](./unity_design_sheet.md#build-001)に従う。
+- Profileアセットと`.meta`をVersion Controlへ含め、保存場所と命名は[HREQ-BUILD-001](./unity_harness_requirements.md#build-001)と[ゲーム側の適用記録](./unity_design_sheet.md#build-profile-record)に従う。
 - 各Profileで`Override Global Scene List`を有効にし、ビルド対象Sceneと順序を明示する。
 - Build Profileの`Scripting Defines`は既存のProject / Player Settings定義へ追加される。Profile固有の排他的シンボルを設計書へ記録する。
 - `Customize player settings`はProfile間で異なる値だけに使用し、共通値はグローバルPlayer Settingsで管理する。
@@ -386,7 +390,7 @@ UI-001
 SAVE-001
 ```
 
-正式な`DOMAIN`はゲーム設計書の分類表を使用する。新しいカテゴリが必要な場合は、既存カテゴリで表現できないことを確認してから分類表へ追加する。
+正式な`DOMAIN`は[標準要件の分類表](./unity_harness_requirements.md#domain-classification)を使用する。新しいカテゴリが必要な場合は、既存カテゴリで表現できないことを確認してからハーネス標準要件として追加する。
 
 設計項目の見出しは、次の形を基本とする。
 
@@ -398,7 +402,7 @@ SAVE-001
 
 ### 6.2 受け入れ条件
 
-各設計項目には、実装完了を判定できる受け入れ条件を付ける。正式なMarkdown形式と検証種別は[受け入れ条件の記述形式](./unity_design_sheet.md#acceptance-criteria-format)を使用する。
+各設計項目には、実装完了を判定できる受け入れ条件を付ける。正式なMarkdown形式と検証種別は[受け入れ条件の記述形式](./unity_harness_requirements.md#acceptance-criteria-format)を使用し、実際のACはゲーム設計書へ記録する。
 
 受け入れ条件IDは次の形式とする。
 
@@ -509,8 +513,8 @@ SAVE-001
 
 Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/install-manifest.json`へschema version、harness release、path、ownership、source SHA-256を記録する。
 
-- `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書など、ハーネス更新で置換可能なファイル。
-- `project-owned`: ゲーム設計書、MCP・Skill採否、`AGENTS.md`、外部依存lock、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
+- `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書、`docs/unity_harness_capabilities.md`、`docs/unity_harness_requirements.md`など、ハーネス更新で置換可能な標準契約。
+- `project-owned`: `docs/unity_design_sheet.md`、MCP・Skill採否、`AGENTS.md`、外部依存lock、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
 
 更新規則:
 
@@ -521,6 +525,14 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
 - 旧Installerからの更新でbaselineがない既存project-ownedは、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、incomingとの差分を生成してから新baselineを記録する。
 - migration bundle生成後もlocalは変更しない。人間またはCodexが差分をレビューしてゲーム所有ファイルへ必要な変更だけを統合する。
 - `--dry-run`ではbackup、migration、baseline、install manifestを含め一切書き込まない。
+
+設計文書を旧版から移行する場合:
+
+- 旧`unity_design_sheet.md`に規約とゲーム設計が混在していても、Installerは上書きや自動分割を行わない。
+- 新しい`unity_harness_capabilities.md`と`unity_harness_requirements.md`は`harness-managed`標準文書として追加する。
+- `--prepare-migration`で新しいproject-owned sheetとの差分を生成し、旧sheetからゲーム名、個別要件、HREQ適用・例外、設計ID、AC、承認履歴だけを新しい構造へ移す。
+- 標準実装の`HCAP-*`、内部受け入れ契約の`DEBUG-*`、標準・推奨要件の本文はゲーム側sheetへ複製しない。
+- 移行完了は人間がゲーム固有設計の欠落がないことをレビューしてから承認する。
 
 ### 外部ツールの再現性
 
@@ -721,29 +733,34 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 Codexは最低限、次を確認する。
 
 1. 本書
-2. [Unityゲーム設計書](./unity_design_sheet.md)
-3. [Unity MCP・Codex Skills一覧](./mcp_and_skills_list.md)
-4. リポジトリ内のCodex向け指示
-5. Unityバージョン、対象プラットフォーム、導入パッケージ
-6. Unityバージョン・対象プラットフォーム決定ゲートの完了状態
-7. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
-8. 対象機能に関係する横断機能採否ゲートの状態
-9. アーキテクチャプロファイルの選択、理由、移行条件
-10. セーブへ影響する場合は、SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
-11. 大容量Asset、Scene、Prefab、ProjectSettingsへ影響する場合は、PROJECT-002、LFS、Serialization、Owner
-12. 関連コード、Scene、Prefab、テスト
+2. [Unityハーネス標準実装](./unity_harness_capabilities.md)
+3. [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)
+4. [Unityゲーム個別要件・設計書](./unity_design_sheet.md)
+5. [Unity MCP・Codex Skills一覧](./mcp_and_skills_list.md)
+6. リポジトリ内のCodex向け指示
+7. Unityバージョン、対象プラットフォーム、導入パッケージ
+8. Unityバージョン・対象プラットフォーム決定ゲートの完了状態
+9. 2Dアセットを扱う場合は、2Dアートプロファイル決定ゲートの完了状態
+10. 対象機能に関係する横断機能採否ゲートの状態
+11. アーキテクチャプロファイルの選択、理由、移行条件
+12. セーブへ影響する場合は、HREQ-SAVE-001、対応Schema、fixture、Cloud / Privacy / Security採否
+13. 大容量Asset、Scene、Prefab、ProjectSettingsへ影響する場合は、HREQ-REPO-001、LFS、Serialization、Owner
+14. 関連コード、Scene、Prefab、テスト
 
 ### 作業中
 
 - 既存設計と既存パターンを優先する。
-- 新規作成・名称変更では[標準命名規則](./unity_design_sheet.md#naming-rules)を使用する。
-- 新規ファイルの配置では[標準フォルダ構成](./unity_design_sheet.md#folder-layout)を使用する。
-- Assemblyの作成・参照変更では[プロファイル別asmdef構成](./unity_design_sheet.md#asmdef-layout)を使用する。
-- DI Container、Singleton、Manager、Event Channel、Feature Packageを追加する前に[アーキテクチャプロファイル決定ゲート](./unity_design_sheet.md#architecture-profile-gate)と採用理由を確認する。
-- Save対象、Stable ID、Schema、保存先、Cloud同期を変更する前に[セーブデータ耐障害性・互換性ゲート](./unity_design_sheet.md#save-001)と旧Version fixtureを確認する。
-- 大容量Asset、Scene、Prefab、ProjectSettings、Git属性を変更する前に[Git・大容量アセット・Unity Merge決定ゲート](./unity_design_sheet.md#project-002)を確認する。
-- 2Dアセットの生成・取込前に[2Dアートプロファイル決定ゲート](./unity_design_sheet.md#art-profile-gate)を確認する。
-- Package、外部Service、通信、収集データ、課金、広告、UGC、XRを扱う前に[横断機能採否ゲート](./unity_design_sheet.md#cross-cutting-gate)を確認する。
+- 新規作成・名称変更では[標準命名規則](./unity_harness_requirements.md#naming-rules)を使用する。
+- 新規ファイルの配置では[標準フォルダ構成](./unity_harness_requirements.md#folder-layout)を使用する。
+- Assemblyの作成・参照変更では[プロファイル別asmdef構成](./unity_harness_requirements.md#asmdef-layout)を使用する。
+- DI Container、Singleton、Manager、Event Channel、Feature Packageを追加する前に[アーキテクチャプロファイル決定ゲート](./unity_harness_requirements.md#architecture-profile-gate)とゲーム設計書の採用理由を確認する。
+- Save対象、Stable ID、Schema、保存先、Cloud同期を変更する前に[セーブデータ耐障害性・互換性ゲート](./unity_harness_requirements.md#save-001)とゲーム設計書の旧Version fixture記録を確認する。
+- 大容量Asset、Scene、Prefab、ProjectSettings、Git属性を変更する前に[Git・大容量アセット・Unity Merge決定ゲート](./unity_harness_requirements.md#project-002)とゲーム設計書の選択記録を確認する。
+- 2Dアセットの生成・取込前に[2Dアートプロファイル決定ゲート](./unity_harness_requirements.md#art-profile-gate)とゲーム設計書の採用Profileを確認する。
+- Package、外部Service、通信、収集データ、課金、広告、UGC、XRを扱う前に[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)とゲーム設計書の採否マトリクスを確認する。
+- 関連する`HREQ-*`を特定し、ゲーム設計書の適用状態が`未決定`でないことを`validate_design_contract.py`で確認する。
+- 個別要件は標準要件を暗黙に弱めない。差異は`例外承認`として理由、影響、代替策、承認者、日付を必要とする。
+- 通常のゲーム作業では`unity_harness_requirements.md`を変更せず、ゲーム固有の決定は`unity_design_sheet.md`だけへ記録する。
 - 検証成果物は[検証成果物の保存規則](#validation-artifacts)へ保存する。
 - 既存プロジェクトへ命名規則を適用するためだけの一括改名は行わない。参照、GUID、シリアライズ、外部データへの影響を調査し、必要な変更だけを段階的に行う。
 - 既存プロジェクトへ標準フォルダ構成を適用するためだけの一括移動は行わない。移動が必要な場合はUnity EditorまたはUnity MCP経由で行い、参照切れを検証する。

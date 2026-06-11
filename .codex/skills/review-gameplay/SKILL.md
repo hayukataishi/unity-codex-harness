@@ -7,7 +7,10 @@ description: Observe a Unity Play Mode or build play path, collect screenshots, 
 
 ## Define the review
 
-1. Read the relevant design items and active ACs.
+1. Read the relevant project-owned design items and active ACs in
+   `docs/unity_design_sheet.md`, plus applicable inherited `HREQ-*` standards
+   in `docs/unity_harness_requirements.md` and evidence capabilities in
+   `docs/unity_harness_capabilities.md`.
 2. Specify:
    - Unity scene or build
    - starting state and required test data

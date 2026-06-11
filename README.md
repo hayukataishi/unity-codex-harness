@@ -6,7 +6,9 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 
 - `.codex/skills/`: Unity開発向けのCodex Skills
 - `docs/unity_harness_engineering.md`: ハーネスの運用・安全・品質ルール
-- `docs/unity_design_sheet.md`: ゲーム設計書テンプレート
+- `docs/unity_harness_capabilities.md`: ハーネスとして標準実装済みの能力
+- `docs/unity_harness_requirements.md`: 導入先へ適用する標準・推奨要件
+- `docs/unity_design_sheet.md`: 配布先ゲームの個別要件・適用・例外記録
 - `docs/mcp_and_skills_list.md`: Unity MCPとSkillsの責務
 - `harness.lock.json`: 外部ツールと検証環境の固定情報
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
@@ -97,18 +99,22 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 │  ├─ install-manifest.json                    所有区分とsource hash
 │  └─ baselines/                               project-owned templateの比較元
 ├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
-├─ docs/                                       設計・運用ドキュメント
+├─ docs/
+│  ├─ unity_harness_capabilities.md              ハーネス管理の標準実装
+│  ├─ unity_harness_requirements.md              ハーネス管理の標準・推奨要件
+│  └─ unity_design_sheet.md                     ゲーム側所有の個別要件
 ├─ harness.lock.json                           外部ツールの固定情報
 ├─ ProjectSettings/
 │  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
 ├─ scripts/unity_codex_harness/
-│  └─ check_external_dependencies.py           外部依存の未導入・版違い検査
+│  ├─ check_external_dependencies.py           外部依存の未導入・版違い検査
+│  └─ validate_design_contract.py              HREQ適用・例外・未決定の検査
 └─ AGENTS.md                                   Codex向けリポジトリ指示
 ```
 
 `Assets/UnityCodexHarness/Editor/`はEditor専用Assemblyで、Missing Script、Missing Reference、必須資産を検査します。Player Buildには含まれません。
 
-インストーラーは導入対象を`harness-managed`と`project-owned`へ分けます。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
+インストーラーは導入対象を`harness-managed`と`project-owned`へ分けます。`docs/unity_harness_capabilities.md`と`docs/unity_harness_requirements.md`は`harness-managed`、ゲーム固有の`docs/unity_design_sheet.md`は`project-owned`です。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
 
 `project-owned`として保護されるファイル:
 
@@ -120,6 +126,30 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 これらは存在しない場合だけ生成され、導入後はゲーム側が所有します。通常更新、`--force`、`--force-file`のいずれでも既存内容を上書きしません。
 
+### 標準実装・標準推奨・ゲーム個別設計
+
+| 文書 | 所有者 | 記載する内容 | 通常のゲーム制作で編集 |
+|---|---|---|---|
+| `docs/unity_harness_capabilities.md` | ハーネス | Installer、Skills、検証、fixture、CI、回帰テストとして標準実装済みの能力 | しない |
+| `docs/unity_harness_requirements.md` | ハーネス | 継承される必須標準と、対話で採否・方式を決める`HREQ-*`推奨要件 | しない |
+| `docs/unity_design_sheet.md` | 配布先ゲーム | 個別要件、HREQ適用状態、例外、設計項目ID、AC、承認履歴 | する |
+
+標準実装はゲーム要件ではなく、ハーネスが提供・検証する機能です。標準・推奨要件は任意の参考資料ではありません。必須標準は導入時点で継承され、決定必須・条件付き推奨はユーザーとの対話で選択肢、推奨理由、トレードオフを確認して決定します。個別ゲームはHREQ適合表へ`継承`、`対象外`、`例外承認`、`未決定`を記録します。
+
+標準要件と個別要件は章番号ではなく`HREQ-*` IDで対応します。章番号は各文書を読む順番にすぎません。
+
+契約構造と、作業に必要なHREQが解決済みかを検査:
+
+```bash
+python3 scripts/unity_codex_harness/validate_design_contract.py \
+  --project-root "/path/to/YourUnityProject" \
+  --require HREQ-ARCH-001
+```
+
+Codex Skillsは実装・受け入れ前に関連HREQを確認します。通常のゲーム設計では`unity_design_sheet.md`だけを更新し、標準要件自体を変える場合だけ明示的なハーネス改善として`unity_harness_requirements.md`を変更します。
+
+旧版の`unity_design_sheet.md`で共通規則とゲーム固有設計が混在している場合、インストーラーは既存内容を自動分割・上書きしません。先に`--prepare-migration`を実行し、生成された`Artifacts/HarnessInstallerMigrations/`のbase・local・incoming差分を確認して、個別要件、HREQ適用状態、ID、AC、承認履歴だけを新しいSheetへ移してください。
+
 `.unity-codex-harness/`は更新比較に必要なハーネス状態です。ゲーム側の設計書ではなく、元templateのhashとbaselineを保持します。`Artifacts/`とは異なりGit管理へ含めてください。
 
 次のものはゲームプロジェクトへ自動導入されません。
@@ -130,9 +160,9 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 - ハーネス自身のGitHub ActionsとUnity fixture
 - ゲーム固有のCI、Build Profile、Package
 
-Unity 6のゲームでは、導入後に[BUILD-001](docs/unity_design_sheet.md#build-001)へ従ってDevelopment / QA / ReleaseのBuild Profileをゲーム側で作成します。Build Profileは対象Platform、Scene、配布要件がプロジェクトごとに異なるため、インストーラーは自動生成しません。
+Unity 6のゲームでは、[HREQ-BUILD-001](docs/unity_harness_requirements.md#build-001)を継承し、[ゲーム側の適用記録](docs/unity_design_sheet.md#build-profile-record)へ採用内容を記載してDevelopment / QA / ReleaseのBuild Profileを作成します。Build Profileは対象Platform、Scene、配布要件がプロジェクトごとに異なるため、インストーラーは自動生成しません。
 
-Cinemachineを採用する場合もPackageは自動導入されません。[GRAPHICS-001](docs/unity_design_sheet.md#graphics-001)に従い、Unity 6の新規案件はCinemachine 3.xを基準として、ゲーム側の`Packages/manifest.json`と`packages-lock.json`へ記録された正確なバージョンを使用します。
+Cinemachineを採用する場合もPackageは自動導入されません。[HREQ-CAMERA-001](docs/unity_harness_requirements.md#graphics-001)に従い、Unity 6の新規案件はCinemachine 3.xを基準として、ゲーム側の`Packages/manifest.json`と`packages-lock.json`へ記録された正確なバージョンを使用します。
 
 ### 手順4: 導入結果を確認する
 
@@ -281,7 +311,7 @@ $validate-unity-change で検証してください。
 
 ### 横断機能を先に採否判断する
 
-ネットワーク、ローカライズ、アクセシビリティ、分析、Privacy、課金、広告、LiveOps、UGC、XRなどは、使用しない場合も含めて設計書Section 20のマトリクスへ`採用`、`不採用`、`保留`を記録します。
+ネットワーク、ローカライズ、アクセシビリティ、分析、Privacy、課金、広告、LiveOps、UGC、XRなどは、使用しない場合も含めて[ゲーム設計書の横断機能採否](docs/unity_design_sheet.md#cross-cutting-record)へ`採用`、`不採用`、`保留`を記録します。判断規則は[横断機能採否ゲート](docs/unity_harness_requirements.md#cross-cutting-gate)を参照します。
 
 - `採用`: 対象範囲、Package / Service、データ考慮、設計ID・AC IDを記録
 - `不採用`: 理由と再評価条件を記録
@@ -291,7 +321,7 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 
 ### 規模に合うアーキテクチャを選ぶ
 
-実装開始前に[ARCH-001](docs/unity_design_sheet.md#architecture-profile-gate)で、現在の制約を満たす最小のProfileを選びます。
+実装開始前に[HREQ-ARCH-001](docs/unity_harness_requirements.md#architecture-profile-gate)に従い、[ゲーム側の適用記録](docs/unity_design_sheet.md#architecture-profile-record)で現在の制約を満たす最小のProfileを選びます。
 
 | Profile | 目安 | 基本方針 |
 |---|---|---|
@@ -303,7 +333,7 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 
 ### セーブの破損・Version差を先に設計する
 
-進行データを保存するゲームは、実装前に[SAVE-001](docs/unity_design_sheet.md#save-001)を埋めます。
+進行データを保存するゲームは、[HREQ-SAVE-001](docs/unity_harness_requirements.md#save-001)に従い、実装前に[ゲーム側の適用記録](docs/unity_design_sheet.md#save-decision-record)を埋めます。
 
 - Primaryを直接上書きせず、Temp書込み、flush、検証、置換、Backupを定義する
 - `schemaVersion`、対応可能な最古Version、段階Migration、downgradeを決める
@@ -315,7 +345,7 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 
 ### Gitと大容量アセット運用を選ぶ
 
-[PROJECT-002](docs/unity_design_sheet.md#project-002)で、Branch、LFS、Unity Merge、Asset ownershipをプロジェクトごとに決めます。
+[HREQ-REPO-001](docs/unity_harness_requirements.md#project-002)に従い、[ゲーム側の適用記録](docs/unity_design_sheet.md#repository-policy-record)でBranch、LFS、Unity Merge、Asset ownershipをプロジェクトごとに決めます。
 
 - `main / develop / feature/*`を固定せず、Team、CI、Release保守からBranch戦略を選ぶ
 - `.png`などの拡張子一律ではなく、Path、実測size、変更頻度、Merge可否、LFS quotaで追跡対象を決める

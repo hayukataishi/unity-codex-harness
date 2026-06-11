@@ -60,16 +60,19 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 **主な処理**
 
-1. [Unityゲーム設計書](./unity_design_sheet.md)を読む。
-2. 要求を「確定仕様・実装上の決定・仮定・要確認」に分類する。
-3. 影響する設計項目と横断機能採否マトリクスを特定する。
-4. 採用領域の設計項目ID、受け入れ条件、依存、データ考慮を追加・更新する。
-5. 不採用・保留領域との矛盾と、人間の承認が必要な変更を分離する。
+1. [Unityハーネス標準実装](./unity_harness_capabilities.md)で利用可能な能力と既知の不足を読む。
+2. [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)で継承される`HREQ-*`と品質ゲートを読む。
+3. [Unityゲーム個別要件・設計書](./unity_design_sheet.md)で適用状態、例外、ゲーム固有要件、承認状態を読む。
+4. 要求を「確定仕様・実装上の決定・仮定・要確認」に分類する。
+5. 影響する設計項目と横断機能採否マトリクスを特定する。
+6. 関連HREQの`未決定`、対象外理由、例外承認を検査する。
+7. 採用領域の設計項目ID、受け入れ条件、依存、データ考慮を設計書だけへ追加・更新する。
+8. 標準要件との矛盾と、人間の承認が必要な変更を分離する。
 
 **持たせるもの**
 
 - [設計項目IDの規則](./unity_harness_engineering.md#traceability)
-- [受け入れ条件の記述テンプレート](./unity_design_sheet.md#acceptance-criteria-format)
+- [受け入れ条件の記述テンプレート](./unity_harness_requirements.md#acceptance-criteria-format)
 - ゲームレビューから設計変更へ変換するテンプレート
 - 人間の承認が必要な変更の判定表
 
@@ -89,10 +92,10 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 **持たせるもの**
 
-- [Unityプロジェクトの命名規則](./unity_design_sheet.md#naming-rules)
-- [Unityプロジェクトのフォルダ規則](./unity_design_sheet.md#folder-layout)
-- [asmdefの分割・依存規則](./unity_design_sheet.md#asmdef-layout)
-- [Small / Standard / Largeアーキテクチャプロファイル](./unity_design_sheet.md#architecture-profile-gate)
+- [Unityプロジェクトの命名規則](./unity_harness_requirements.md#naming-rules)
+- [Unityプロジェクトのフォルダ規則](./unity_harness_requirements.md#folder-layout)
+- [asmdefの分割・依存規則](./unity_harness_requirements.md#asmdef-layout)
+- [Small / Standard / Largeアーキテクチャプロファイル](./unity_harness_requirements.md#architecture-profile-gate)
 - 選択Profileに応じたレイヤー分離と依存方向
 - Scene・Prefab・ScriptableObjectの編集方針
 - `.meta`とGUIDを壊さないための制約
@@ -159,7 +162,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 **主な処理**
 
-1. [2Dアートプロファイル](./unity_design_sheet.md#art-profile-gate)の完了状態を確認する。
+1. [2Dアートプロファイルの規則](./unity_harness_requirements.md#art-profile-gate)と[ゲーム側の採用記録](./unity_design_sheet.md#art-profile-record)を確認する。
 2. 必要なアセット仕様を設計書から抽出する。
 3. agent-sprite-forgeで画像を生成する。
 4. ファイル名と配置先をプロジェクト規約へ合わせる。
@@ -206,7 +209,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 | Skill候補 | 追加条件 |
 |---|---|
 | `balance-gameplay` | パラメータ、評価指標、テレメトリ形式が決まった時 |
-| `migrate-save-data` | `SAVE-001`、実Schema、対応旧Version fixture、Rollback方針が決まった時 |
+| `migrate-save-data` | `HREQ-SAVE-001`、実Schema、対応旧Version fixture、Rollback方針が決まった時 |
 | `build-release` | 対象プラットフォーム、署名、配布先、CIが決まった時 |
 | `localize-game` | 対象言語とLocalization運用が決まった時 |
 | `profile-unity-game` | FPS、メモリ、ロード時間などの性能予算が決まった時 |
@@ -241,9 +244,13 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 │     └─ review-gameplay/
 └─ docs/
    ├─ unity_harness_engineering.md
+   ├─ unity_harness_capabilities.md
+   ├─ unity_harness_requirements.md
    ├─ unity_design_sheet.md
    └─ mcp_and_skills_list.md
 ```
+
+`unity_harness_capabilities.md`はハーネスが標準実装している能力、`unity_harness_requirements.md`は導入先へ適用する必須標準と対話で決める推奨要件であり、通常のゲーム制作では変更しない。`unity_design_sheet.md`は配布先ゲームが所有し、HREQ適用状態、個別要件、例外、設計項目ID、AC、承認履歴を記入する。
 
 ただし、実運用では以下の3つから開始してもよい。
 

@@ -7,7 +7,11 @@ description: Validate Unity changes against design IDs and acceptance criteria u
 
 ## Establish the validation scope
 
-1. Read the active design item and AC rows in `docs/unity_design_sheet.md`.
+1. Read implemented validation capabilities in
+   `docs/unity_harness_capabilities.md`, inherited `HREQ-*` standards in
+   `docs/unity_harness_requirements.md`, then read the standard-requirement
+   conformance table, approved exceptions, game-specific design items, and AC
+   rows in `docs/unity_design_sheet.md`.
 2. Read validation, artifact, and Definition of Done rules in `docs/unity_harness_engineering.md`.
 3. Resolve `UNITY_PROJECT_ROOT`; verify the Unity project markers instead of guessing.
 4. List changed code, scenes, prefabs, ScriptableObjects, settings, packages, tags, layers, and build configuration.
@@ -25,12 +29,20 @@ description: Validate Unity changes against design IDs and acceptance criteria u
 8. For repository or asset changes, inspect branch and merge policy, LFS
    attributes and object availability, Unity serialization settings, `.meta`
    pairing, ownership, and conflict-resolution evidence.
-9. Build an AC matrix before testing:
+9. Run `scripts/unity_codex_harness/validate_design_contract.py` with
+   `--require` for every affected decision or conditional HREQ.
+10. Build a requirements matrix before testing:
 
 ```markdown
-| AC ID | Verification type | Planned check | Evidence target |
-|---|---|---|---|
+| Requirement | Source | Verification type | Planned check | Evidence target |
+|---|---|---|---|---|
+| HREQ-... | Harness standard | AUTO:... | ... | ... |
+| MECH-...-AC01 | Game-specific | AUTO:... | ... | ... |
 ```
+
+Do not treat an explanatory example or blank template row as a game AC.
+However, an applicable `HREQ-*` is binding even when it is not copied into the
+game-specific AC list. Validate both inherited standards and game-specific ACs.
 
 ## Create a new evidence run
 

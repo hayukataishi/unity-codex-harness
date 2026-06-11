@@ -24,15 +24,15 @@ PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PACKAGE_REQUIREMENT_RE = re.compile(r"^(?:~=|==|!=|>=|<=|>|<)\S+$")
 VALID_RESULTS = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
 BUILD_PROFILE_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="build-001"></a>',
-        "### BUILD-001:",
+        "### HREQ-BUILD-001:",
         "Assets/Settings/BuildProfiles/<Platform>/",
         "GAME_BUILD_DEVELOPMENT",
         "GAME_BUILD_QA",
         "GAME_BUILD_RELEASE",
         "-activeBuildProfile",
-        "BUILD-001-AC03",
+        "HREQ-BUILD-001-AC03",
     ),
     "docs/unity_harness_engineering.md": (
         '<a id="build-profile-policy"></a>',
@@ -46,7 +46,7 @@ BUILD_PROFILE_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_BUILD_SETTINGS_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "Build Settings（登録）",
         "| **Build Settings** |",
     ),
@@ -58,12 +58,12 @@ OUTDATED_BUILD_SETTINGS_TEXT = {
     ),
 }
 CROSS_CUTTING_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="cross-cutting-gate"></a>',
         "## 20. 横断機能採否ゲート",
         '<a id="project-001"></a>',
-        "### PROJECT-001:",
-        "PROJECT-001-AC03",
+        "### HREQ-CROSS-001:",
+        "HREQ-CROSS-001-AC03",
         "| `採用` |",
         "| `不採用` |",
         "| `保留` |",
@@ -112,7 +112,7 @@ CROSS_CUTTING_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_CROSS_CUTTING_APPENDIX_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "**ネットワーク同期** … マルチプレイなら必須",
         "**ローカライズ** … 多言語対応",
         "**Unity Gaming Services** …",
@@ -120,9 +120,9 @@ OUTDATED_CROSS_CUTTING_APPENDIX_TEXT = {
     ),
 }
 ARCHITECTURE_PROFILE_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="architecture-profile-gate"></a>',
-        "### ARCH-001:",
+        "### HREQ-ARCH-001:",
         "| `Small` |",
         "| `Standard` |",
         "| `Large` |",
@@ -130,7 +130,7 @@ ARCHITECTURE_PROFILE_REQUIRED_TEXT = {
         "移行条件",
         "`No Engine References`",
         "Service Locator",
-        "ARCH-001-AC03",
+        "HREQ-ARCH-001-AC03",
     ),
     "docs/unity_harness_engineering.md": (
         '<a id="architecture-profile-policy"></a>',
@@ -172,7 +172,7 @@ ARCHITECTURE_PROFILE_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_ARCHITECTURE_GUIDANCE = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "新規プロジェクトは次の4 Assemblyから開始する。",
         "| ServiceLocator | ☐ | 中規模向け |",
         "ScriptableObject Event Channel** | シーン跨ぎ・疎結合な通知（推奨）",
@@ -182,9 +182,9 @@ OUTDATED_ARCHITECTURE_GUIDANCE = {
     ),
 }
 SAVE_COMPATIBILITY_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="save-001"></a>',
-        "### SAVE-001:",
+        "### HREQ-SAVE-001:",
         "| Atomic write |",
         "| Backup / rollback |",
         "| Integrity |",
@@ -193,7 +193,7 @@ SAVE_COMPATIBILITY_REQUIRED_TEXT = {
         "Cloud conflict",
         "PlayerPrefs",
         "Assets/Game/Tests/Fixtures/SaveData/<SchemaVersion>/",
-        "SAVE-001-AC04",
+        "HREQ-SAVE-001-AC04",
     ),
     "docs/unity_harness_engineering.md": (
         '<a id="save-compatibility-policy"></a>',
@@ -236,15 +236,15 @@ SAVE_COMPATIBILITY_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_SAVE_GUIDANCE = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "保存方式      : JSON ファイル / PlayerPrefs / 暗号化  （いずれか）",
         "バージョン管理 : セーブデータの version フィールドでマイグレーション対応",
     ),
 }
 SOURCE_CONTROL_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="project-002"></a>',
-        "### PROJECT-002:",
+        "### HREQ-REPO-001:",
         "| Branch strategy |",
         "| LFS criteria |",
         "`.png`、`.wav`、`.fbx`などの拡張子だけで全ファイルを一律LFS化しない",
@@ -253,7 +253,7 @@ SOURCE_CONTROL_REQUIRED_TEXT = {
         "Force Text",
         "UnityYAMLMerge",
         "`git lfs migrate`",
-        "PROJECT-002-AC04",
+        "HREQ-REPO-001-AC04",
     ),
     "docs/unity_harness_engineering.md": (
         '<a id="project-version-control-policy"></a>',
@@ -269,7 +269,7 @@ SOURCE_CONTROL_REQUIRED_TEXT = {
         "An extension such as `.png` is not sufficient",
     ),
     ".codex/skills/implement-unity-feature/SKILL.md": (
-        "read `PROJECT-002`",
+        "read `HREQ-REPO-001`",
         "Do not put `.meta` files in",
         "Use UnityYAMLMerge only",
     ),
@@ -296,21 +296,21 @@ SOURCE_CONTROL_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_SOURCE_CONTROL_GUIDANCE = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "Git LFS       : .psd .png .fbx .wav 等を対象",
         "ブランチ運用  : main / develop / feature/*",
     ),
 }
 CINEMACHINE_3_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         '<a id="graphics-001"></a>',
-        "### GRAPHICS-001:",
+        "### HREQ-CAMERA-001:",
         "CinemachineCamera + CinemachineFollow / CinemachinePositionComposer",
         "Unity.Cinemachine",
         "Tracking Target",
         "Cinemachine Channel",
         "CINEMACHINE_NO_CM2_SUPPORT",
-        "GRAPHICS-001-AC03",
+        "HREQ-CAMERA-001-AC03",
     ),
     "docs/unity_harness_engineering.md": (
         '<a id="cinemachine-policy"></a>',
@@ -331,20 +331,19 @@ CINEMACHINE_3_REQUIRED_TEXT = {
     ),
 }
 OUTDATED_CINEMACHINE_EXAMPLE_TEXT = {
-    "docs/unity_design_sheet.md": (
+    "docs/unity_harness_requirements.md": (
         "| `FollowCamera` | プレイヤー追従 | CinemachineVirtualCamera | 10 |",
     ),
 }
 VALIDATION_RUN_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
-        '<a id="debug-001"></a>',
-        "### DEBUG-001:",
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-VALIDATION-001",
         "作成時の`RUNNING`",
-        "finalize後の`COMPLETED`",
-        "RunManifest.sha256",
+        "`COMPLETED`",
+        "SHA-256",
         "DEBUG-001-AC03",
         "DEBUG-001-AC04",
-        "未生成path",
+        "実在する成果物",
     ),
     "docs/unity_harness_engineering.md": (
         "Validation Runのライフサイクル",
@@ -377,24 +376,21 @@ VALIDATION_RUN_REQUIRED_TEXT = {
     ),
 }
 TEMPLATE_REGRESSION_REQUIRED_TEXT = {
-    "docs/unity_design_sheet.md": (
-        '<a id="debug-002"></a>',
-        "### DEBUG-002:",
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-REGRESSION-001",
         "DEBUG-002-AC04",
-        '<a id="debug-003"></a>',
-        "### DEBUG-003:",
+        "HCAP-FIXTURE-001",
         "DEBUG-003-AC04",
-        '<a id="debug-004"></a>',
-        "### DEBUG-004:",
+        "HCAP-EXTERNAL-001",
         "DEBUG-004-AC04",
-        '<a id="debug-005"></a>',
-        "### DEBUG-005:",
+        "HCAP-INSTALL-001",
         "DEBUG-005-AC04",
-        '<a id="debug-006"></a>',
-        "### DEBUG-006:",
+        "HCAP-CI-001",
         "DEBUG-006-AC04",
-        "Run ID衝突",
-        "競合やdry-run時",
+        "HCAP-DOCS-001",
+        "DEBUG-007-AC04",
+        "異常系",
+        "dry-run",
     ),
     "docs/unity_harness_engineering.md": (
         "テンプレート自己回帰テスト基準",
@@ -419,6 +415,7 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_conflict_stops_before_any_update",
         "test_force_file_replaces_only_managed_file_with_backup",
         "test_force_never_replaces_project_owned_files",
+        "test_force_updates_standard_documents_but_preserves_game_sheet",
         "test_prepare_migration_creates_three_way_bundle",
         "test_install_manifest_records_ownership_and_hashes",
         "test_reinstall_is_idempotent",
@@ -456,11 +453,190 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_remote_network_failure_is_blocked",
         "test_cli_validates_lock_without_network",
     ),
+    "tests/test_design_contract.py": (
+        "class DesignContractTests",
+        "test_repository_design_sheet_has_complete_contract",
+        "test_required_unresolved_requirement_fails",
+        "test_approved_exception_requires_reason_mitigation_and_approval",
+    ),
+    "scripts/validate_design_contract.py": (
+        "PROJECT_REQUIREMENT_IDS",
+        "def validate_contract",
+        "--require-all-resolved",
+        "Design contract validation: PASS",
+    ),
     "scripts/check_gameci_image.py": (
         "def validate_lock_configuration",
         "def validate_remote_payload",
         "def verify_remote_image",
         "GameCI image check: BLOCKED",
+    ),
+}
+
+DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
+    "docs/unity_harness_capabilities.md": (
+        "UNITY_CODEX_HARNESS_CAPABILITIES: IMPLEMENTED AND HARNESS-MANAGED",
+        "# Unityハーネス標準実装",
+        "`harness-managed`",
+        "[Unityハーネス標準・推奨要件](./unity_harness_requirements.md)",
+        "[Unityゲーム個別要件・設計書](./unity_design_sheet.md)",
+        "## 標準実装の契約",
+        "HCAP-VALIDATION-001",
+        "HCAP-REGRESSION-001",
+        "HCAP-FIXTURE-001",
+        "HCAP-EXTERNAL-001",
+        "HCAP-INSTALL-001",
+        "HCAP-CI-001",
+        "HCAP-DOCS-001",
+        "HCAP-INTEGRITY-001",
+        "未承認の改変を常時検出",
+    ),
+    "docs/unity_harness_requirements.md": (
+        "UNITY_CODEX_HARNESS_REQUIREMENTS: NORMATIVE AND HARNESS-MANAGED",
+        "# Unityハーネス標準・推奨要件",
+        "`harness-managed`",
+        "任意の参考ガイドではありません",
+        "[Unityゲーム個別要件・設計書](./unity_design_sheet.md)",
+        "[Unityハーネス標準実装](./unity_harness_capabilities.md)",
+        "## 標準要件の適用契約",
+        "`必須標準`",
+        "`決定必須`",
+        "`条件付き推奨`",
+        '<a id="standard-requirement-index"></a>',
+        "HREQ-DESIGN-001",
+        "HREQ-PLATFORM-001",
+        "HREQ-PROJECT-001",
+        "HREQ-ART-001",
+        "HREQ-CAMERA-001",
+        "HREQ-ARCH-001",
+        "HREQ-SAVE-001",
+        "HREQ-REPO-001",
+        "HREQ-BUILD-001",
+        "HREQ-CROSS-001",
+        "HREQ-VALIDATION-001",
+        "章番号は説明を読む順番",
+        '<a id="design-item-id"></a>',
+        '<a id="domain-classification"></a>',
+    ),
+    "docs/unity_design_sheet.md": (
+        "UNITY_CODEX_PROJECT_OWNED: EDIT GAME-SPECIFIC DECISIONS IN THIS FILE",
+        "# Unityゲーム個別要件・設計書",
+        "`project-owned`",
+        "[Unityハーネス標準・推奨要件](./unity_harness_requirements.md)",
+        "必須標準が無効になることはありません",
+        '<a id="hreq-conformance"></a>',
+        "## 標準要件適合表",
+        "| `継承` |",
+        "| `対象外` |",
+        "| `例外承認` |",
+        "| `未決定` |",
+        "| `HREQ-DESIGN-001` |",
+        "| `HREQ-VALIDATION-001` |",
+        "章番号は記入順",
+        '<a id="platform-record"></a>',
+        '<a id="art-profile-record"></a>',
+        '<a id="camera-record"></a>',
+        '<a id="architecture-profile-record"></a>',
+        '<a id="save-decision-record"></a>',
+        '<a id="project-structure-record"></a>',
+        '<a id="repository-policy-record"></a>',
+        '<a id="build-profile-record"></a>',
+        '<a id="cross-cutting-record"></a>',
+        "## 13. ゲーム固有の設計項目",
+        "UNITY_CODEX_PROJECT_OWNED: END",
+    ),
+    "AGENTS.md": (
+        "`docs/unity_harness_capabilities.md`",
+        "`docs/unity_harness_requirements.md`",
+        "`docs/unity_design_sheet.md`",
+        "inherited, binding",
+        "game-specific requirements, HREQ applicability",
+        "may not silently weaken an HREQ",
+        "validate_design_contract.py",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "## Requirements boundary",
+        "Read `docs/unity_harness_capabilities.md`",
+        "Read `docs/unity_harness_requirements.md`",
+        "only to `docs/unity_design_sheet.md`",
+        "standard-requirement conformance table",
+        "`例外承認`",
+        "Never copy harness `HCAP-*`, `DEBUG-*`",
+        "older installation still has rules and game decisions mixed",
+    ),
+    ".codex/skills/implement-unity-feature/SKILL.md": (
+        "`docs/unity_harness_capabilities.md`",
+        "`docs/unity_harness_requirements.md`",
+        "`docs/unity_design_sheet.md`",
+        "Harness requirements apply even",
+        "validate_design_contract.py",
+        "may not silently weaken an HREQ",
+    ),
+    ".codex/skills/validate-unity-change/SKILL.md": (
+        "`docs/unity_harness_capabilities.md`",
+        "inherited `HREQ-*` standards",
+        "standard-requirement",
+        "conformance table",
+        "validate_design_contract.py",
+        "Validate both inherited standards and game-specific ACs",
+    ),
+    ".codex/skills/report-unity-work/SKILL.md": (
+        "Use `docs/unity_design_sheet.md` for project decisions",
+        "`docs/unity_harness_requirements.md` for inherited `HREQ-*` standards",
+        "`docs/unity_harness_capabilities.md` for implemented harness",
+        "Report affected HREQ IDs",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "Unityハーネス標準実装",
+        "Unityハーネス標準・推奨要件",
+        "任意参考ではない",
+        "HREQ適用状態、承認済み例外",
+        "個別要件は標準要件を暗黙に弱めない",
+        "validate_design_contract.py",
+        "旧`unity_design_sheet.md`に規約とゲーム設計が混在",
+        "`--prepare-migration`",
+    ),
+    "README.md": (
+        "### 標準実装・標準推奨・ゲーム個別設計",
+        "| `docs/unity_harness_capabilities.md` | ハーネス |",
+        "| `docs/unity_harness_requirements.md` | ハーネス |",
+        "| `docs/unity_design_sheet.md` | 配布先ゲーム |",
+        "標準・推奨要件は任意の参考資料ではありません",
+        "章番号ではなく`HREQ-*` ID",
+        "validate_design_contract.py",
+        "既存内容を自動分割・上書きしません",
+        "`--prepare-migration`",
+    ),
+    "scripts/validate_design_contract.py": (
+        "PROJECT_REQUIREMENT_IDS",
+        "VALID_STATES",
+        "target-excluded HREQ requires a reason",
+        "approved exception requires impact and mitigation",
+        "required HREQ remains unresolved",
+        "Design contract validation: PASS",
+    ),
+    "tests/test_design_contract.py": (
+        "class DesignContractTests",
+        "test_repository_design_sheet_has_complete_contract",
+        "test_missing_requirement_row_fails",
+        "test_required_unresolved_requirement_fails",
+        "test_approved_exception_requires_reason_mitigation_and_approval",
+    ),
+}
+
+DESIGN_DOCUMENT_BOUNDARY_FORBIDDEN_TEXT = {
+    "docs/unity_harness_capabilities.md": (
+        "## 1. コンセプト",
+        "## ゲーム固有の設計項目",
+    ),
+    "docs/unity_harness_requirements.md": (
+        "### DEBUG-",
+        "| ハーネス内部 |",
+    ),
+    "docs/unity_design_sheet.md": (
+        "### DEBUG-",
+        "HCAP-",
+        "UNITY_CODEX_HARNESS_REQUIREMENTS",
     ),
 }
 
@@ -759,6 +935,39 @@ def validate_template_regression_suite(root: Path) -> list[str]:
                 errors.append(
                     f"missing template regression coverage: "
                     f"{relative} -> {required}"
+                )
+    return errors
+
+
+def validate_design_document_boundaries(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in (
+        DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT.items()
+    ):
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing design ownership document: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing design ownership boundary: "
+                    f"{relative} -> {required}"
+                )
+
+    for relative, forbidden_values in (
+        DESIGN_DOCUMENT_BOUNDARY_FORBIDDEN_TEXT.items()
+    ):
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for forbidden in forbidden_values:
+            if forbidden in text:
+                errors.append(
+                    f"design document boundary violation: "
+                    f"{relative} -> {forbidden}"
                 )
     return errors
 
@@ -1211,6 +1420,7 @@ def main() -> int:
         + validate_cinemachine_documentation(root)
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)
+        + validate_design_document_boundaries(root)
         + validate_harness_lock(root)
         + validate_gameci_workflow(root)
     )

@@ -8,8 +8,10 @@ description: Integrate generated or supplied 2D art into a Unity project using t
 ## Gate the work
 
 1. Read:
-   - `docs/unity_design_sheet.md` section `4.2 2Dアートプロファイル決定ゲート`
-   - affected design items and ACs
+   - `docs/unity_harness_capabilities.md`
+   - `HREQ-ART-001` in `docs/unity_harness_requirements.md`
+   - the selected profile, affected design items, and ACs in
+     `docs/unity_design_sheet.md`
    - `docs/unity_harness_engineering.md`
 2. Resolve `UNITY_PROJECT_ROOT` and inspect existing 2D asset conventions.
 3. Confirm the applicable profile (`Characters`, `Environment`, `Effects`, or `Ui`) is complete and human-approved.
@@ -27,7 +29,8 @@ If the profile gate is incomplete, stop before mass generation, final atlas cons
 
 ## Name and place
 
-- Follow the design sheet’s ASCII PascalCase asset naming.
+- Follow the harness requirements' ASCII PascalCase asset naming and any project-specific
+  exception recorded in the design sheet.
 - Use names such as `PlayerRunSheet`, `PlayerRun`, and `PlayerAnimator`.
 - Place custom sprites under `Assets/Game/Art/Sprites/<Feature>` or the approved existing equivalent.
 - Place clips under `Assets/Game/Art/Animations/<Feature>`, prefabs under `Assets/Game/Prefabs/...`, and reusable data under `Assets/Game/Data/...`.

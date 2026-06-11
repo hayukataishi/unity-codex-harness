@@ -9,27 +9,36 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 1. Read:
    - `docs/unity_harness_engineering.md`
+   - `docs/unity_harness_capabilities.md`
+   - `docs/unity_harness_requirements.md`
    - `docs/unity_design_sheet.md`
    - `docs/mcp_and_skills_list.md`
    - repository-level instructions
 2. Resolve `UNITY_PROJECT_ROOT` from user context or Unity MCP. Verify `Assets/`, `Packages/`, and `ProjectSettings/ProjectVersion.txt`. Never store a machine-specific path in shared files.
-3. Read the exact design item and all active AC IDs. If the requested behavior is not approved, use `$maintain-game-design` before implementation.
-4. Check the cross-cutting adoption matrix before work involving packages,
+3. Read the exact game-specific design item, active AC IDs, and every affected
+   `HREQ-*`. Harness requirements apply even when the game sheet does not repeat
+   their text.
+4. Run `scripts/unity_codex_harness/validate_design_contract.py` and pass each
+   affected decision or conditional HREQ with `--require`. Stop on `未決定`,
+   an undocumented exclusion, or an unapproved exception.
+5. If the requested behavior is not approved, use `$maintain-game-design`
+   before implementation. A game requirement may not silently weaken an HREQ.
+6. Check the cross-cutting adoption matrix before work involving packages,
    external services, networking, accounts, collected data, analytics,
    monetization, ads, UGC, moderation, accessibility, localization,
    performance budgets, diagnostics, or XR. Stop if the affected row is
    `保留` or contradicts the requested implementation.
-5. Read the selected architecture profile and its reason. If it is empty, keep
+7. Read the selected architecture profile and its reason. If it is empty, keep
    the existing architecture for a narrow change and use
    `$maintain-game-design` before introducing new boundaries or global patterns.
-6. Before changing saved fields, stable IDs, storage, schema, or cloud state,
-   read `SAVE-001`, supported-version fixtures, migration, recovery, downgrade,
+8. Before changing saved fields, stable IDs, storage, schema, or cloud state,
+   read `HREQ-SAVE-001`, supported-version fixtures, migration, recovery, downgrade,
    platform, privacy, and conflict rules.
-7. Before adding or changing large assets, scenes, prefabs, project settings,
-   Git attributes, or LFS tracking, read `PROJECT-002` and inspect repository
+9. Before adding or changing large assets, scenes, prefabs, project settings,
+   Git attributes, or LFS tracking, read `HREQ-REPO-001` and inspect repository
    size rules, serialization mode, merge driver, ownership, and locks.
-8. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
-9. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
+10. Inspect related code, asmdefs, scenes, prefabs, ScriptableObjects, settings, and tests before editing.
+11. Record current Unity version, target platform, package state, active Editor instance, active scene, play/edit state, and compile state.
 
 ## Plan the smallest change
 
@@ -44,7 +53,8 @@ description: Implement an approved Unity design item with minimal, architecture-
 
 ### Code and architecture
 
-- Follow the naming, folder, and asmdef rules in the design sheet.
+- Follow the naming, folder, and asmdef rules in the harness requirements and the
+  project-specific selections in the design sheet.
 - Place custom assets under `Assets/Game` unless the existing project has an approved structure.
 - Keep runtime code independent from `UnityEditor` and test assemblies.
 - Follow the selected `Small`, `Standard`, or `Large` profile. Do not create

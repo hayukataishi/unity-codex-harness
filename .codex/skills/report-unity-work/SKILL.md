@@ -10,6 +10,10 @@ description: Produce a concise human-reviewable report of Unity design and imple
 Before writing:
 
 1. Read the relevant design items and active ACs.
+   Use `docs/unity_design_sheet.md` for project decisions and
+   `docs/unity_harness_requirements.md` for inherited `HREQ-*` standards.
+   Use `docs/unity_harness_capabilities.md` for implemented harness
+   capabilities and known capability gaps.
 2. Inspect the actual diff and Unity asset changes.
 3. Read test XML, Console logs, screenshots, videos, build logs, and `RunManifest.json`.
 4. Confirm that the run is `COMPLETED` and passes `verify_validation_run.py`; do not cite a `RUNNING` or integrity-failed run as accepted evidence.
@@ -68,6 +72,11 @@ Do not state that a test, build, scene, or play path passed unless it ran and ha
 - Prefer exact filenames, asset names, test names, design IDs, and AC IDs.
 - Report the Validation Run state, final result, Run ID, and integrity-verification result.
 - For harness changes, report the Python test count, affected regression-test files, and whether the Unity fixture ran.
+- Report affected HREQ IDs, their conformance state, and any approved exception.
+- State whether a documentation change affected harness-managed standard
+  capabilities, harness-managed standard requirements, or the project-owned
+  game sheet. Do not describe a capability or standard-requirement change as
+  a game-specific requirement.
 - For cross-cutting changes, report the matrix row, adoption state, linked
   design and AC IDs, dependencies or services, data handling, required human
   approval, and reevaluation trigger.

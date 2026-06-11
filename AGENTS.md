@@ -5,13 +5,27 @@
 Before Unity design, implementation, validation, or gameplay-review work, read:
 
 1. `docs/unity_harness_engineering.md`
-2. `docs/unity_design_sheet.md`
-3. `docs/mcp_and_skills_list.md`
-4. The applicable Skill under `.codex/skills/`
+2. `docs/unity_harness_capabilities.md`
+3. `docs/unity_harness_requirements.md`
+4. `docs/unity_design_sheet.md`
+5. `docs/mcp_and_skills_list.md`
+6. The applicable Skill under `.codex/skills/`
 
 ## Working contract
 
-- Treat `docs/unity_design_sheet.md` as the source of truth for player-facing behavior.
+- Treat `docs/unity_harness_capabilities.md` as the `harness-managed`
+  inventory of implemented harness capabilities. Do not record game decisions
+  there.
+- Treat `docs/unity_harness_requirements.md` as the inherited, binding
+  mandatory standards and dialogue-driven recommended requirements.
+- Treat `docs/unity_design_sheet.md` as the `project-owned` source of truth for
+  game-specific requirements, HREQ applicability, and approved exceptions.
+- A game-specific requirement may not silently weaken an HREQ. Require an
+  `例外承認` record with reason, impact, mitigation, approver, and date.
+- Before implementation or acceptance, run
+  `scripts/unity_codex_harness/validate_design_contract.py` for affected HREQs.
+- During ordinary game work, update only `docs/unity_design_sheet.md`. Change
+  the standard requirements only for an explicitly requested harness change.
 - Resolve the Unity project root by verifying `Assets/`, `Packages/`, and `ProjectSettings/ProjectVersion.txt`; never persist a machine-specific absolute path.
 - Update or obtain approval for affected design items and acceptance criteria before changing approved behavior.
 - Prefer Unity MCP or Unity Editor APIs for scenes, prefabs, assets, import settings, tags, layers, and serialized references.

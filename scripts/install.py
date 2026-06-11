@@ -190,6 +190,15 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             ownership=OWNERSHIP_HARNESS,
         )
     )
+    files.append(
+        InstallSource(
+            source=repository_root / "scripts" / "validate_design_contract.py",
+            relative=Path(
+                "scripts/unity_codex_harness/validate_design_contract.py"
+            ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
     return sorted(files, key=lambda item: item.relative.as_posix())
 
 
@@ -925,6 +934,11 @@ def main() -> int:
             "External dependencies are not bundled. Check them with:\n"
             "  python3 scripts/unity_codex_harness/"
             "check_external_dependencies.py --project-root ."
+        )
+        print(
+            "Validate inherited HREQ entries with:\n"
+            "  python3 scripts/unity_codex_harness/"
+            "validate_design_contract.py --project-root ."
         )
     return 0
 
