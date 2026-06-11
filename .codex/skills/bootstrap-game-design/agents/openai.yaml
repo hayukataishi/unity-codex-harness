@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bootstrap Game Design"
+  short_description: "Unityゲームの初期設計を段階的な対話と監査で決定する"
+  default_prompt: "Use $bootstrap-game-design to guide me through the initial Unity game design one phase at a time."

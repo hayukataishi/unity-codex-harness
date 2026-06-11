@@ -5,6 +5,10 @@ description: Convert human requests, gameplay feedback, and review findings into
 
 # Maintain Game Design
 
+For a new game, an incomplete initial design, or a request to decide the whole
+game systematically, use `$bootstrap-game-design` first. Use this Skill for
+incremental maintenance after the target-milestone design exists.
+
 ## Integrity gate
 
 Before reading or updating design in an installed game project, run:
@@ -108,8 +112,8 @@ either contract to simplify implementation.
 
 ## Cross-cutting adoption gate
 
-- Every matrix row uses `採用`, `不採用`, or `保留`; never infer an empty row
-  as not applicable.
+- Every matrix row begins as `未決定` and must become `採用`, `不採用`, or
+  `保留`; never infer an empty or unresolved row as not applicable.
 - `採用` requires scope, dependency or `なし（自作）`, data and regulatory
   considerations, and linked design and acceptance-criterion IDs.
 - `不採用` requires a reason and reevaluation trigger.

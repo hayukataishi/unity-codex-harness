@@ -36,7 +36,7 @@ sidecar. In the harness source repository, use
    external services, networking, accounts, collected data, analytics,
    monetization, ads, UGC, moderation, accessibility, localization,
    performance budgets, diagnostics, or XR. Stop if the affected row is
-   `保留` or contradicts the requested implementation.
+   `未決定`, `保留`, or contradicts the requested implementation.
 7. Read the selected architecture profile and its reason. If it is empty, keep
    the existing architecture for a narrow change and use
    `$maintain-game-design` before introducing new boundaries or global patterns.

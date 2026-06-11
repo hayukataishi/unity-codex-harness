@@ -59,6 +59,7 @@ BACKUP_ROOT = Path("Artifacts/HarnessInstallerBackups")
 MIGRATION_ROOT = Path("Artifacts/HarnessInstallerMigrations")
 EXCLUSIVE_MANAGED_ROOTS = (
     Path("Assets/UnityCodexHarness"),
+    Path(".codex/skills/bootstrap-game-design"),
     Path(".codex/skills/implement-unity-feature"),
     Path(".codex/skills/integrate-2d-assets"),
     Path(".codex/skills/maintain-game-design"),

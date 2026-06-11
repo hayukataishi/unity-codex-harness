@@ -35,6 +35,7 @@
 | `HCAP-CI-001` | 一部BLOCKED | GameCI runnerとUnity imageを固定して可用性を検査する | Workflow、image検査CLI。remote Unity jobはLicense Secret待ち | `DEBUG-006` |
 | `HCAP-DOCS-001` | 実装済み | 標準実装、標準・推奨要件、ゲーム個別設計の所有境界を検査する | Repository validator、Installer回帰 | `DEBUG-007` |
 | `HCAP-INTEGRITY-001` | 実装済み | 導入済みharness-managedファイルの未承認改変を検出して作業を停止する | verifier、Installer check、Skills、CI、回帰テスト | なし |
+| `HCAP-DESIGN-BOOTSTRAP-001` | 実装済み | 初期ゲーム設計をマイルストーン別の対話Phaseで決定し、独立Subagent監査する | `bootstrap-game-design`、対話進捗表、Repository回帰 | なし |
 
 <a id="hcap-validation-001-validation-run"></a>
 ## HCAP-VALIDATION-001 Validation Run
@@ -139,7 +140,7 @@
 - verifierはharness-managedファイルの欠落、内容変更、symlink化、
   専有管理ディレクトリ内の未知ファイル、危険なmanifest pathを拒否する。
 - project-ownedファイルのゲーム固有変更は完全性エラーにしない。
-- Installerの通常完了時と`--check`、6つのUnity Skill、`AGENTS.md`、
+- Installerの通常完了時と`--check`、7つのUnity Skill、`AGENTS.md`、
   CI回帰で完全性検査を要求する。
 - 失敗時はmanifestやsidecarを手編集して追認せず、信頼するハーネスcheckoutから
   Installerを再実行して復旧する。
@@ -148,3 +149,32 @@
 リポジトリ管理者がmanifest、sidecar、検査コードを同時に悪意をもって
 改ざんする攻撃への暗号学的な防御ではない。そこまで保証するには、
 署名付きreleaseと保護された公開鍵を別のtrust rootとして導入する必要がある。
+
+<a id="hcap-design-bootstrap-001"></a>
+## HCAP-DESIGN-BOOTSTRAP-001 初期設計対話
+
+状態: `実装済み`
+
+- `$bootstrap-game-design`がConceptからReleaseまで、対象マイルストーンに
+  必要な深さだけを10 Phaseで対話する。
+- 技術選択の前に目的、選択肢、推奨理由、代替案、トレードオフを説明する。
+- 一度に一つ、最大でも密接に関連する三つまでの質問に制限する。
+- 無回答、例、推奨、仮定を確定仕様へ変換せず、人間の明示確認を要求する。
+- 対話Run、現在Phase、次の質問、Blocking未決事項、関連設計ID、
+  人間承認、監査結果をゲーム設計書へ記録する。
+- 回答後の確認待ちでも再開できるよう、質問、提示した選択肢とトレードオフ、
+  回答要約、反映案、確認状態を非規範な対話証跡へ保存する。
+- ConceptやPrototypeではマイルストーン別の必須深度を適用し、後工程の判断は
+  責任者と期限付きで保留できる。
+- 上流判断の変更時は影響Phaseを`再検討`へ戻す。
+- 主Agentだけがユーザー対話と設計書更新を行う。
+- multi-agent toolがある場合はPhase終了時と最終承認前に読み取り専用Subagentを
+  起動し、設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを監査する。
+- Subagentはユーザーへ直接質問せず、設計書を変更せず、主観判断や承認を代行しない。
+- multi-agent toolがない場合は同じrubricを`SELF REVIEW`として実行し、
+  独立監査と偽らない。
+
+残件:
+
+- マイルストーン別の必須項目と完成度を機械判定するValidatorは未実装。
+- Subagent監査は対話品質を補助するが、人間の製品判断を代替しない。

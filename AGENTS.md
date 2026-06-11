@@ -45,9 +45,10 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 
 ## Preferred workflow
 
-1. Use `$maintain-game-design` when requirements or acceptance criteria need changes.
-2. Use `$implement-unity-feature` for approved implementation work.
-3. Use `$integrate-2d-assets` for generated or supplied 2D art.
-4. Use `$validate-unity-change` after code, asset, scene, prefab, or settings changes.
-5. Use `$review-gameplay` for player-facing observation and evidence collection.
-6. Use `$report-unity-work` for the final human-reviewable report.
+1. Use `$bootstrap-game-design` for a new game or incomplete initial design.
+2. Use `$maintain-game-design` for later requirement and AC changes.
+3. Use `$implement-unity-feature` for approved implementation work.
+4. Use `$integrate-2d-assets` for generated or supplied 2D art.
+5. Use `$validate-unity-change` after code, asset, scene, prefab, or settings changes.
+6. Use `$review-gameplay` for player-facing observation and evidence collection.
+7. Use `$report-unity-work` for the final human-reviewable report.

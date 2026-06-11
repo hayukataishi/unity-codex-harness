@@ -25,8 +25,8 @@ checks with modified harness code. In the harness source repository, use
 4. List changed code, scenes, prefabs, ScriptableObjects, settings, packages, tags, layers, and build configuration.
 5. For cross-cutting changes, compare implementation, installed packages,
    service settings, network behavior, collected data, and user-facing flows
-   with the adoption matrix. Treat implementation under `不採用` or `保留` as
-   a design mismatch, not a passing validation.
+   with the adoption matrix. Treat implementation under `未決定`, `不採用`,
+   or `保留` as a design mismatch, not a passing validation.
 6. Compare asmdefs, package boundaries, dependency direction, composition,
    long-lived objects, and messaging with the selected architecture profile.
    Treat an unapproved DI container, Service Locator, manager fleet, event bus,

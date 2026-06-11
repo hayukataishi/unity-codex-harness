@@ -68,6 +68,60 @@
 | 設計レビュー状態 | Draft / Review / Approved |
 | 関連Issue・企画資料 | `なし / 未決定` |
 
+### 初期設計対話
+
+| 項目 | 状態 |
+|---|---|
+| 対話Run ID | `未発行` |
+| セッション状態 | 未開始 / 対話中 / 確認待ち / マイルストーン承認済 |
+| 対象マイルストーン | `未決定` |
+| 現在のPhase | `PHASE-00` |
+| 次の質問 | `未決定` |
+| 現在の対話証跡ID | `なし` |
+| 次の処理 | `未決定` |
+| 開始日 | `未決定` |
+| 主Agent | `Codex / 未決定` |
+| 意思決定者 | `未決定` |
+| 最終対話日 | `未決定` |
+| 最終監査 | NOT RUN / SELF REVIEW / SUBAGENT PASS / SUBAGENT FINDINGS |
+
+| Phase ID | テーマ | 適用 | 状態 | 確定内容・再検討理由 | Blocking未決事項ID | 関連設計ID | 確認者・日付 | 監査 |
+|---|---|---|---|---|---|---|---|---|
+| `PHASE-00` | Session・Milestone | 必須 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-01` | Vision・Scope | 必須 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-02` | Player Context・Delivery | 対象マイルストーンで判定 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-03` | Core Loop・Mechanics | 必須 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-04` | Presentation・Interaction | 対象マイルストーンで判定 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-05` | Technical Baseline・Unity Assets | 対象マイルストーンで判定 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-06` | Save・Data・Content | 条件付き | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-07` | Repository・Build・Diagnostics | 対象マイルストーンで判定 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-08` | Cross-cutting Decisions | 対象マイルストーンで判定 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+| `PHASE-09` | Traceability・Approval | 必須 | 未着手 | `未決定` | `なし` | `なし` | `未決定` | NOT RUN |
+
+Phase状態は`未着手`、`対話中`、`提案レビュー中`、`人間承認済`、`保留`、`対象外`、`再検討`のいずれかとする。`人間承認済`は、対象マイルストーンで必要な決定が確定または理由付き`対象外`となり、そのマイルストーンでは未要求の判断だけが決定者と期限付きの未決事項として記録され、監査のBlocking findingが残っていない状態を表す。上流判断を変更した場合は、影響する承認済みPhaseを`再検討`へ戻す。
+
+#### 対話チェックポイント
+
+ここは再開と監査のための非規範記録であり、`確認状態`が`確定反映済`になるまでゲーム要件、実装許可、承認済み仕様として扱わない。
+
+| 項目 | 内容 |
+|---|---|
+| 最後に提示した質問 | `未決定` |
+| 提示した選択肢・推奨・トレードオフ | `未決定` |
+| ユーザー回答要約 | `回答待ち` |
+| 主Agentの反映案 | `未作成` |
+| 確認状態 | 回答待ち / 要約確認待ち / 確定反映済 |
+| 次の処理 | `未決定` |
+| 更新者・日時 | `未決定` |
+
+#### 対話証跡
+
+ユーザーの自由回答は必要最小限に要約し、秘密情報や不要な逐語記録を残さない。Subagent監査には対象Phaseの証跡を渡す。
+
+| 証跡ID | Phase | 質問の意図 | 提示した選択肢・推奨・トレードオフ | 回答要約 | 反映案 | 確認状態 | 更新日 |
+|---|---|---|---|---|---|---|---|
+| `なし` | `なし` | `未記録` | `未記録` | `未記録` | `未記録` | `未記録` | `未決定` |
+
 <a id="platform-record"></a>
 ### HREQ-PLATFORM-001: Unityバージョン・対象プラットフォーム
 
@@ -392,24 +446,24 @@ Unity 6では[Build Profile運用方針](./unity_harness_requirements.md#build-0
 
 ### HREQ-CROSS-001: 横断機能採否
 
-[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)に従い、空欄を残さず`採用 / 不採用 / 保留`を記録する。
+[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)に従い、初期状態の`未決定`から`採用 / 不採用 / 保留`へ更新する。
 
 | 領域 | 状態 | 理由・対象範囲 | Package / Service | データ・規制・安全性 | 設計ID・AC | 再評価条件・期限 |
 |---|---|---|---|---|---|---|
-| Accessibility | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Localization | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Multiplayer / Online | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Account / Authentication / Cloud Save | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Analytics / Crash Reporting | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Privacy / Consent / Compliance | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Security / Abuse Prevention | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| LiveOps / Remote Config | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| IAP / Ads / Entitlements | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Moderation / Community | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Modding / UGC | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| XR | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Performance / Device Budgets | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
-| Diagnostics / Debug / Cheat Controls | 保留 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Accessibility | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Localization | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Multiplayer / Online | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Account / Authentication / Cloud Save | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Analytics / Crash Reporting | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Privacy / Consent / Compliance | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Security / Abuse Prevention | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| LiveOps / Remote Config | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| IAP / Ads / Entitlements | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Moderation / Community | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Modding / UGC | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| XR | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Performance / Device Budgets | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
+| Diagnostics / Debug / Cheat Controls | 未決定 | `未決定` | `未決定` | `未決定` | `未決定` | `未決定` |
 
 ---
 

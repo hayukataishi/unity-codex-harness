@@ -1513,3 +1513,76 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
 
 4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
 標準推奨対話`58`、ゲーム個別対話`52`として`72 / 100`へ更新する。
+
+### 14.17 HCAP-DESIGN-BOOTSTRAP-001 初期設計対話Skill
+
+14.14の改善順序3へ対応した。
+
+設計判断:
+
+- `agents/openai.yaml`はSkill一覧の表示metadataであり、実行時Subagentそのものではない
+- ユーザーとの会話と設計書更新をSubagentへ渡すと、質問順序、承認、
+  書込み責任が分散するため、主Agentを唯一の対話窓口と書込み主体にした
+- Subagentは各Phase終了時と最終承認前の読み取り専用監査役とし、
+  漏れ、矛盾、誘導質問、未説明トレードオフを独立確認する
+- multi-agent機能がない場合は同じrubricを`SELF REVIEW`として実行し、
+  独立Subagent監査と偽らない
+
+実装:
+
+- `.codex/skills/bootstrap-game-design/`を追加した
+- Concept、Prototype、Vertical Slice、Alpha、Beta、Releaseの
+  対象マイルストーンに応じて必要な深さを変える10 Phaseを定義した
+- Vision、Player Context、Core Loop、Presentation、Technical Baseline、Save、
+  Repository、Build、横断機能、Traceabilityを一問ずつ対話する
+- 技術選択前に目的、現実的な選択肢、推奨理由、代替案、
+  トレードオフを説明する契約を追加した
+- 無回答、例、推奨、仮定を確定仕様として扱わず、人間の明示確認を要求した
+- `spawn_agent`を使う読み取り専用Subagent audit rubricを同梱した
+- ゲーム設計書へ対話Run、対象マイルストーン、現在Phase、次の質問、
+  Blocking未決事項、関連設計ID、確認者、監査状態を追加した
+- 回答後の確認待ちでも再開できるよう、質問、提示した選択肢と
+  トレードオフ、回答要約、反映案、確認状態を非規範な対話証跡へ追加した
+- Concept、Prototype、Vertical Slice、Alpha以降についてPhase別の必須深度を
+  定義し、後工程の判断を責任者と期限付きで保留できるようにした
+- Player Contextを先に確認し、Unity完全version、Build Support、render pipeline、
+  性能予算などの技術baselineはCore LoopとPresentationの後に決める順序へ修正した
+- Phase状態を`未着手`、`対話中`、`提案レビュー中`、`人間承認済`、
+  `保留`、`対象外`、`再検討`へ分けた
+- 上流判断変更時に影響Phaseを`再検討`へ戻す契約を追加した
+- 横断機能matrixのtemplate状態を、不完全な`保留`から正直な`未決定`へ変更した
+- `AGENTS.md`、README、Engineering Guide、MCP・Skill一覧、
+  Capabilitiesを初期設計Skill優先のworkflowへ更新した
+- Repository validatorへPhase、Subagent境界、人間承認、resume情報の
+  回帰検査を追加した
+
+検証結果:
+
+- Skill Creator `quick_validate.py`: `PASS`
+- リポジトリ検証: `PASS`
+- Python回帰テスト: `PASS`、129件
+- Installer dry-run: `PASS`。Skill本体、Agent metadata、2つのreferenceを配布予定として確認
+- 初期設計契約の異常系: Subagent書込み禁止、`PHASE-09`、
+  マイルストーン別深度、対話証跡の欠落を期待どおり検出
+- 独立Subagent設計レビュー: 初期実装前に実施し、Phase状態、対話Run、
+  Blocking未決事項、上流変更時の再検討規則へ反映
+- 独立Subagent forward review: 6件を検出し、正当な保留、対話証跡、
+  確認待ちresume、技術判断の順序、マイルストーン別深度、明示確認へ反映
+- Unity fixture Editor実行: `NOT RUN`。Unity資産、Package、Editor実装を変更していないため
+
+再評価:
+
+| 評価項目 | 対応前 | 対応後 | 判定 |
+|---|---:|---:|---|
+| 標準推奨要件を理解して決定する対話フロー | 58 / 100 | 88 / 100 | Skillとして達成 |
+| ゲーム個別仕様・設計を一通り更新する対話フロー | 52 / 100 | 84 / 100 | 再開・監査証跡まで達成、機械的完成度判定は残る |
+
+残件:
+
+- マイルストーン別の必須field、許容する保留、Blocking未決事項を
+  機械判定する完成度Validator
+- 実際の利用者との長時間対話で、質問量、resume、Phase再検討が
+  過不足なく機能するかのE2E user test
+
+4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
+標準推奨対話`88`、ゲーム個別対話`84`として`87 / 100`へ更新する。

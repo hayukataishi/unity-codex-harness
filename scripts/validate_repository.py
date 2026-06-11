@@ -91,16 +91,17 @@ CROSS_CUTTING_REQUIRED_TEXT = {
     ),
     ".codex/skills/maintain-game-design/SKILL.md": (
         "## Cross-cutting adoption gate",
-        "`採用`, `不採用`, or `保留`",
+        "begins as `未決定`",
+        "must become `採用`, `不採用`, or",
         "legal, store-policy, child-safety, or security",
     ),
     ".codex/skills/implement-unity-feature/SKILL.md": (
         "Check the cross-cutting adoption matrix",
-        "`保留` or contradicts",
+        "`未決定`, `保留`, or contradicts",
     ),
     ".codex/skills/validate-unity-change/SKILL.md": (
         "For cross-cutting changes",
-        "implementation under `不採用` or `保留`",
+        "implementation under `未決定`, `不採用`,",
     ),
     ".codex/skills/report-unity-work/SKILL.md": (
         "For cross-cutting changes",
@@ -507,6 +508,11 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
         "verify_harness_integrity.py",
         "Stop if it fails",
     ),
+    ".codex/skills/bootstrap-game-design/SKILL.md": (
+        "## Integrity gate",
+        "verify_harness_integrity.py",
+        "Stop if it fails",
+    ),
     ".codex/skills/implement-unity-feature/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
@@ -554,6 +560,105 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
     ),
 }
 
+INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
+    ".codex/skills/bootstrap-game-design/SKILL.md": (
+        "name: bootstrap-game-design",
+        "## Conversation contract",
+        "one focused question",
+        "recommendation, and important tradeoffs",
+        "open form before narrowing to options",
+        "explicit user confirmation",
+        "non-normative dialogue evidence table",
+        "## Session workflow",
+        "`人間承認済`",
+        "mark every affected approved phase",
+        "## Subagent audit",
+        "use `spawn_agent`",
+        "main agent remains the only user-facing interviewer",
+        "It must not edit",
+        "## Phase completion rule",
+        "## Handoff",
+        "references/interview-phases.md",
+        "references/subagent-audit.md",
+    ),
+    ".codex/skills/bootstrap-game-design/references/interview-phases.md": (
+        "## Milestone depth",
+        "## Phase depth by milestone",
+        "## Phase 00:",
+        "## Phase 01:",
+        "## Phase 02:",
+        "## Phase 03:",
+        "## Phase 04:",
+        "## Phase 05:",
+        "## Phase 06:",
+        "## Phase 07:",
+        "## Phase 08:",
+        "## Phase 09:",
+        "`HREQ-PLATFORM-001`",
+        "`HREQ-ARCH-001`",
+        "`HREQ-SAVE-001`",
+        "`HREQ-CROSS-001`",
+        "Technical baseline",
+    ),
+    ".codex/skills/bootstrap-game-design/references/subagent-audit.md": (
+        "independent, read-only auditor",
+        "Do not edit files",
+        "Do not invent or approve game decisions",
+        "leading questions",
+        "dialogue evidence for the active phase",
+        "Phase recommendation: COMPLETE / NEEDS FOLLOW-UP",
+        "Next user questions:",
+    ),
+    ".codex/skills/bootstrap-game-design/agents/openai.yaml": (
+        'display_name: "Bootstrap Game Design"',
+        "initial Unity game design",
+        "$bootstrap-game-design",
+    ),
+    "docs/unity_design_sheet.md": (
+        "### 初期設計対話",
+        "| 対話Run ID |",
+        "| 次の質問 |",
+        "| 現在の対話証跡ID |",
+        "| 主Agent |",
+        "| 最終監査 |",
+        "| `PHASE-00` |",
+        "| `PHASE-09` |",
+        "Blocking未決事項ID",
+        "人間承認済",
+        "`再検討`へ戻す",
+        "#### 対話チェックポイント",
+        "#### 対話証跡",
+        "非規範記録",
+    ),
+    ".codex/skills/maintain-game-design/SKILL.md": (
+        "use `$bootstrap-game-design` first",
+        "incremental maintenance",
+    ),
+    "AGENTS.md": (
+        "Use `$bootstrap-game-design` for a new game",
+        "Use `$maintain-game-design` for later",
+    ),
+    "README.md": (
+        "### 最初のゲーム設計対話",
+        "$bootstrap-game-design",
+        "読み取り専用Subagent",
+        "唯一の対話窓口",
+        "非規範な対話証跡",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "### 5.0 初期ゲーム設計",
+        "$bootstrap-game-design",
+        "読み取り専用Subagent",
+        "主Agentだけがユーザーへ質問",
+    ),
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-DESIGN-BOOTSTRAP-001",
+        "10 Phase",
+        "読み取り専用Subagent",
+        "マイルストーン別の必須項目と完成度を機械判定するValidatorは未実装",
+    ),
+}
+
 DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
     "docs/unity_harness_capabilities.md": (
         "UNITY_CODEX_HARNESS_CAPABILITIES: IMPLEMENTED AND HARNESS-MANAGED",
@@ -570,6 +675,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "HCAP-CI-001",
         "HCAP-DOCS-001",
         "HCAP-INTEGRITY-001",
+        "HCAP-DESIGN-BOOTSTRAP-001",
         "未承認の改変は`HCAP-INTEGRITY-001`",
     ),
     "docs/unity_harness_requirements.md": (
@@ -1070,6 +1176,23 @@ def validate_harness_integrity_contract(root: Path) -> list[str]:
     return errors
 
 
+def validate_initial_design_dialogue(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing initial design dialogue file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing initial design dialogue contract: "
+                    f"{relative} -> {required}"
+                )
+    return errors
+
+
 def validate_gameci_workflow(root: Path) -> list[str]:
     errors: list[str] = []
     lock_path = root / "harness.lock.json"
@@ -1520,6 +1643,7 @@ def main() -> int:
         + validate_template_regression_suite(root)
         + validate_design_document_boundaries(root)
         + validate_harness_integrity_contract(root)
+        + validate_initial_design_dialogue(root)
         + validate_harness_lock(root)
         + validate_gameci_workflow(root)
     )

@@ -54,7 +54,26 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 ### 優先度A：最初から必要
 
-#### 1. `maintain-game-design`
+#### 1. `bootstrap-game-design`
+
+**目的:** 新規ゲームまたは未完成の初期設計を、対象マイルストーンに必要な深さまで一問ずつ決定する。
+
+**主な処理**
+
+1. 対話Run、対象マイルストーン、意思決定者、既存資料を確認する。
+2. Vision、Player Context、Core Loop、Presentation、Technical Baseline、Save、Repository、Build、横断機能、TraceabilityをPhase順に対話する。
+3. 選択前に目的、現実的な選択肢、推奨理由、代替案、トレードオフを説明する。
+4. 確定、提案、仮定、要確認、対象外を分離し、無回答や推奨を自動確定しない。
+5. マイルストーン別の必須深度を使い、現時点で不要な判断は責任者と期限付きで保留する。
+6. 各Phaseの進捗、Blocking未決事項、関連設計ID、人間承認、監査状態と、非規範な対話証跡を設計書へ記録する。
+7. multi-agent機能がある場合は、読み取り専用Subagentに設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを独立監査させる。
+8. Subagent findingsと人間承認を経て、対象マイルストーン単位で初期設計を完了する。
+
+Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認を代行しない。主Agentが唯一の対話窓口と書込み主体になる。
+
+---
+
+#### 2. `maintain-game-design`
 
 **目的:** 人間の要求やゲームレビューを、実装可能で追跡可能な設計へ変換する。
 
@@ -79,7 +98,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 ---
 
-#### 2. `implement-unity-feature`
+#### 3. `implement-unity-feature`
 
 **目的:** 確定した設計項目を、既存アーキテクチャに沿って小さく実装する。
 
@@ -104,7 +123,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 ---
 
-#### 3. `validate-unity-change`
+#### 4. `validate-unity-change`
 
 **目的:** 変更が設計と一致し、Unityプロジェクトを壊していないことを機械的に検証する。
 
@@ -237,6 +256,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/
 │  └─ skills/
+│     ├─ bootstrap-game-design/
 │     ├─ maintain-game-design/
 │     ├─ implement-unity-feature/
 │     ├─ validate-unity-change/
@@ -255,9 +275,10 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 
 ただし、実運用では以下の3つから開始してもよい。
 
-1. `maintain-game-design`
-2. `implement-unity-feature`
-3. `validate-unity-change`
+1. `bootstrap-game-design`
+2. `maintain-game-design`
+3. `implement-unity-feature`
+4. `validate-unity-change`
 
 `report-unity-work`は小さいため、当初は`implement-unity-feature`と`validate-unity-change`の共通出力規則に含め、繰り返し利用が確認できてから独立させてもよい。
 

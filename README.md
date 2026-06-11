@@ -150,6 +150,34 @@ python3 scripts/unity_codex_harness/validate_design_contract.py \
 
 Codex Skillsは実装・受け入れ前に関連HREQを確認します。通常のゲーム設計では`unity_design_sheet.md`だけを更新し、標準要件自体を変える場合だけ明示的なハーネス改善として`unity_harness_requirements.md`を変更します。
 
+### 最初のゲーム設計対話
+
+新規ゲーム、アイデア段階、設計書の大部分が未決定の場合は、
+Codexへ次のように依頼します。
+
+```text
+$bootstrap-game-design を使って、このゲームのPrototype向け初期設計を
+一問ずつ進めてください。
+```
+
+Skillは対象マイルストーンを確認し、Vision、Player Context、Core Loop、
+Presentation、Technical Baseline、Save、Repository、Build、横断機能、
+設計ID・ACをPhase順に対話します。技術選択は先に選択肢、推奨理由、
+代替案、トレードオフを説明し、無回答や推奨案を自動確定しません。
+ConceptやPrototypeでは、その時点に不要なRelease級の決定を期限付きで
+保留できます。
+
+主Agentが唯一の対話窓口と設計書更新担当です。multi-agent機能が利用できる場合、
+各Phase終了時と最終承認前に読み取り専用Subagentを起動し、質問漏れ、
+設計矛盾、誘導質問、未説明のトレードオフを監査します。Subagentはユーザーへ
+直接質問せず、設計書を書き換えず、最終判断を代行しません。
+
+進行状態と、現在の質問、提示した選択肢、回答要約、反映案、確認状態は
+`unity_design_sheet.md`の非規範な対話証跡へ保存されます。このため回答後の
+確認待ちを含め、別セッションでも最初の未完了Phaseから再開できます。
+未確認の証跡はゲーム仕様として扱いません。初期設計後の部分的な要件変更は
+`$maintain-game-design`を使用します。
+
 旧版の`unity_design_sheet.md`で共通規則とゲーム固有設計が混在している場合、インストーラーは既存内容を自動分割・上書きしません。先に`--prepare-migration`を実行し、生成された`Artifacts/HarnessInstallerMigrations/`のbase・local・incoming差分を確認して、個別要件、HREQ適用状態、ID、AC、承認履歴だけを新しいSheetへ移してください。
 
 `.unity-codex-harness/`は更新比較に必要なハーネス状態です。ゲーム側の設計書ではなく、元templateのhashとbaselineを保持します。`Artifacts/`とは異なりGit管理へ含めてください。

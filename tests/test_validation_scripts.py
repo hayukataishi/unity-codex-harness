@@ -1043,6 +1043,114 @@ class HarnessIntegrityContractTests(unittest.TestCase):
             )
 
 
+class InitialDesignDialogueTests(unittest.TestCase):
+    def test_repository_defines_initial_design_dialogue(self):
+        self.assertEqual(
+            repository_validator.validate_initial_design_dialogue(ROOT),
+            [],
+        )
+
+    def test_rejects_subagent_write_authority(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = list(required_values)
+                if relative.endswith("subagent-audit.md"):
+                    values.remove("Do not edit files")
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = repository_validator.validate_initial_design_dialogue(root)
+
+            self.assertTrue(
+                any(
+                    "subagent-audit.md" in error
+                    and "Do not edit files" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_missing_final_phase(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = list(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    values.remove("| `PHASE-09` |")
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = repository_validator.validate_initial_design_dialogue(root)
+
+            self.assertTrue(
+                any(
+                    "docs/unity_design_sheet.md" in error
+                    and "PHASE-09" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_missing_milestone_phase_depth(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = list(required_values)
+                if relative.endswith("interview-phases.md"):
+                    values.remove("## Phase depth by milestone")
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = repository_validator.validate_initial_design_dialogue(root)
+
+            self.assertTrue(
+                any(
+                    "interview-phases.md" in error
+                    and "Phase depth by milestone" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+    def test_rejects_missing_dialogue_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = list(required_values)
+                if relative == "docs/unity_design_sheet.md":
+                    values.remove("#### 対話証跡")
+                path.write_text("\n".join(values), encoding="utf-8")
+
+            errors = repository_validator.validate_initial_design_dialogue(root)
+
+            self.assertTrue(
+                any(
+                    "docs/unity_design_sheet.md" in error
+                    and "対話証跡" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
+
 class HarnessLockValidationTests(unittest.TestCase):
     def load_manifest(self):
         return json.loads(
@@ -1175,6 +1283,15 @@ class InstallerSourceTests(unittest.TestCase):
             "verify_validation_run.py",
             relative_paths,
         )
+        self.assertIn(
+            ".codex/skills/bootstrap-game-design/SKILL.md",
+            relative_paths,
+        )
+        self.assertIn(
+            ".codex/skills/bootstrap-game-design/references/"
+            "subagent-audit.md",
+            relative_paths,
+        )
         self.assertIn("harness.lock.json", relative_paths)
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
@@ -1217,6 +1334,13 @@ class InstallerSourceTests(unittest.TestCase):
             integrity_checker.ownership,
             installer.OWNERSHIP_HARNESS,
         )
+        bootstrap_skill = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == ".codex/skills/bootstrap-game-design/SKILL.md"
+        )
+        self.assertEqual(bootstrap_skill.ownership, installer.OWNERSHIP_HARNESS)
         validator = next(
             item
             for item in sources
