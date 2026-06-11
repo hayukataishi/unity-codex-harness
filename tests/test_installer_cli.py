@@ -171,6 +171,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertFalse((project / ".codex").exists())
             self.assertFalse((project / "docs").exists())
             self.assertFalse((project / "harness.lock.json").exists())
+            self.assertFalse((project / "harness.overrides.json").exists())
             self.assertFalse((project / "scripts").exists())
             self.assertFalse((project / ".unity-codex-harness").exists())
             self.assertFalse((project / "Artifacts").exists())
@@ -307,7 +308,9 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 "AGENTS.md": self.compliant_agents(),
                 "docs/unity_design_sheet.md": "custom design\n",
                 "docs/mcp_and_skills_list.md": "custom tools\n",
-                "harness.lock.json": '{"custom":true}\n',
+                "harness.overrides.json": (
+                    '{"schemaVersion":1,"externalDependencies":{}}\n'
+                ),
                 (
                     "ProjectSettings/"
                     "UnityCodexHarnessAssetValidation.json"
@@ -456,6 +459,22 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 by_path["docs/unity_harness_capabilities.md"]["ownership"],
                 "harness-managed",
             )
+            self.assertEqual(
+                by_path["harness.lock.json"]["ownership"],
+                "harness-managed",
+            )
+            self.assertEqual(
+                by_path["harness.overrides.json"]["ownership"],
+                "project-owned",
+            )
+            self.assertIn(
+                "baselineSha256",
+                by_path["harness.overrides.json"],
+            )
+            self.assertNotIn(
+                "baselineSha256",
+                by_path["harness.lock.json"],
+            )
             self.assertNotIn(
                 "baselineSha256",
                 by_path["docs/unity_harness_requirements.md"],
@@ -588,6 +607,91 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 "legacy project design\n",
             )
 
+    def test_modified_legacy_lock_requires_ownership_migration(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            lock_path = project / "harness.lock.json"
+            lock = json.loads(
+                (ROOT / "harness.lock.json").read_text(encoding="utf-8")
+            )
+            lock["externalDependencies"]["unityMcp"]["packageVersion"] = "9.8.0"
+            lock_path.write_text(
+                json.dumps(lock, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            legacy_baseline = (
+                project
+                / ".unity-codex-harness"
+                / "baselines"
+                / "harness.lock.json"
+            )
+            legacy_baseline.parent.mkdir(parents=True)
+            legacy_baseline.write_bytes(
+                (ROOT / "harness.lock.json").read_bytes()
+            )
+            original_lock = lock_path.read_text(encoding="utf-8")
+
+            stopped = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(stopped.returncode, 0)
+            self.assertIn("harness-managed standard pin set", stopped.stderr)
+            self.assertIn("--prepare-migration", stopped.stderr)
+            self.assertEqual(
+                lock_path.read_text(encoding="utf-8"),
+                original_lock,
+            )
+
+            migrated = self.run_installer(
+                project,
+                "--skip-agents",
+                "--prepare-migration",
+            )
+
+            self.assertNotEqual(migrated.returncode, 0)
+            self.assertIn(
+                "created harness.lock.json ownership migration",
+                migrated.stdout,
+            )
+            self.assertIn("Installation remains incomplete", migrated.stdout)
+            self.assertEqual(
+                lock_path.read_text(encoding="utf-8"),
+                original_lock,
+            )
+            migration_root = next(
+                (
+                    project / "Artifacts" / "HarnessInstallerMigrations"
+                ).iterdir()
+            )
+            manifest = json.loads(
+                (migration_root / "MigrationManifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                manifest["ownershipTransition"]["to"],
+                "harness-managed",
+            )
+            self.assertEqual(
+                manifest["ownershipTransition"]["overridePath"],
+                "harness.overrides.json",
+            )
+            self.assertTrue(
+                (
+                    migration_root
+                    / "override-template"
+                    / "harness.overrides.json"
+                ).is_file()
+            )
+            self.assertEqual(
+                (
+                    project
+                    / ".unity-codex-harness"
+                    / "baselines"
+                    / "harness.overrides.json"
+                ).read_bytes(),
+                (ROOT / "harness.overrides.json").read_bytes(),
+            )
+
     def test_installs_external_dependency_checker_and_ignore_rules(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -672,6 +776,25 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 result.stderr,
             )
 
+    def test_check_rejects_modified_standard_lock(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            (project / "harness.lock.json").write_text(
+                '{"custom":true}\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_installer(project, "--check")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Harness integrity verification: FAIL", result.stderr)
+            self.assertIn(
+                "harness-managed SHA-256 mismatch: harness.lock.json",
+                result.stderr,
+            )
+
     def test_check_rejects_missing_agents_contract_reference(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -699,6 +822,15 @@ class InstallerCliRegressionTests(unittest.TestCase):
             (
                 project / "docs" / "unity_design_sheet.md"
             ).write_text("project decision\n", encoding="utf-8")
+            (project / "harness.overrides.json").write_text(
+                (
+                    '{"schemaVersion":1,"externalDependencies":'
+                    '{"unityMcp":{"reason":"project compatibility",'
+                    '"approvedBy":"team","approvedAt":"2026-06-11",'
+                    '"values":{"minimumUnity":"2022.3"}}}}\n'
+                ),
+                encoding="utf-8",
+            )
 
             result = self.run_installer(project, "--check")
 

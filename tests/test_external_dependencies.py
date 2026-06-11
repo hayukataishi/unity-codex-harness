@@ -24,6 +24,10 @@ class ExternalDependencyCheckTests(unittest.TestCase):
             json.dumps(lock, indent=2) + "\n",
             encoding="utf-8",
         )
+        (project / "harness.overrides.json").write_text(
+            (ROOT / "harness.overrides.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         (project / "Packages" / "manifest.json").write_text(
             json.dumps({"dependencies": {}}, indent=2) + "\n",
             encoding="utf-8",
@@ -192,6 +196,162 @@ class ExternalDependencyCheckTests(unittest.TestCase):
             self.assertEqual(
                 report["checks"][0]["status"],
                 "VERSION_MISMATCH",
+            )
+
+    def test_approved_project_override_changes_effective_pin(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            lock = json.loads(
+                (project / "harness.lock.json").read_text(encoding="utf-8")
+            )
+            unity_mcp = lock["externalDependencies"]["unityMcp"]
+            override_commit = "a" * 40
+            override_url = (
+                f"{unity_mcp['repository']}.git"
+                f"?path=/{unity_mcp['unityPackagePath']}#{override_commit}"
+            )
+            overrides = {
+                "schemaVersion": 1,
+                "externalDependencies": {
+                    "unityMcp": {
+                        "reason": "Project compatibility requires a tested pin",
+                        "approvedBy": "Unity team",
+                        "approvedAt": "2026-06-11",
+                        "values": {
+                            "commit": override_commit,
+                            "install": {
+                                "unityPackageUrl": override_url,
+                            },
+                        },
+                    }
+                },
+            }
+            (project / "harness.overrides.json").write_text(
+                json.dumps(overrides, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            manifest = {
+                "dependencies": {
+                    unity_mcp["packageName"]: override_url,
+                }
+            }
+            (project / "Packages" / "manifest.json").write_text(
+                json.dumps(manifest, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(project, "--json")
+
+            self.assertEqual(result.returncode, 1)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["checks"][0]["status"], "PASS")
+            self.assertEqual(
+                report["activeOverrides"][0]["dependency"],
+                "unityMcp",
+            )
+            self.assertEqual(
+                report["activeOverrides"][0]["approvedBy"],
+                "Unity team",
+            )
+
+    def test_override_requires_approval_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            overrides = {
+                "schemaVersion": 1,
+                "externalDependencies": {
+                    "unityMcp": {
+                        "values": {"minimumUnity": "2022.3"},
+                    }
+                },
+            }
+            (project / "harness.overrides.json").write_text(
+                json.dumps(overrides, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(project, "--json")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unityMcp.reason is required", result.stderr)
+
+    def test_override_rejects_unknown_metadata_fields(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            overrides = {
+                "schemaVersion": 1,
+                "externalDependencies": {
+                    "unityMcp": {
+                        "reason": "test",
+                        "approvedBy": "team",
+                        "approvedAt": "2026-06-11",
+                        "value": {"minimumUnity": "2022.3"},
+                        "values": {"minimumUnity": "2022.3"},
+                    }
+                },
+            }
+            (project / "harness.overrides.json").write_text(
+                json.dumps(overrides, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(project, "--json")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "unknown fields for unityMcp: value",
+                result.stderr,
+            )
+
+    def test_override_rejects_unknown_fields(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            overrides = {
+                "schemaVersion": 1,
+                "externalDependencies": {
+                    "unityMcp": {
+                        "reason": "test",
+                        "approvedBy": "team",
+                        "approvedAt": "2026-06-11",
+                        "values": {"typoField": "value"},
+                    }
+                },
+            }
+            (project / "harness.overrides.json").write_text(
+                json.dumps(overrides, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(project, "--json")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unknown field unityMcp.typoField", result.stderr)
+
+    def test_override_rejects_inconsistent_effective_pin(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            overrides = {
+                "schemaVersion": 1,
+                "externalDependencies": {
+                    "unityMcp": {
+                        "reason": "test",
+                        "approvedBy": "team",
+                        "approvedAt": "2026-06-11",
+                        "values": {"commit": "a" * 40},
+                    }
+                },
+            }
+            (project / "harness.overrides.json").write_text(
+                json.dumps(overrides, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(project, "--json")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "unityMcp.install.unityPackageUrl must pin the effective commit",
+                result.stderr,
             )
 
     def test_codex_home_installation_is_detected(self):

@@ -26,6 +26,8 @@ AGENTS_CONTRACT_PATH = Path("docs/unity_harness_agent_contract.md")
 AGENTS_CONTRACT_MARKER = (
     "<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->"
 )
+HARNESS_LOCK_PATH = Path("harness.lock.json")
+HARNESS_OVERRIDES_PATH = Path("harness.overrides.json")
 GITIGNORE_BEGIN = "# >>> Unity Codex Harness managed Artifacts ignore >>>"
 GITIGNORE_RULE = "/Artifacts/"
 GITIGNORE_RULES = (
@@ -77,7 +79,7 @@ PROJECT_OWNED_PATHS = {
     Path("AGENTS.md"),
     Path("docs/mcp_and_skills_list.md"),
     Path("docs/unity_design_sheet.md"),
-    Path("harness.lock.json"),
+    HARNESS_OVERRIDES_PATH,
     Path("ProjectSettings/UnityCodexHarnessAssetValidation.json"),
 }
 
@@ -195,7 +197,14 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
     files.append(
         InstallSource(
             source=repository_root / "harness.lock.json",
-            relative=Path("harness.lock.json"),
+            relative=HARNESS_LOCK_PATH,
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=repository_root / "harness.overrides.json",
+            relative=HARNESS_OVERRIDES_PATH,
             ownership=OWNERSHIP_PROJECT,
         )
     )
@@ -299,6 +308,68 @@ def prepare_agents_contract_migration(
     copy_if_changed(
         agents_source.source,
         baseline,
+        dry_run=dry_run,
+    )
+    return migration_root
+
+
+def prepare_lock_ownership_migration(
+    project_root: Path,
+    lock_source: InstallSource,
+    overrides_source: InstallSource,
+    *,
+    dry_run: bool,
+) -> Path:
+    destination = project_root / HARNESS_LOCK_PATH
+    baseline = project_root / BASELINE_ROOT / HARNESS_LOCK_PATH
+    if baseline.is_file():
+        base = baseline
+        base_kind = "recorded-template"
+    else:
+        base = lock_source.source
+        base_kind = "current-harness-source"
+    operation_id = next_operation_id(project_root)
+    migration_root = create_migration_bundle(
+        project_root,
+        [
+            ProjectTemplateChange(
+                item=lock_source,
+                baseline=base,
+                destination=destination,
+                base_kind=base_kind,
+            )
+        ],
+        operation_id,
+        dry_run=dry_run,
+        instruction=(
+            "Review the harness.lock.json base, local, incoming, and diffs. "
+            "Move only approved game-specific external dependency changes "
+            "into override-template/harness.overrides.json using reason, "
+            "approvedBy, approvedAt, and values. Place the reviewed override "
+            "at the project root, then rerun the installer with "
+            "--force-file harness.lock.json."
+        ),
+        manifest_extra={
+            "ownershipTransition": {
+                "from": "project-owned",
+                "to": "harness-managed",
+                "overridePath": HARNESS_OVERRIDES_PATH.as_posix(),
+                "overrideTemplatePath": (
+                    Path("override-template") / HARNESS_OVERRIDES_PATH
+                ).as_posix(),
+            }
+        },
+    )
+    assert migration_root is not None
+    if not dry_run:
+        override_template = (
+            migration_root / "override-template" / HARNESS_OVERRIDES_PATH
+        )
+        override_template.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(overrides_source.source, override_template)
+    copy_if_changed(
+        overrides_source.source,
+        project_root / BASELINE_ROOT / HARNESS_OVERRIDES_PATH,
         dry_run=dry_run,
     )
     return migration_root
@@ -488,6 +559,8 @@ def create_migration_bundle(
     operation_id: str,
     *,
     dry_run: bool,
+    instruction: str | None = None,
+    manifest_extra: dict[str, object] | None = None,
 ) -> Path | None:
     if not changes:
         return None
@@ -555,12 +628,15 @@ def create_migration_bundle(
     manifest = {
         "schemaVersion": 1,
         "operationId": operation_id,
-        "instruction": (
+        "instruction": instruction
+        or (
             "Review base, local, incoming, and both diffs. Apply only the "
             "approved changes to the project-owned local file."
         ),
         "files": entries,
     }
+    if manifest_extra:
+        manifest.update(manifest_extra)
     if not dry_run:
         (migration_root / "MigrationManifest.json").write_text(
             json_text(manifest),
@@ -937,6 +1013,72 @@ def main() -> int:
                 )
                 return 1
     force_paths = selected_force_paths(files, args.force_file)
+    lock_source = next(
+        item for item in files if item.relative == HARNESS_LOCK_PATH
+    )
+    overrides_source = next(
+        item for item in files if item.relative == HARNESS_OVERRIDES_PATH
+    )
+    lock_destination = project_root / HARNESS_LOCK_PATH
+    lock_differs = (
+        lock_destination.is_file()
+        and not filecmp.cmp(
+            lock_source.source,
+            lock_destination,
+            shallow=False,
+        )
+    )
+    lock_forced = args.force or HARNESS_LOCK_PATH in force_paths
+    if lock_differs and not lock_forced:
+        if not args.prepare_migration:
+            raise SystemExit(
+                "Installation stopped before writing because the existing "
+                "harness.lock.json differs from the harness-managed standard "
+                "pin set.\n"
+                "Rerun with --prepare-migration to review the legacy or custom "
+                "lock differences and move approved game-specific values into "
+                "harness.overrides.json."
+            )
+        tracked = tracked_local_only_paths(project_root)
+        if tracked:
+            preview = "\n".join(f"  - {path}" for path in tracked[:10])
+            suffix = "\n  - ..." if len(tracked) > 10 else ""
+            raise SystemExit(
+                "Migration stopped because harness local-only paths contain "
+                f"files already tracked by Git:\n{preview}{suffix}\n"
+                "Remove them from the Git index, then rerun."
+            )
+        try:
+            gitignore_action, gitignore_text = plan_gitignore_update(
+                project_root
+            )
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        write_gitignore(
+            project_root,
+            gitignore_text,
+            dry_run=args.dry_run,
+        )
+        migration_root = prepare_lock_ownership_migration(
+            project_root,
+            lock_source,
+            overrides_source,
+            dry_run=args.dry_run,
+        )
+        action_prefix = "would " if args.dry_run else ""
+        if gitignore_action != "unchanged":
+            print(f"{action_prefix}{gitignore_action}: .gitignore")
+        prefix = "would create" if args.dry_run else "created"
+        print(
+            f"{prefix} harness.lock.json ownership migration: "
+            f"{migration_root.relative_to(project_root).as_posix()}"
+        )
+        print(
+            "Installation remains incomplete: move approved project-specific "
+            "values into harness.overrides.json, then rerun with "
+            "--force-file harness.lock.json."
+        )
+        return 1
     conflicts: list[Path] = []
     operations: list[tuple[str, Path]] = []
     invalid_destinations = [

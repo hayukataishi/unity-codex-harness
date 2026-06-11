@@ -11,7 +11,8 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 - `docs/unity_harness_requirements.md`: 導入先へ適用する標準・推奨要件
 - `docs/unity_design_sheet.md`: 配布先ゲームの個別要件・適用・例外記録
 - `docs/mcp_and_skills_list.md`: Unity MCPとSkillsの責務
-- `harness.lock.json`: 外部ツールと検証環境の固定情報
+- `harness.lock.json`: ハーネス管理の標準pinと検証環境
+- `harness.overrides.json`: ゲーム側が承認した外部依存override
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
 - `scripts/install.py`: 既存Unityプロジェクトへの安全な導入スクリプト
 
@@ -108,7 +109,8 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 │  ├─ unity_harness_agent_contract.md             Codexの必須作業契約
 │  ├─ unity_harness_requirements.md              ハーネス管理の標準・推奨要件
 │  └─ unity_design_sheet.md                     ゲーム側所有の個別要件
-├─ harness.lock.json                           外部ツールの固定情報
+├─ harness.lock.json                           ハーネス管理の標準pin
+├─ harness.overrides.json                      ゲーム側の承認済みoverride
 ├─ ProjectSettings/
 │  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
 ├─ scripts/unity_codex_harness/
@@ -121,14 +123,14 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 `Assets/UnityCodexHarness/Editor/`はEditor専用Assemblyで、Missing Script、Missing Reference、必須資産を検査します。Player Buildには含まれません。
 
-インストーラーは導入対象を`harness-managed`と`project-owned`へ分けます。`docs/unity_harness_capabilities.md`と`docs/unity_harness_requirements.md`は`harness-managed`、ゲーム固有の`docs/unity_design_sheet.md`は`project-owned`です。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
+インストーラーは導入対象を`harness-managed`と`project-owned`へ分けます。`docs/unity_harness_capabilities.md`、`docs/unity_harness_requirements.md`、標準pinを持つ`harness.lock.json`は`harness-managed`です。ゲーム固有の`docs/unity_design_sheet.md`と`harness.overrides.json`は`project-owned`です。`.gitignore`には管理マーカー付きで`/Artifacts/`、`/.codex/external/`、外部Skillのローカルコピーを除外するルールを追加し、既存ルールや改行形式を保持します。
 
 `project-owned`として保護されるファイル:
 
 - `docs/unity_design_sheet.md`
 - `docs/mcp_and_skills_list.md`
 - `AGENTS.md`
-- `harness.lock.json`
+- `harness.overrides.json`
 - `ProjectSettings/UnityCodexHarnessAssetValidation.json`
 
 これらは存在しない場合だけ生成され、導入後はゲーム側が所有します。通常更新、`--force`、`--force-file`のいずれでも既存内容を上書きしません。
@@ -249,7 +251,7 @@ python3 scripts/unity_codex_harness/verify_harness_integrity.py \
   --project-root .
 ```
 
-検査はharness-managedファイルの欠落、内容変更、symlink、専有管理ディレクトリ内の未知ファイル、manifest改変を失敗させます。`unity_design_sheet.md`などのproject-owned変更は許可されますが、Installerが`AGENTS.md`を導入対象にしたProjectでは、必須のAgent Contract参照マーカーとpathも検査します。
+検査はharness-managedファイルの欠落、内容変更、symlink、専有管理ディレクトリ内の未知ファイル、manifest改変を失敗させます。標準pinを持つ`harness.lock.json`の変更も失敗します。`unity_design_sheet.md`や`harness.overrides.json`などのproject-owned変更は許可されますが、Installerが`AGENTS.md`を導入対象にしたProjectでは、必須のAgent Contract参照マーカーとpathも検査します。
 
 失敗時にmanifestや`install-manifest.sha256`を手編集して追認しないでください。信頼するハーネスcheckoutから`--force-file`または`--force`を使ってbackup後に復旧します。独自ハーネスへ変更する場合は、ハーネス本体を明示的にforkし、そのcheckoutのInstallerから再配布します。
 
@@ -373,6 +375,13 @@ Artifacts/HarnessInstallerMigrations/<OperationId>/
 
 旧版Installerからの更新でbaselineがない場合は、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、localからincomingへの差分を生成します。
 
+旧版でproject-ownedだった`harness.lock.json`に差分がある場合、通常導入は書込み前に停止します。`--prepare-migration`でlockのbase・local・incomingと`override-template/harness.overrides.json`を生成し、承認するゲーム固有値だけをoverrideへ移してください。各overrideには`reason`、`approvedBy`、`approvedAt`、`values`が必要です。移行後は次で標準lockをbackup付き置換します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" \
+  --force-file harness.lock.json
+```
+
 backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`files/`以下の該当ファイルを元の相対パスへ戻します。Installerは自動rollbackを行いません。
 
 ### オプション一覧
@@ -384,11 +393,11 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 | `--skip-agents` | `AGENTS.md`を導入対象とAgent Contract検査から明示的に外す |
 | `--force-file PATH` | 指定したharness-managedファイルだけをbackup後に置換する。複数指定可 |
 | `--force` | 内容が異なる全harness-managedファイルをbackup後に置換する |
-| `--prepare-migration` | project-owned templateの三者比較bundleを作る。localは変更しない |
+| `--prepare-migration` | project-owned templateまたは旧project-owned lockの三者比較bundleを作る。localは変更しない |
 
 ### 手動導入
 
-自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、`harness.overrides.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 
@@ -470,7 +479,30 @@ Packageや外部Service、通信、データ収集、課金・広告・UGCを追
 | [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) | `v9.7.0` / `417cf351a152b483c91e6e2deaf7ae355fa8eff3` | Unity Editor操作 | `NOT RUN` |
 | [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | `fff651a89223b044ccfc0b75ed9f3754c6d739b1` | 2Dアセット生成 | `NOT RUN` |
 
-これらは本リポジトリへ同梱していません。再現可能な導入基準、Python要件、公式参照元、検証状態は`harness.lock.json`へ記録します。固定参照は「この版を導入対象にする」という意味であり、Unity `6000.4.10f1`との実接続・実生成が成功したという意味ではありません。
+これらは本リポジトリへ同梱していません。再現可能な標準導入基準、Python要件、公式参照元、検証状態はharness-managedの`harness.lock.json`へ記録します。ゲームで異なるpinが必要な場合は標準lockを編集せず、project-ownedの`harness.overrides.json`へ承認理由と差分だけを記録します。固定参照は「この版を導入対象にする」という意味であり、Unity `6000.4.10f1`との実接続・実生成が成功したという意味ではありません。
+
+override例:
+
+```json
+{
+  "schemaVersion": 1,
+  "externalDependencies": {
+    "unityMcp": {
+      "reason": "対象Unity版で検証済みのpinを使用する",
+      "approvedBy": "Unity team",
+      "approvedAt": "2026-06-11",
+      "values": {
+        "commit": "<40-character-commit>",
+        "install": {
+          "unityPackageUrl": "<commit-pinned-UPM-URL>"
+        }
+      }
+    }
+  }
+}
+```
+
+診断CLIは標準lockへoverrideを合成し、未知field、承認情報不足、pinの不整合を拒否します。JSON reportの`activeOverrides`に適用したdependencyと承認情報を出力します。
 
 ### 外部ツールを明示的に導入する
 
@@ -510,7 +542,7 @@ cp -R .codex/external/agent-sprite-forge/skills/generate2dmap \
 
 `.codex/external/`と2つの外部Skillコピーはインストーラーが`.gitignore`へ追加するため、ハーネス本体やゲームリポジトリへ再配布されません。導入後はCodexを再起動し、診断CLIを再実行します。全プロジェクトで共用する場合は`$CODEX_HOME/external/agent-sprite-forge`と`$CODEX_HOME/skills/`へ同じ固定commitから導入できます。
 
-更新時は公式Release、commit、Package metadataまたはrequirementsを確認して固定値を変更し、対象環境で実行した後にだけ`verification.status`を`PASS`へ変更します。
+ハーネス標準pinの更新時は公式Release、commit、Package metadataまたはrequirementsを確認して`harness.lock.json`を変更し、対象環境で実行した後にだけ`verification.status`を`PASS`へ変更します。ゲーム固有pinは`harness.overrides.json`へ記録し、標準lockを直接変更しません。
 
 ## 検証
 

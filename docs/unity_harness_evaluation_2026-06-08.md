@@ -1776,11 +1776,12 @@ CLI、IDE、App、将来versionを対象にした配布契約としてはPlugin�
 - https://developers.openai.com/codex/mcp
 - https://developers.openai.com/codex/subagents
 
-#### P1-2: `harness.lock.json`がproject-owned
+#### P1-2: `harness.lock.json`がproject-owned（対応済み）
 
 外部依存の固定参照と互換性根拠を持つ`harness.lock.json`はproject-ownedであり、
 完全性検査はゲーム側変更を許可する。固定する標準値とゲーム側overrideを分離し、
 標準pinの偶発的driftを検出できる構造が必要である。
+2026-06-11にSection 15.10の対応を実施した。
 
 #### P1-3: 評価履歴まで導入先ゲームへ配布される
 
@@ -1877,3 +1878,40 @@ MCP、Build、CIのセットアップを扱える個人またはチームであ�
 
 この対応により、既存`AGENTS.md`を持つProjectが必須作業契約なしで
 `Installation complete`と完全性`PASS`になる経路を閉じた。
+
+### 15.10 P1-2 harness.lock.json所有境界対応結果
+
+標準pinとゲーム固有差分の所有者を分離した。
+
+実装:
+
+- `harness.lock.json`を`harness-managed`へ変更し、install manifestと完全性
+  Verifierで欠落・変更を検出
+- 空の`harness.overrides.json`を`project-owned` templateとして追加
+- overrideはdependency単位で`reason`、`approvedBy`、`approvedAt`、
+  `values`を必須化
+- 依存診断CLIが標準lockへoverrideをdeep mergeし、未知field、承認情報不足、
+  commit固定不整合、bundled化・自動導入化を拒否
+- JSON診断結果へ`activeOverrides`を追加
+- 旧project-owned lockに差分がある場合、通常Installerを全書込み前に停止
+- `--prepare-migration`でlockのbase・local・incomingとoverride templateを
+  生成し、local不変・終了コード`1`の導入未完了とする
+- 移行後は`--force-file harness.lock.json`でbackup付き標準化
+
+`DEBUG-004-AC05`:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-004-AC05` | `PASS` | 標準lock drift拒否、project override許可、承認metadata、不正field、旧lock migrationをPython回帰で確認 |
+
+検証結果:
+
+- Repository検証: `PASS`
+- Python回帰テスト: `PASS`、154件
+- Python構文コンパイル: `PASS`
+- Unity fixture: `NOT RUN`
+  - Unity C#、Asset、Scene、Prefab、ProjectSettings、検証runnerの変更なし
+  - 変更範囲はInstaller、Python依存診断、所有区分、文書に限定
+
+この対応により、ゲーム側が標準pinを偶発的に変更しても完全性`PASS`となる
+経路を閉じ、意図した差分だけをレビュー可能なproject-owned記録へ分離した。

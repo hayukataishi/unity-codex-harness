@@ -138,6 +138,30 @@ class HarnessIntegrityTests(unittest.TestCase):
 
             self.assertEqual(integrity.validate_integrity(project), [])
 
+    def test_modified_standard_lock_fails_but_override_may_change(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            overrides = project / "harness.overrides.json"
+            overrides.write_text(
+                '{"schemaVersion":1,"externalDependencies":{}}\n',
+                encoding="utf-8",
+            )
+
+            self.assertEqual(integrity.validate_integrity(project), [])
+
+            lock_path = project / "harness.lock.json"
+            lock_path.write_text('{"custom":true}\n', encoding="utf-8")
+            errors = integrity.validate_integrity(project)
+
+            self.assertTrue(
+                any(
+                    "harness-managed SHA-256 mismatch: harness.lock.json"
+                    in error
+                    for error in errors
+                ),
+                errors,
+            )
+
     def test_modified_manifest_without_sidecar_update_fails(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))

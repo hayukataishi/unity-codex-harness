@@ -41,6 +41,9 @@ review, or reporting, read:
   standards and dialogue-driven recommended requirements.
 - Treat `docs/unity_design_sheet.md` as the `project-owned` source of truth
   for game-specific requirements, HREQ applicability, and approved exceptions.
+- Treat `harness.lock.json` as harness-managed standard pins. Record an
+  approved game-specific external dependency difference in the project-owned
+  `harness.overrides.json`; do not edit the standard lock in an installed game.
 - A game-specific requirement may not silently weaken an HREQ. Require an
   `例外承認` record with reason, impact, mitigation, approver, and date.
 - Before implementation or acceptance, run

@@ -40,7 +40,8 @@ Unityゲーム開発において、人間がゲームの方向性と品質判断
 - **Unityゲーム個別要件・設計書**：このゲーム固有の要件、HREQ適用状態、承認済み例外、ACを定義する。`project-owned`であり、ゲーム固有の変更はここへ記録する。
 - **本書**：Codexがどのような手順と制約で設計・実装・検証するかを定義する。
 - **MCP・Skill一覧**：利用可能な能力、用途、使用条件、制限事項を定義する。
-- **`harness.lock.json`**：ハーネスの検証環境、外部ツールの固定参照、公式根拠、実行確認状態を定義する。
+- **`harness.lock.json`**：ハーネスの検証環境、外部ツールの標準固定参照、公式根拠、実行確認状態を定義する`harness-managed`ファイル。
+- **`harness.overrides.json`**：ゲーム側が承認した外部依存の標準pinとの差分だけを定義する`project-owned`ファイル。
 - **ソースコードとUnityアセット**：設計を実行可能な形で表現する。
 - **テスト**：設計と実装の一致を機械的に確認する。
 
@@ -541,8 +542,8 @@ SAVE-001
 
 Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/install-manifest.json`へschema version 2、harness release、専有管理root、path、ownership、source SHA-256を記録する。`install-manifest.sha256`はmanifest本体の意図しない変更を検出する。
 
-- `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書、`docs/unity_harness_capabilities.md`、`docs/unity_harness_requirements.md`など、ハーネス更新で置換可能な標準契約。
-- `project-owned`: `docs/unity_design_sheet.md`、MCP・Skill採否、`AGENTS.md`、外部依存lock、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
+- `harness-managed`: Editor検査コード、検証script、共通Skill、ハーネス運用文書、`docs/unity_harness_capabilities.md`、`docs/unity_harness_requirements.md`、標準pinを持つ`harness.lock.json`など、ハーネス更新で置換可能な標準契約。
+- `project-owned`: `docs/unity_design_sheet.md`、MCP・Skill採否、`AGENTS.md`、`harness.overrides.json`、ゲーム固有資産検査設定など、導入後にゲーム側が保守するファイル。
 
 更新規則:
 
@@ -555,6 +556,10 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
   生成し、localを変更せず導入未完了で終了する。`--skip-agents`は明示的な
   Agent Contract検査免除として扱う。
 - `harness-managed`の競合は標準実行で全書込み前に停止する。`--force-file <relative-path>`で対象を限定するか、全harness-managed競合を確認済みの場合だけ`--force`を使う。
+- 旧版でproject-ownedだった`harness.lock.json`に差分がある場合は、
+  `--prepare-migration`で標準base、local、incoming、override templateを出力し、
+  承認済みのゲーム差分だけを`harness.overrides.json`へ移す。移行完了後に
+  `--force-file harness.lock.json`で標準lockをbackup付き置換する。
 - 置換対象は書込み前に`Artifacts/HarnessInstallerBackups/<OperationId>/`へbackupし、元・置換後のSHA-256をBackup Manifestへ記録する。
 - project-owned templateの元版は`.unity-codex-harness/baselines/`へ保存する。template更新時は`--prepare-migration`でbase・local・incomingとunified diffを`Artifacts/HarnessInstallerMigrations/<OperationId>/`へ出力する。
 - 旧Installerからの更新でbaselineがない既存project-ownedは、現在のlocalを`legacy-local-snapshot`としてbaseにも保存し、incomingとの差分を生成してから新baselineを記録する。
@@ -600,6 +605,10 @@ python3 scripts/unity_codex_harness/verify_harness_integrity.py \
 
 Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも`harness.lock.json`で管理する。
 
+- `harness.lock.json`は`harness-managed`とし、完全性Verifierで標準pinの欠落・変更を検出する。
+- `harness.overrides.json`は`project-owned`とし、ゲーム固有差分だけを持つ。各dependency overrideは`reason`、`approvedBy`、ISO日付の`approvedAt`、非空の`values`を必須とする。
+- overrideは標準dependencyに存在するfieldだけをdeep mergeできる。未知field、承認情報不足、commit固定の不整合、bundled化、自動導入化は診断CLIで拒否する。
+- overrideを使わないゲームは`externalDependencies`を空objectのまま維持する。
 - 外部OSSはハーネスへvendorせず、標準インストーラーも自動取得・自動実行しない。利用者が固定参照と上流ライセンスを確認して明示的に導入する。
 - `distribution.bundled`を`false`、`installMode`を`explicit-user-action`とし、固定参照のlicense名とlicense URLを記録する。
 - GitHub依存はtag名だけでなく、解決済みの40桁commit SHAを記録する。

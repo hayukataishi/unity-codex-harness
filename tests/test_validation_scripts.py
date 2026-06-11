@@ -1206,6 +1206,37 @@ class HarnessLockValidationTests(unittest.TestCase):
     def test_repository_lock_is_valid(self):
         self.assertEqual(repository_validator.validate_harness_lock(ROOT), [])
 
+    def test_repository_lock_ownership_boundary_is_valid(self):
+        self.assertEqual(
+            repository_validator.validate_harness_lock_boundary(ROOT),
+            [],
+        )
+
+    def test_repository_override_template_must_be_empty(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator.HARNESS_LOCK_BOUNDARY_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(required_values), encoding="utf-8")
+            (root / "harness.overrides.json").write_text(
+                (
+                    '{"schemaVersion":1,"externalDependencies":'
+                    '{"unityMcp":{}}}\n'
+                ),
+                encoding="utf-8",
+            )
+
+            errors = repository_validator.validate_harness_lock_boundary(root)
+
+            self.assertIn(
+                "repository harness.overrides.json must be an empty "
+                "project-owned template",
+                errors,
+            )
+
     def test_rejects_non_pinned_dependency_commit(self):
         manifest = self.load_manifest()
         manifest["externalDependencies"]["unityMcp"]["commit"] = "main"
@@ -1347,6 +1378,7 @@ class InstallerSourceTests(unittest.TestCase):
             relative_paths,
         )
         self.assertIn("harness.lock.json", relative_paths)
+        self.assertIn("harness.overrides.json", relative_paths)
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
             relative_paths,
@@ -1392,6 +1424,18 @@ class InstallerSourceTests(unittest.TestCase):
             agent_contract.ownership,
             installer.OWNERSHIP_HARNESS,
         )
+        lock = next(
+            item
+            for item in sources
+            if item.relative.as_posix() == "harness.lock.json"
+        )
+        self.assertEqual(lock.ownership, installer.OWNERSHIP_HARNESS)
+        overrides = next(
+            item
+            for item in sources
+            if item.relative.as_posix() == "harness.overrides.json"
+        )
+        self.assertEqual(overrides.ownership, installer.OWNERSHIP_PROJECT)
         integrity_checker = next(
             item
             for item in sources

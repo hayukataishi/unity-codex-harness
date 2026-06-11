@@ -84,11 +84,13 @@
 ## HCAP-EXTERNAL-001 外部MCP・Skill
 
 - Unity MCPと外部Skillをvendorせず、標準Installerも自動取得しない。
-- `harness.lock.json`へ固定commit、導入参照、license情報を記録する。
-- 診断CLIは不足・版違いを検出するが、外部依存を変更しない。
+- `harness.lock.json`は`harness-managed`として固定commit、導入参照、license情報を記録し、完全性検査で標準pinのdriftを検出する。
+- `harness.overrides.json`は`project-owned`として、承認情報付きのゲーム固有差分だけを記録する。
+- 診断CLIは標準pinとoverrideを合成し、不足・版違い・不正overrideを検出するが、外部依存を変更しない。
 - MCPがない場合、Editor serializationを必要とする作業をUnity YAML直接編集へ縮退しない。
 
-受け入れ契約: `DEBUG-004-AC01`から`DEBUG-004-AC04`
+受け入れ契約: `DEBUG-004-AC01`から`DEBUG-004-AC04`、
+`DEBUG-004-AC05`
 
 <a id="hcap-install-001"></a>
 ## HCAP-INSTALL-001 安全な導入・更新

@@ -385,6 +385,7 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "DEBUG-003-AC04",
         "HCAP-EXTERNAL-001",
         "DEBUG-004-AC04",
+        "DEBUG-004-AC05",
         "HCAP-INSTALL-001",
         "DEBUG-005-AC04",
         "HCAP-CI-001",
@@ -419,6 +420,8 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_force_file_replaces_only_managed_file_with_backup",
         "test_force_never_replaces_project_owned_files",
         "test_force_updates_standard_documents_but_preserves_game_sheet",
+        "test_modified_legacy_lock_requires_ownership_migration",
+        "test_check_rejects_modified_standard_lock",
         "test_prepare_migration_creates_three_way_bundle",
         "test_install_manifest_records_ownership_and_hashes",
         "test_reinstall_is_idempotent",
@@ -445,6 +448,9 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_missing_dependencies_report_fixed_install_steps",
         "test_pinned_project_installation_passes",
         "test_unity_mcp_version_mismatch_fails",
+        "test_approved_project_override_changes_effective_pin",
+        "test_override_requires_approval_metadata",
+        "test_override_rejects_inconsistent_effective_pin",
     ),
     "tests/test_gameci_image.py": (
         "class GameCiImageTests",
@@ -519,6 +525,8 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
         "EXCLUSIVE_MANAGED_ROOTS",
         "agents_contract_status",
         "prepare_agents_contract_migration",
+        "prepare_lock_ownership_migration",
+        "HARNESS_OVERRIDES_PATH",
         "Installation remains incomplete",
         '"schemaVersion": 2',
         "verify_harness_integrity.py",
@@ -580,6 +588,8 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
         "verify_harness_integrity.py",
         "UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED",
         "Installation remains incomplete",
+        "`harness.lock.json`は`harness-managed`",
+        "`harness.overrides.json`",
         "manifestや`install-manifest.sha256`を手編集して追認しない",
         "Verify Unity Codex Harness integrity",
     ),
@@ -594,6 +604,50 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
         "状態: `実装済み`",
         "install-manifest.sha256",
         "専有管理ディレクトリ内の未知ファイル",
+    ),
+}
+
+HARNESS_LOCK_BOUNDARY_REQUIRED_TEXT = {
+    "docs/unity_harness_capabilities.md": (
+        "DEBUG-004-AC05",
+        "`harness.lock.json`は`harness-managed`",
+        "`harness.overrides.json`は`project-owned`",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "`harness.lock.json`は`harness-managed`",
+        "`harness.overrides.json`は`project-owned`",
+        "reason",
+        "approvedBy",
+        "approvedAt",
+        "values",
+    ),
+    "docs/unity_harness_agent_contract.md": (
+        "`harness.lock.json` as harness-managed standard pins",
+        "`harness.overrides.json`",
+        "do not edit the standard lock",
+    ),
+    "scripts/install.py": (
+        "HARNESS_LOCK_PATH",
+        "HARNESS_OVERRIDES_PATH",
+        "prepare_lock_ownership_migration",
+        "--force-file harness.lock.json",
+    ),
+    "scripts/check_external_dependencies.py": (
+        'OVERRIDES_FILE = "harness.overrides.json"',
+        "load_effective_dependencies",
+        "validate_effective_dependencies",
+        "activeOverrides",
+    ),
+    "tests/test_installer_cli.py": (
+        "test_modified_legacy_lock_requires_ownership_migration",
+        "test_check_rejects_modified_standard_lock",
+    ),
+    "tests/test_external_dependencies.py": (
+        "test_approved_project_override_changes_effective_pin",
+        "test_override_requires_approval_metadata",
+        "test_override_rejects_unknown_metadata_fields",
+        "test_override_rejects_unknown_fields",
+        "test_override_rejects_inconsistent_effective_pin",
     ),
 }
 
@@ -1307,6 +1361,44 @@ def validate_harness_integrity_contract(root: Path) -> list[str]:
     return errors
 
 
+def validate_harness_lock_boundary(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in HARNESS_LOCK_BOUNDARY_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing harness lock boundary file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing harness lock ownership boundary: "
+                    f"{relative} -> {required}"
+                )
+
+    overrides_path = root / "harness.overrides.json"
+    if not overrides_path.is_file():
+        errors.append("missing harness.overrides.json")
+        return errors
+    try:
+        overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        errors.append(f"invalid harness.overrides.json: {error}")
+        return errors
+    if not isinstance(overrides, dict):
+        errors.append("harness.overrides.json root must be an object")
+        return errors
+    if overrides.get("schemaVersion") != 1:
+        errors.append("harness.overrides.json schemaVersion must be 1")
+    dependencies = overrides.get("externalDependencies")
+    if dependencies != {}:
+        errors.append(
+            "repository harness.overrides.json must be an empty "
+            "project-owned template"
+        )
+    return errors
+
+
 def validate_initial_design_dialogue(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items():
@@ -1811,6 +1903,7 @@ def main() -> int:
         + validate_template_regression_suite(root)
         + validate_design_document_boundaries(root)
         + validate_harness_integrity_contract(root)
+        + validate_harness_lock_boundary(root)
         + validate_initial_design_dialogue(root)
         + validate_design_readiness_contract(root)
         + validate_harness_lock(root)

@@ -7,12 +7,12 @@
 | [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) | MCP | `v9.7.0` / `417cf351a152b483c91e6e2deaf7ae355fa8eff3` | Unity Editor操作、Scene・GameObject・アセット・スクリプト・テストの操作 | `NOT RUN` |
 | [0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge) | Codex Skill | `fff651a89223b044ccfc0b75ed9f3754c6d739b1` | 2Dスプライト、アニメーションシート、マップ、プロップ、FXの生成と後処理 | `NOT RUN` |
 
-正確なrepository、channel、commit、実行要件、公式参照元は`../harness.lock.json`で管理する。固定参照を記録しただけでは互換性確認済みとは扱わず、実接続または実生成を行うまでは`NOT RUN`とする。
+正確な標準repository、channel、commit、実行要件、公式参照元は`../harness.lock.json`で管理する。ゲーム固有の承認済み差分は`../harness.overrides.json`へ記録する。固定参照を記録しただけでは互換性確認済みとは扱わず、実接続または実生成を行うまでは`NOT RUN`とする。
 
 ### 導入と配布
 
 - Unity MCPとagent-sprite-forgeは本ハーネスへ同梱せず、標準インストーラーも自動取得しない。
-- 固定参照、commit固定URL、license名、固定参照のlicense URLは`harness.lock.json`を正とする。
+- 標準の固定参照、commit固定URL、license名、固定参照のlicense URLは`harness.lock.json`を正とし、ゲーム固有pinは`harness.overrides.json`との差分合成結果を正とする。
 - 利用者は上流licenseを確認し、READMEの手順で明示的に導入する。ライセンス確認は法的助言を代替しない。
 - 導入先では`python3 scripts/unity_codex_harness/check_external_dependencies.py --project-root .`を実行し、Package、checkout commit、Skill配置を確認する。
 - `.codex/external/`と外部SkillコピーはGit管理外とする。Unity Packageの`manifest.json`と`packages-lock.json`は再現性情報としてGit管理する。

@@ -6,13 +6,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
+from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 
 LOCK_FILE = "harness.lock.json"
+OVERRIDES_FILE = "harness.overrides.json"
 UNITY_MANIFEST = Path("Packages/manifest.json")
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--project-root",
         default=".",
-        help="Unity project root containing harness.lock.json",
+        help="Unity project root containing the harness lock and overrides",
     )
     parser.add_argument(
         "--json",
@@ -48,6 +53,206 @@ def require_mapping(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise SystemExit(f"Invalid {LOCK_FILE}: {label} must be an object")
     return value
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(base)
+    for key, value in override.items():
+        current = merged.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = deep_merge(current, value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def validate_override_values(
+    standard: dict[str, Any],
+    values: dict[str, Any],
+    label: str,
+) -> None:
+    for key, value in values.items():
+        if key not in standard:
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: unknown field {label}.{key}"
+            )
+        standard_value = standard[key]
+        if isinstance(standard_value, dict):
+            if not isinstance(value, dict):
+                raise SystemExit(
+                    f"Invalid {OVERRIDES_FILE}: {label}.{key} must be an object"
+                )
+            validate_override_values(
+                standard_value,
+                value,
+                f"{label}.{key}",
+            )
+        elif isinstance(value, dict):
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: {label}.{key} must not be an object"
+            )
+
+
+def load_effective_dependencies(
+    project_root: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    lock = require_mapping(
+        load_json(project_root / LOCK_FILE),
+        LOCK_FILE,
+    )
+    standard_dependencies = require_mapping(
+        lock.get("externalDependencies"),
+        "externalDependencies",
+    )
+    overrides_path = project_root / OVERRIDES_FILE
+    if not overrides_path.is_file():
+        effective = deepcopy(standard_dependencies)
+        validate_effective_dependencies(effective)
+        return effective, []
+
+    overrides = require_mapping(
+        load_json(overrides_path),
+        OVERRIDES_FILE,
+    )
+    unknown_root_keys = sorted(
+        set(overrides) - {"schemaVersion", "externalDependencies"}
+    )
+    if unknown_root_keys:
+        raise SystemExit(
+            f"Invalid {OVERRIDES_FILE}: unknown root fields "
+            + ", ".join(unknown_root_keys)
+        )
+    if overrides.get("schemaVersion") != 1:
+        raise SystemExit(f"Invalid {OVERRIDES_FILE}: schemaVersion must be 1")
+    override_dependencies = require_mapping(
+        overrides.get("externalDependencies"),
+        "externalDependencies",
+    )
+    effective = deepcopy(standard_dependencies)
+    active: list[dict[str, Any]] = []
+    for dependency_name, record_value in override_dependencies.items():
+        if dependency_name not in standard_dependencies:
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: unknown dependency "
+                f"{dependency_name}"
+            )
+        record = require_mapping(
+            record_value,
+            f"{dependency_name} override",
+        )
+        unknown_record_keys = sorted(
+            set(record) - {"reason", "approvedBy", "approvedAt", "values"}
+        )
+        if unknown_record_keys:
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: unknown fields for "
+                f"{dependency_name}: "
+                + ", ".join(unknown_record_keys)
+            )
+        reason = record.get("reason")
+        approved_by = record.get("approvedBy")
+        approved_at = record.get("approvedAt")
+        values = record.get("values")
+        if not isinstance(reason, str) or not reason.strip():
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: "
+                f"{dependency_name}.reason is required"
+            )
+        if not isinstance(approved_by, str) or not approved_by.strip():
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: "
+                f"{dependency_name}.approvedBy is required"
+            )
+        try:
+            date.fromisoformat(approved_at)
+        except (TypeError, ValueError):
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: "
+                f"{dependency_name}.approvedAt must be an ISO date"
+            ) from None
+        if not isinstance(values, dict) or not values:
+            raise SystemExit(
+                f"Invalid {OVERRIDES_FILE}: "
+                f"{dependency_name}.values must be a non-empty object"
+            )
+        standard_dependency = require_mapping(
+            standard_dependencies[dependency_name],
+            dependency_name,
+        )
+        validate_override_values(
+            standard_dependency,
+            values,
+            dependency_name,
+        )
+        effective[dependency_name] = deep_merge(
+            standard_dependency,
+            values,
+        )
+        active.append(
+            {
+                "dependency": dependency_name,
+                "reason": reason,
+                "approvedBy": approved_by,
+                "approvedAt": approved_at,
+                "overriddenFields": sorted(values),
+            }
+        )
+    validate_effective_dependencies(effective)
+    return effective, active
+
+
+def validate_effective_dependencies(
+    dependencies: dict[str, Any],
+) -> None:
+    for dependency_name in ("unityMcp", "agentSpriteForge"):
+        dependency = require_mapping(
+            dependencies.get(dependency_name),
+            dependency_name,
+        )
+        commit = dependency.get("commit")
+        if not isinstance(commit, str) or not COMMIT_SHA_RE.fullmatch(commit):
+            raise SystemExit(
+                f"Invalid effective dependency: "
+                f"{dependency_name}.commit must be a pinned SHA"
+            )
+        distribution = require_mapping(
+            dependency.get("distribution"),
+            f"{dependency_name}.distribution",
+        )
+        if (
+            distribution.get("bundled") is not False
+            or distribution.get("installMode") != "explicit-user-action"
+        ):
+            raise SystemExit(
+                f"Invalid effective dependency: {dependency_name} must remain "
+                "unbundled and require explicit user action"
+            )
+
+    unity_mcp = require_mapping(dependencies["unityMcp"], "unityMcp")
+    expected_package_url = (
+        f"{unity_mcp.get('repository')}.git"
+        f"?path=/{unity_mcp.get('unityPackagePath')}"
+        f"#{unity_mcp.get('commit')}"
+    )
+    unity_install = require_mapping(
+        unity_mcp.get("install"),
+        "unityMcp.install",
+    )
+    if unity_install.get("unityPackageUrl") != expected_package_url:
+        raise SystemExit(
+            "Invalid effective dependency: unityMcp.install.unityPackageUrl "
+            "must pin the effective commit"
+        )
+
+    sprite_forge = require_mapping(
+        dependencies["agentSpriteForge"],
+        "agentSpriteForge",
+    )
+    if sprite_forge.get("ref") != sprite_forge.get("commit"):
+        raise SystemExit(
+            "Invalid effective dependency: "
+            "agentSpriteForge.ref must equal commit"
+        )
 
 
 def unique_paths(paths: list[Path]) -> list[Path]:
@@ -251,14 +456,7 @@ def install_instructions(
 
 
 def build_report(project_root: Path) -> dict[str, Any]:
-    lock = require_mapping(
-        load_json(project_root / LOCK_FILE),
-        LOCK_FILE,
-    )
-    dependencies = require_mapping(
-        lock.get("externalDependencies"),
-        "externalDependencies",
-    )
+    dependencies, active_overrides = load_effective_dependencies(project_root)
     unity_mcp = require_mapping(dependencies.get("unityMcp"), "unityMcp")
     sprite_forge = require_mapping(
         dependencies.get("agentSpriteForge"),
@@ -277,6 +475,9 @@ def build_report(project_root: Path) -> dict[str, Any]:
             else "ACTION REQUIRED"
         ),
         "checks": checks,
+        "standardLock": LOCK_FILE,
+        "projectOverrides": OVERRIDES_FILE,
+        "activeOverrides": active_overrides,
         "instructions": install_instructions(
             project_root,
             unity_mcp,
@@ -284,6 +485,10 @@ def build_report(project_root: Path) -> dict[str, Any]:
         ),
         "notes": [
             "External dependencies are not bundled by this harness.",
+            (
+                "Standard pins come from the harness-managed harness.lock.json; "
+                "approved project differences come from harness.overrides.json."
+            ),
             "This static check does not prove an active Unity MCP connection.",
         ],
     }
