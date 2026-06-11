@@ -28,6 +28,18 @@ AGENTS_CONTRACT_MARKER = (
 )
 HARNESS_LOCK_PATH = Path("harness.lock.json")
 HARNESS_OVERRIDES_PATH = Path("harness.overrides.json")
+DISTRIBUTED_DOC_PATHS = (
+    Path("docs/mcp_and_skills_list.md"),
+    Path("docs/unity_design_sheet.md"),
+    Path("docs/unity_harness_agent_contract.md"),
+    Path("docs/unity_harness_capabilities.md"),
+    Path("docs/unity_harness_engineering.md"),
+    Path("docs/unity_harness_requirements.md"),
+)
+SOURCE_ONLY_DOC_PATHS = (
+    Path("docs/unity_harness_evaluation_2026-06-08.md"),
+)
+RETIRED_MANAGED_PATHS = SOURCE_ONLY_DOC_PATHS
 GITIGNORE_BEGIN = "# >>> Unity Codex Harness managed Artifacts ignore >>>"
 GITIGNORE_RULE = "/Artifacts/"
 GITIGNORE_RULES = (
@@ -95,6 +107,12 @@ class ProjectTemplateChange(NamedTuple):
     baseline: Path
     destination: Path
     base_kind: str
+
+
+class RetiredManagedFile(NamedTuple):
+    relative: Path
+    destination: Path
+    source_hash: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -165,7 +183,6 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
     mappings = [
         (repository_root / ".codex" / "agents", Path(".codex/agents")),
         (repository_root / ".codex" / "skills", Path(".codex/skills")),
-        (repository_root / "docs", Path("docs")),
         (repository_root / "templates" / "unity", Path(".")),
     ]
     files: list[InstallSource] = []
@@ -186,6 +203,14 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
                     ),
                 )
             )
+    for relative in DISTRIBUTED_DOC_PATHS:
+        files.append(
+            InstallSource(
+                source=repository_root / relative,
+                relative=relative,
+                ownership=ownership_for(relative),
+            )
+        )
     if not skip_agents:
         files.append(
             InstallSource(
@@ -471,6 +496,123 @@ def next_operation_id(project_root: Path) -> str:
     return candidate
 
 
+def load_previous_install_manifest(
+    project_root: Path,
+) -> dict[str, object] | None:
+    manifest_path = project_root / INSTALL_MANIFEST_PATH
+    sidecar_path = project_root / INSTALL_MANIFEST_HASH_PATH
+    if not manifest_path.exists() and not sidecar_path.exists():
+        return None
+    if not manifest_path.is_file() or not sidecar_path.is_file():
+        raise SystemExit(
+            "Installation stopped because the previous install manifest or "
+            "its SHA-256 sidecar is missing. Restore both files before "
+            "retiring previously distributed harness files."
+        )
+    sidecar_parts = sidecar_path.read_text(encoding="utf-8").strip().split()
+    if (
+        len(sidecar_parts) != 2
+        or sidecar_parts[1] != INSTALL_MANIFEST_PATH.name
+    ):
+        raise SystemExit(
+            "Installation stopped because the previous install manifest "
+            "SHA-256 sidecar is invalid."
+        )
+    expected_hash = sidecar_parts[0]
+    if sha256_file(manifest_path) != expected_hash:
+        raise SystemExit(
+            "Installation stopped because the previous install manifest "
+            "SHA-256 does not match its sidecar."
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise SystemExit(
+            f"Installation stopped because the previous install manifest "
+            f"is invalid JSON: {error}"
+        ) from error
+    if not isinstance(manifest, dict):
+        raise SystemExit(
+            "Installation stopped because the previous install manifest "
+            "root is not an object."
+        )
+    return manifest
+
+
+def plan_retired_managed_files(
+    project_root: Path,
+) -> list[RetiredManagedFile]:
+    existing_paths = [
+        relative
+        for relative in RETIRED_MANAGED_PATHS
+        if (
+            (project_root / relative).exists()
+            or (project_root / relative).is_symlink()
+        )
+    ]
+    if not existing_paths:
+        return []
+
+    manifest = load_previous_install_manifest(project_root)
+    if manifest is None:
+        return []
+    entries = manifest.get("files")
+    if not isinstance(entries, list):
+        raise SystemExit(
+            "Installation stopped because the previous install manifest "
+            "files value is not an array."
+        )
+    by_path = {
+        entry.get("path"): entry
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+    }
+    retirements: list[RetiredManagedFile] = []
+    conflicts: list[str] = []
+    for relative in existing_paths:
+        entry = by_path.get(relative.as_posix())
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("ownership") != OWNERSHIP_HARNESS:
+            continue
+        destination = project_root / relative
+        if destination.is_symlink() or not destination.is_file():
+            conflicts.append(
+                f"{relative.as_posix()} is not a regular file"
+            )
+            continue
+        source_hash = entry.get("sourceSha256")
+        if not isinstance(source_hash, str) or len(source_hash) != 64:
+            conflicts.append(
+                f"{relative.as_posix()} has an invalid previous source hash"
+            )
+            continue
+        actual_hash = sha256_file(destination)
+        if actual_hash != source_hash:
+            conflicts.append(
+                f"{relative.as_posix()} differs from its previously "
+                "distributed harness-managed content"
+            )
+            continue
+        retirements.append(
+            RetiredManagedFile(
+                relative=relative,
+                destination=destination,
+                source_hash=source_hash,
+            )
+        )
+    if conflicts:
+        rendered = "\n".join(f"  - {conflict}" for conflict in conflicts)
+        raise SystemExit(
+            "Installation stopped before writing because a source-only "
+            "document cannot be retired safely:\n"
+            f"{rendered}\n"
+            "Preserve the local content outside the harness-managed path or "
+            "restore the previously distributed version, then rerun."
+        )
+    return retirements
+
+
 def install_file(
     source: Path,
     destination: Path,
@@ -496,11 +638,12 @@ def install_file(
 def backup_replacements(
     project_root: Path,
     replacements: list[InstallSource],
+    retirements: list[RetiredManagedFile],
     operation_id: str,
     *,
     dry_run: bool,
 ) -> Path | None:
-    if not replacements:
+    if not replacements and not retirements:
         return None
 
     backup_root = project_root / BACKUP_ROOT / operation_id
@@ -511,6 +654,7 @@ def backup_replacements(
         entries.append(
             {
                 "path": item.relative.as_posix(),
+                "operation": "replace",
                 "originalSha256": sha256_file(destination),
                 "replacementSha256": sha256_file(item.source),
                 "backupPath": (
@@ -521,6 +665,21 @@ def backup_replacements(
         if not dry_run:
             backup.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(destination, backup)
+    for item in retirements:
+        backup = backup_root / "files" / item.relative
+        entries.append(
+            {
+                "path": item.relative.as_posix(),
+                "operation": "retire",
+                "originalSha256": item.source_hash,
+                "backupPath": (
+                    Path("files") / item.relative
+                ).as_posix(),
+            }
+        )
+        if not dry_run:
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item.destination, backup)
 
     manifest = {
         "schemaVersion": 1,
@@ -1111,6 +1270,7 @@ def main() -> int:
         )
 
     replacements: list[InstallSource] = []
+    retirements = plan_retired_managed_files(project_root)
     for item in files:
         destination = project_root / item.relative
         if not destination.exists():
@@ -1147,12 +1307,13 @@ def main() -> int:
     )
     operation_id = (
         next_operation_id(project_root)
-        if replacements or migration_changes
+        if replacements or retirements or migration_changes
         else ""
     )
     backup_root = backup_replacements(
         project_root,
         replacements,
+        retirements,
         operation_id,
         dry_run=args.dry_run,
     )
@@ -1176,6 +1337,11 @@ def main() -> int:
                 migration_root.relative_to(project_root),
             )
         )
+
+    for item in retirements:
+        if not args.dry_run:
+            item.destination.unlink()
+        operations.append(("retire", item.relative))
 
     for item in files:
         source = item.source

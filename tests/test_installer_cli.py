@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -47,6 +48,47 @@ class InstallerCliRegressionTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    def add_legacy_evaluation_manifest_entry(
+        self,
+        project: Path,
+        content: str,
+    ) -> Path:
+        evaluation = (
+            project / "docs" / "unity_harness_evaluation_2026-06-08.md"
+        )
+        evaluation.parent.mkdir(parents=True, exist_ok=True)
+        evaluation.write_text(content, encoding="utf-8")
+        manifest_path = (
+            project / ".unity-codex-harness" / "install-manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"].append(
+            {
+                "path": (
+                    "docs/unity_harness_evaluation_2026-06-08.md"
+                ),
+                "ownership": "harness-managed",
+                "sourceSha256": hashlib.sha256(
+                    content.encode("utf-8")
+                ).hexdigest(),
+            }
+        )
+        manifest_text = json.dumps(
+            manifest,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n"
+        manifest_path.write_text(manifest_text, encoding="utf-8")
+        sidecar = (
+            project / ".unity-codex-harness" / "install-manifest.sha256"
+        )
+        sidecar.write_text(
+            f"{hashlib.sha256(manifest_text.encode('utf-8')).hexdigest()}  "
+            "install-manifest.json\n",
+            encoding="utf-8",
+        )
+        return evaluation
 
     def test_rejects_non_unity_project_without_writes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -443,6 +485,17 @@ class InstallerCliRegressionTests(unittest.TestCase):
             by_path = {
                 entry["path"]: entry for entry in manifest["files"]
             }
+            self.assertNotIn(
+                "docs/unity_harness_evaluation_2026-06-08.md",
+                by_path,
+            )
+            self.assertFalse(
+                (
+                    project
+                    / "docs"
+                    / "unity_harness_evaluation_2026-06-08.md"
+                ).exists()
+            )
             self.assertEqual(
                 by_path["docs/unity_design_sheet.md"]["ownership"],
                 "project-owned",
@@ -485,6 +538,127 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     "check_external_dependencies.py"
                 ]["ownership"],
                 "harness-managed",
+            )
+
+    def test_upgrade_retires_unmodified_evaluation_report_with_backup(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            content = "# Legacy distributed evaluation\n"
+            evaluation = self.add_legacy_evaluation_manifest_entry(
+                project,
+                content,
+            )
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(
+                "retire: docs/unity_harness_evaluation_2026-06-08.md",
+                result.stdout,
+            )
+            self.assertFalse(evaluation.exists())
+            backup_root = next(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).iterdir()
+            )
+            retired_backup = (
+                backup_root
+                / "files"
+                / "docs"
+                / "unity_harness_evaluation_2026-06-08.md"
+            )
+            self.assertEqual(
+                retired_backup.read_text(encoding="utf-8"),
+                content,
+            )
+            backup_manifest = json.loads(
+                (backup_root / "BackupManifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            retired_entry = next(
+                entry
+                for entry in backup_manifest["files"]
+                if entry["path"]
+                == "docs/unity_harness_evaluation_2026-06-08.md"
+            )
+            self.assertEqual(retired_entry["operation"], "retire")
+            self.assertNotIn("replacementSha256", retired_entry)
+            manifest = json.loads(
+                (
+                    project
+                    / ".unity-codex-harness"
+                    / "install-manifest.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertNotIn(
+                "docs/unity_harness_evaluation_2026-06-08.md",
+                {entry["path"] for entry in manifest["files"]},
+            )
+
+    def test_upgrade_preserves_modified_evaluation_report_and_stops(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            evaluation = self.add_legacy_evaluation_manifest_entry(
+                project,
+                "# Legacy distributed evaluation\n",
+            )
+            evaluation.write_text(
+                "# Project notes added locally\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "source-only document cannot be retired safely",
+                result.stderr,
+            )
+            self.assertIn(
+                "differs from its previously distributed",
+                result.stderr,
+            )
+            self.assertEqual(
+                evaluation.read_text(encoding="utf-8"),
+                "# Project notes added locally\n",
+            )
+            self.assertFalse(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).exists()
+            )
+
+    def test_upgrade_rejects_symlinked_evaluation_report(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            evaluation = self.add_legacy_evaluation_manifest_entry(
+                project,
+                "# Legacy distributed evaluation\n",
+            )
+            evaluation.unlink()
+            evaluation.symlink_to(project / "missing-evaluation.md")
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "source-only document cannot be retired safely",
+                result.stderr,
+            )
+            self.assertIn("is not a regular file", result.stderr)
+            self.assertTrue(evaluation.is_symlink())
+            self.assertFalse(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).exists()
             )
 
     def test_prepare_migration_creates_three_way_bundle(self):

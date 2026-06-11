@@ -11,6 +11,8 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 - `docs/unity_harness_requirements.md`: 導入先へ適用する標準・推奨要件
 - `docs/unity_design_sheet.md`: 配布先ゲームの個別要件・適用・例外記録
 - `docs/mcp_and_skills_list.md`: Unity MCPとSkillsの責務
+- `docs/unity_harness_evaluation_2026-06-08.md`: ハーネス開発用の
+  source-only評価履歴。導入先ゲームへコピーしません
 - `harness.lock.json`: ハーネス管理の標準pinと検証環境
 - `harness.overrides.json`: ゲーム側が承認した外部依存override
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
@@ -397,7 +399,7 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 
 ### 手動導入
 
-自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、`harness.overrides.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+自動インストーラーを利用できない場合は、`.codex/skills/`と`templates/unity/`の内容に加え、`docs/`から`mcp_and_skills_list.md`、`unity_design_sheet.md`、`unity_harness_agent_contract.md`、`unity_harness_capabilities.md`、`unity_harness_engineering.md`、`unity_harness_requirements.md`だけをUnityプロジェクトルートへコピーします。source-onlyの`docs/unity_harness_evaluation_2026-06-08.md`はコピーしません。さらに`harness.lock.json`、`harness.overrides.json`、必要に応じて`AGENTS.md`を配置します。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 

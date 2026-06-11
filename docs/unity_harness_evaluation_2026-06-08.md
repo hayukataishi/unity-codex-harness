@@ -1783,11 +1783,12 @@ CLI、IDE、App、将来versionを対象にした配布契約としてはPlugin�
 標準pinの偶発的driftを検出できる構造が必要である。
 2026-06-11にSection 15.10の対応を実施した。
 
-#### P1-3: 評価履歴まで導入先ゲームへ配布される
+#### P1-3: 評価履歴まで導入先ゲームへ配布される（対応済み）
 
 Installerは`docs/`全体をコピーするため、1,600行を超える過去評価レポートも
 harness-managedとして各ゲームへ導入する。実行に必要な標準文書と、開発履歴・
 評価記録の配布範囲を分けるべきである。
+2026-06-11にSection 15.11の対応を実施した。
 
 #### P1-4: versioned releaseがない
 
@@ -1915,3 +1916,41 @@ MCP、Build、CIのセットアップを扱える個人またはチームであ�
 
 この対応により、ゲーム側が標準pinを偶発的に変更しても完全性`PASS`となる
 経路を閉じ、意図した差分だけをレビュー可能なproject-owned記録へ分離した。
+
+### 15.11 P1-3 評価レポート配布境界対応結果
+
+実行に必要なruntime文書と、ハーネス開発履歴の配布境界を分離した。
+
+実装:
+
+- Installerの`docs/`全体列挙を廃止し、ゲーム作業に必要な6文書を
+  `DISTRIBUTED_DOC_PATHS`で明示
+- `docs/unity_harness_evaluation_2026-06-08.md`を
+  `SOURCE_ONLY_DOC_PATHS`へ分類
+- 新規導入では評価レポートをコピーせず、install manifestにも登録しない
+- 旧manifestで評価レポートがharness-managedかつ実ファイルhash一致の場合、
+  `Artifacts/HarnessInstallerBackups/<OperationId>/`へbackupして退役
+- 旧配布レポートがローカル変更済み、symlink、hash不一致の場合は
+  全書込み前に停止し、自動削除しない
+- Repository validatorがallowlist、source-only list、重複、対象file存在、
+  回帰契約を検査
+- 手動導入手順も`docs/`全体コピーから6文書の明示コピーへ変更
+
+`DEBUG-007-AC06`:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-007-AC06` | `PASS` | 新規非配布、manifest非登録、旧版backup付き退役、改変時の無変更停止、allowlist検査をPython回帰で確認 |
+
+検証:
+
+- `python3 scripts/validate_repository.py`: `PASS`
+- `python3 -m unittest discover -s tests -p 'test_installer_cli.py' -v`:
+  25 tests `PASS`
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`:
+  159 tests `PASS`
+- 対象Pythonファイルの`py_compile`: `PASS`
+- Unity fixture: `NOT RUN`。Unity C#、asset、scene、prefab、ProjectSettings、
+  validation runnerを変更していないため
+
+この対応により、評価履歴が導入先ゲームの標準契約として増殖する経路を閉じた。

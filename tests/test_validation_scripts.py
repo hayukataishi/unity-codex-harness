@@ -1332,6 +1332,63 @@ class HarnessLockValidationTests(unittest.TestCase):
         )
 
 
+class DocumentDistributionTests(unittest.TestCase):
+    def test_repository_document_distribution_is_valid(self):
+        self.assertEqual(
+            repository_validator.validate_document_distribution_contract(ROOT),
+            [],
+        )
+
+    def test_rejects_evaluation_report_in_runtime_allowlist(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for relative, required_values in (
+                repository_validator
+                .DOCUMENT_DISTRIBUTION_REQUIRED_TEXT.items()
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(required_values), encoding="utf-8")
+            for relative in (
+                repository_validator.EXPECTED_DISTRIBUTED_DOC_PATHS
+                | repository_validator.EXPECTED_SOURCE_ONLY_DOC_PATHS
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            installer = root / "scripts/install.py"
+            installer.write_text(
+                (
+                    "from pathlib import Path\n"
+                    "DISTRIBUTED_DOC_PATHS = (\n"
+                    '    Path("docs/unity_harness_evaluation_2026-06-08.md"),\n'
+                    ")\n"
+                    "SOURCE_ONLY_DOC_PATHS = (\n"
+                    '    Path("docs/unity_harness_evaluation_2026-06-08.md"),\n'
+                    ")\n"
+                    "RETIRED_MANAGED_PATHS = SOURCE_ONLY_DOC_PATHS\n"
+                    "def plan_retired_managed_files():\n"
+                    "    return {'operation': 'retire'}\n"
+                ),
+                encoding="utf-8",
+            )
+
+            errors = (
+                repository_validator.validate_document_distribution_contract(
+                    root
+                )
+            )
+
+            self.assertTrue(
+                any("allowlist does not match" in error for error in errors),
+                errors,
+            )
+            self.assertTrue(
+                any("lists overlap" in error for error in errors),
+                errors,
+            )
+
+
 class InstallerSourceTests(unittest.TestCase):
     def test_maps_unity_template_into_project_paths(self):
         installer = load_module(
@@ -1375,6 +1432,10 @@ class InstallerSourceTests(unittest.TestCase):
         )
         self.assertIn(
             "docs/unity_harness_agent_contract.md",
+            relative_paths,
+        )
+        self.assertNotIn(
+            "docs/unity_harness_evaluation_2026-06-08.md",
             relative_paths,
         )
         self.assertIn("harness.lock.json", relative_paths)

@@ -131,10 +131,15 @@
 - `unity_harness_requirements.md`はゲームへ適用する標準・推奨要件だけを保持する。
 - `unity_design_sheet.md`はゲーム固有の決定、適用状態、例外、ACだけを保持する。
 - 標準・推奨要件とゲーム個別設計は`HREQ-*` IDで対応付ける。
+- Installerはruntime文書allowlistだけを導入先へ配布し、評価レポートなどの
+  source-only開発履歴をmanifestとゲームProjectへ含めない。
+- 旧版で配布済みのsource-only文書は、旧manifest上のharness-managed hashと
+  一致する場合だけbackup後に退役し、ローカル変更があれば無変更停止する。
 - Repository validatorとInstaller回帰で文書種別と所有区分を検査する。
 
 受け入れ契約: `DEBUG-007-AC01`、`DEBUG-007-AC02`、
-`DEBUG-007-AC03`、`DEBUG-007-AC04`、`DEBUG-007-AC05`
+`DEBUG-007-AC03`、`DEBUG-007-AC04`、`DEBUG-007-AC05`、
+`DEBUG-007-AC06`
 
 <a id="hcap-integrity-001"></a>
 ## HCAP-INTEGRITY-001 改変検知

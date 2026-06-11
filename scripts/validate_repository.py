@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import tomllib
@@ -24,6 +25,17 @@ OCI_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PACKAGE_REQUIREMENT_RE = re.compile(r"^(?:~=|==|!=|>=|<=|>|<)\S+$")
 VALID_RESULTS = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
+EXPECTED_DISTRIBUTED_DOC_PATHS = {
+    "docs/mcp_and_skills_list.md",
+    "docs/unity_design_sheet.md",
+    "docs/unity_harness_agent_contract.md",
+    "docs/unity_harness_capabilities.md",
+    "docs/unity_harness_engineering.md",
+    "docs/unity_harness_requirements.md",
+}
+EXPECTED_SOURCE_ONLY_DOC_PATHS = {
+    "docs/unity_harness_evaluation_2026-06-08.md",
+}
 BUILD_PROFILE_REQUIRED_TEXT = {
     "docs/unity_harness_requirements.md": (
         '<a id="build-001"></a>',
@@ -392,6 +404,7 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "DEBUG-006-AC04",
         "HCAP-DOCS-001",
         "DEBUG-007-AC04",
+        "DEBUG-007-AC06",
         "HCAP-INTEGRITY-001",
         "異常系",
         "dry-run",
@@ -422,6 +435,9 @@ TEMPLATE_REGRESSION_REQUIRED_TEXT = {
         "test_force_updates_standard_documents_but_preserves_game_sheet",
         "test_modified_legacy_lock_requires_ownership_migration",
         "test_check_rejects_modified_standard_lock",
+        "test_upgrade_retires_unmodified_evaluation_report_with_backup",
+        "test_upgrade_preserves_modified_evaluation_report_and_stops",
+        "test_upgrade_rejects_symlinked_evaluation_report",
         "test_prepare_migration_creates_three_way_bundle",
         "test_install_manifest_records_ownership_and_hashes",
         "test_reinstall_is_idempotent",
@@ -648,6 +664,40 @@ HARNESS_LOCK_BOUNDARY_REQUIRED_TEXT = {
         "test_override_rejects_unknown_metadata_fields",
         "test_override_rejects_unknown_fields",
         "test_override_rejects_inconsistent_effective_pin",
+    ),
+}
+
+DOCUMENT_DISTRIBUTION_REQUIRED_TEXT = {
+    "README.md": (
+        "`docs/unity_harness_evaluation_2026-06-08.md`",
+        "source-only",
+        "導入先ゲームへコピーしません",
+    ),
+    "docs/unity_harness_engineering.md": (
+        "runtime文書allowlist",
+        "source-only",
+        "旧manifest",
+    ),
+    "docs/unity_harness_capabilities.md": (
+        "DEBUG-007-AC06",
+        "runtime文書allowlist",
+        "source-only",
+    ),
+    "scripts/install.py": (
+        "DISTRIBUTED_DOC_PATHS",
+        "SOURCE_ONLY_DOC_PATHS",
+        "RETIRED_MANAGED_PATHS",
+        "plan_retired_managed_files",
+        '"operation": "retire"',
+    ),
+    "tests/test_installer_cli.py": (
+        "test_upgrade_retires_unmodified_evaluation_report_with_backup",
+        "test_upgrade_preserves_modified_evaluation_report_and_stops",
+        "test_upgrade_rejects_symlinked_evaluation_report",
+    ),
+    "tests/test_validation_scripts.py": (
+        "docs/unity_harness_evaluation_2026-06-08.md",
+        "self.assertNotIn",
     ),
 }
 
@@ -1399,6 +1449,86 @@ def validate_harness_lock_boundary(root: Path) -> list[str]:
     return errors
 
 
+def installer_path_tuple(
+    tree: ast.Module,
+    name: str,
+) -> set[str] | None:
+    for statement in tree.body:
+        if not isinstance(statement, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in statement.targets
+        ):
+            continue
+        if not isinstance(statement.value, (ast.Tuple, ast.List)):
+            return None
+        paths: set[str] = set()
+        for element in statement.value.elts:
+            if (
+                not isinstance(element, ast.Call)
+                or not isinstance(element.func, ast.Name)
+                or element.func.id != "Path"
+                or len(element.args) != 1
+                or not isinstance(element.args[0], ast.Constant)
+                or not isinstance(element.args[0].value, str)
+            ):
+                return None
+            paths.add(element.args[0].value)
+        return paths
+    return None
+
+
+def validate_document_distribution_contract(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in (
+        DOCUMENT_DISTRIBUTION_REQUIRED_TEXT.items()
+    ):
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing document distribution file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing document distribution boundary: "
+                    f"{relative} -> {required}"
+                )
+
+    installer_path = root / "scripts/install.py"
+    if not installer_path.is_file():
+        return errors
+    try:
+        tree = ast.parse(installer_path.read_text(encoding="utf-8"))
+    except SyntaxError as error:
+        errors.append(f"invalid installer Python syntax: {error}")
+        return errors
+    distributed = installer_path_tuple(tree, "DISTRIBUTED_DOC_PATHS")
+    source_only = installer_path_tuple(tree, "SOURCE_ONLY_DOC_PATHS")
+    if distributed != EXPECTED_DISTRIBUTED_DOC_PATHS:
+        errors.append(
+            "Installer distributed document allowlist does not match the "
+            "required runtime documents"
+        )
+    if source_only != EXPECTED_SOURCE_ONLY_DOC_PATHS:
+        errors.append(
+            "Installer source-only document list does not contain exactly "
+            "the harness evaluation report"
+        )
+    if distributed is not None and source_only is not None:
+        overlap = sorted(distributed & source_only)
+        if overlap:
+            errors.append(
+                "Installer document distribution lists overlap: "
+                + ", ".join(overlap)
+            )
+    for relative in EXPECTED_DISTRIBUTED_DOC_PATHS | EXPECTED_SOURCE_ONLY_DOC_PATHS:
+        if not (root / relative).is_file():
+            errors.append(f"missing classified document: {relative}")
+    return errors
+
+
 def validate_initial_design_dialogue(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items():
@@ -1904,6 +2034,7 @@ def main() -> int:
         + validate_design_document_boundaries(root)
         + validate_harness_integrity_contract(root)
         + validate_harness_lock_boundary(root)
+        + validate_document_distribution_contract(root)
         + validate_initial_design_dialogue(root)
         + validate_design_readiness_contract(root)
         + validate_harness_lock(root)

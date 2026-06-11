@@ -42,6 +42,8 @@ Unityゲーム開発において、人間がゲームの方向性と品質判断
 - **MCP・Skill一覧**：利用可能な能力、用途、使用条件、制限事項を定義する。
 - **`harness.lock.json`**：ハーネスの検証環境、外部ツールの標準固定参照、公式根拠、実行確認状態を定義する`harness-managed`ファイル。
 - **`harness.overrides.json`**：ゲーム側が承認した外部依存の標準pinとの差分だけを定義する`project-owned`ファイル。
+- **評価レポート**：ハーネス自身の再評価、改善履歴、検証記録を保持する
+  source-only文書。導入先ゲームのruntime契約ではなく、Installerで配布しない。
 - **ソースコードとUnityアセット**：設計を実行可能な形で表現する。
 - **テスト**：設計と実装の一致を機械的に確認する。
 
@@ -547,6 +549,11 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
 
 更新規則:
 
+- `docs/`はdirectory全体をコピーせず、ゲーム作業に必要な6文書を
+  runtime文書allowlistで明示する。評価レポートなどの開発履歴はsource-onlyとする。
+- 旧版が評価レポートをharness-managedとして配布済みの場合、旧manifestと
+  sidecarを検証し、実ファイルが旧source hashと一致する場合だけbackup後に
+  退役させる。ローカル変更、symlink、hash不一致は全書込み前に停止する。
 - `project-owned`は存在しない場合だけ初回生成する。既存ファイルは内容がtemplateと同じでも異なっていても、`--force`と`--force-file`を含むInstaller操作で上書きしない。
 - `AGENTS.md`はproject-ownedのまま保持するが、Installer対象に含めた場合は
   `UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED`マーカーと
