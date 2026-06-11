@@ -1,7 +1,7 @@
 # Unity Codex Harness 評価レポート
 
 - 評価日: 2026-06-08
-- 最終更新日: 2026-06-10
+- 最終更新日: 2026-06-11
 - 評価対象: Unity Codex Harness リポジトリ全体
 - 評価目的: 最新のUnityゲーム開発をジャンル・規模・対象プラットフォームに依存せず進めるための汎用ハーネスとして、設計、実装支援、検証、再現性、安全性を評価する
 
@@ -1667,3 +1667,213 @@ P0-4はGameCI image未対応問題を解消した。残件はUnity License Secre
 
 4観点の暫定総合点は、3文書分離`92`、改変防止`85`、
 標準推奨対話`94`、ゲーム個別対話`95`として`92 / 100`へ更新する。
+
+## 15. 2026-06-11 再評価: Unityプロジェクトへ取り込めば誰でもCodexへ任せられるか
+
+### 15.1 最終判定
+
+**No。現時点では、導入だけでUnity未経験者を含む誰もがゲーム制作全体を
+Codexへ完全委任できる状態ではない。**
+
+一方で、Unity、Git、Codexの基本セットアップができ、ゲームの方向性、
+承認、主観的品質判断を人間が担当する条件では、設計から実装、検証、報告を
+Codexへ安全に委任するための基盤として実用水準にある。
+
+| 評価軸 | 点数 | 判定 |
+|---|---:|---|
+| Codex向け制御基盤 | **88 / 100** | Skill、設計ゲート、完全性、証拠管理は強い |
+| 導入・更新の安全性 | **90 / 100** | 競合停止、ownership、backup、migrationを実装 |
+| ローカルUnity検証 | **85 / 100** | Compile、EditMode、PlayMode、資産検査が実動 |
+| 初心者オンボーディング | **58 / 100** | MCP、License、Build Support、CIを利用者が設定 |
+| ゲーム制作E2E実証 | **47 / 100** | 自然言語からPlayable・Buildまでの完走証拠がない |
+| **「誰でもお任せ」のターンキー性** | **64 / 100** | 前回61点から初期設計・readiness・Skill実測分を加点 |
+
+### 15.2 今回の実測
+
+| 検証 | 結果 | 証拠・意味 |
+|---|---|---|
+| Repository検証 | `PASS` | `python3 scripts/validate_repository.py` |
+| Python回帰 | `PASS` | 140件 |
+| 新規相当Projectへのdry-run / install / check | `PASS` | 41変更、完全性とignore検査もPASS |
+| 導入先でのCodex Skill検出 | `PASS` | Codex CLI `0.137.0`が7 Skillを検出 |
+| 導入直後の外部依存診断 | `ACTION REQUIRED` | Unity MCPとagent-sprite-forgeが未導入 |
+| 導入直後のDesign Contract | `PASS` | 文書構造は有効 |
+| 未記入ConceptのDesign Readiness | `FAIL` | 未決定、未承認、未監査を正しく拒否 |
+| Unity fixture | `COMPLETED / PASS` | Run `20260611T110543Z` |
+| EditMode / PlayMode | `PASS` | 6件 / 2件 |
+| Asset validation | `PASS` | error 0、warning 0 |
+| Player Build | `NOT RUN` | Build Profile指定の実Player build証拠なし |
+| Unity MCP E2E | `NOT RUN` | Server、Codex、Editor操作の接続証拠なし |
+| Remote Unity CI | `BLOCKED` | License Secret未設定 |
+| Harness release | `UNRELEASED` | tag、changelog、互換性表なし |
+
+Unity fixtureの証拠:
+
+- `tests/fixtures/UnityValidationFixture/Artifacts/ValidationRuns/20260611T110543Z/`
+- Static preflight、Compile、EditMode、PlayMode、Asset validation、Run integrityがPASS
+
+### 15.3 現在できること
+
+- 曖昧なゲーム案をPhase別の対話で設計へ変換する
+- HREQ、設計ID、AC、承認、未決事項を追跡する
+- 承認済みの小さなC#機能を既存構造へ実装する
+- `.meta`、GUID、Scene、Prefab、Save、Package変更の危険を抑える
+- Compile、EditMode、PlayMode、Missing Reference、必須参照を検証する
+- 未実行、環境障害、主観判断を成功扱いせず報告する
+- ハーネス標準とゲーム所有ファイルを分離して安全に更新する
+
+### 15.4 新しいP0
+
+#### P0-1: 中核ワークフローのゲーム制作E2Eが未証明
+
+fixtureは検証基盤の非回帰を証明するが、利用者の自然言語要求から
+初期設計、C#、Scene、Prefab、入力、Play、Screenshot、Player Build、
+最終Reportまでを一つの小さなゲームで完走していない。
+
+このため「各部品が存在する」ことは証明できても、「Codexへゲーム制作を
+任せると全工程が接続される」ことはまだ証明できない。
+
+#### P0-2: Unity MCPが標準経路なのに実接続が未証明
+
+Scene、Prefab、ScriptableObject、Import、Play、ScreenshotはMCP優先だが、
+InstallerはMCPを導入せず、診断もPackage参照の静的確認までである。
+Server起動、Codex設定、Editor接続、固定版互換性、基本操作のsmoke testがない。
+
+#### P0-3: Buildと配布可能性が未証明
+
+保存済みBuild Profileのfixtureはあるが、それを指定したPlayer build、
+生成物の起動smoke test、導入先CI template、成功したremote Unity jobがない。
+したがってPrototypeのコード検証から配布可能なゲームまでの経路は未完成である。
+
+#### P0-4: 既存`AGENTS.md`があると作業契約なしでも導入成功になる（対応済み）
+
+既存Projectの`AGENTS.md`はproject-ownedとして保持される。今回の再現では、
+ハーネス指示を含まない既存`AGENTS.md`でもInstallerは
+`Installation complete`、完全性検査`PASS`となった。
+
+Skill自身にも安全ゲートはあるが、必須文書、優先workflow、設計更新順序、
+完了条件をCodexへ常時適用するRepository契約は保証されない。Installerまたは
+doctorは、必須指示の統合済み状態を検査し、未統合なら導入準備完了を名乗らない
+必要がある。2026-06-11にSection 15.9の対応を実施した。
+
+### 15.5 P1
+
+#### P1-1: 現行Codexの標準配布形態へ未追随
+
+2026-06-11の公式Codex ManualはRepository Skillの標準配置を
+`.agents/skills`、複数Skillの再利用配布をPluginとして案内している。
+本ハーネスは`.codex/skills`を使用する。
+
+Codex CLI `0.137.0`では、source repositoryと新規導入先の両方で7 Skillを
+実際に検出したため、現時点の不動作ではない。ただし互換経路への依存であり、
+CLI、IDE、App、将来versionを対象にした配布契約としてはPlugin化または
+`.agents/skills`への移行・二重検証が望ましい。
+
+公式参照:
+
+- https://developers.openai.com/codex/skills
+- https://developers.openai.com/codex/guides/agents-md
+- https://developers.openai.com/codex/mcp
+- https://developers.openai.com/codex/subagents
+
+#### P1-2: `harness.lock.json`がproject-owned
+
+外部依存の固定参照と互換性根拠を持つ`harness.lock.json`はproject-ownedであり、
+完全性検査はゲーム側変更を許可する。固定する標準値とゲーム側overrideを分離し、
+標準pinの偶発的driftを検出できる構造が必要である。
+
+#### P1-3: 評価履歴まで導入先ゲームへ配布される
+
+Installerは`docs/`全体をコピーするため、1,600行を超える過去評価レポートも
+harness-managedとして各ゲームへ導入する。実行に必要な標準文書と、開発履歴・
+評価記録の配布範囲を分けるべきである。
+
+#### P1-4: versioned releaseがない
+
+`harness.release`は`UNRELEASED`で、Git tag、changelog、対応Codex version、
+Unity version帯、migration policyの公開単位がない。導入済みProjectが
+「どのHarness契約で動くか」を安定して説明できない。
+
+#### P1-5: 自動検査範囲がまだ限定的
+
+Input System、Tag、Layer、Addressables、Code Coverage、Profiler、Memory、
+Build Profile Player build、Platform実機、3D、Audio、Localization、Online、
+Store提出は文書ゲート中心で、共通の実行fixtureや自動検査が不足する。
+
+#### P1-6: 初心者ユーザーテストがない
+
+READMEは詳細だが、Unity初心者がREADMEだけで導入し、Codexへ最初の依頼を行い、
+設計対話、MCP接続、Playable確認、検証Reportまで到達した記録がない。
+
+### 15.6 利用者別の回答
+
+| 利用者 | 判定 | 現実的に任せられる範囲 |
+|---|---|---|
+| Unity・Git経験者 | `YES, 条件付き` | Prototypeから継続開発。環境構築とレビューは人間 |
+| 開発経験はあるUnity初心者 | `PARTIAL` | 設計とC#は有効。Editor、MCP、Buildで支援が必要 |
+| 非技術者 | `NO` | 導入、障害復旧、CI、Build、配布を単独では完結しにくい |
+| 小規模Prototype | `実用候補` | コアループ中心なら適合 |
+| Commercial Release | `未到達` | Build、署名、Store、運用、法務、実機検証が不足 |
+
+### 15.7 「誰でもお任せ」に近づく完了条件
+
+1. `install / doctor / upgrade`を分け、Unity、Build Support、License、Git、
+   LFS、Skill検出、`AGENTS.md`統合、MCP接続を一括診断する。
+2. 固定版Unity MCPでEditor state、Scene、Prefab、Compile、Play、
+   Screenshotを実行するE2E smoke testを追加する。
+3. 小さなPlayable sampleを、自然言語から設計、実装、検証、Reportまで完走する。
+4. Build Profile指定Player buildと起動smoke testをローカル・CIで成功させる。
+5. Codex Pluginまたは公式Skill配置へ移行し、CLI、IDE、Appで検出を回帰する。
+6. 標準pinとゲームoverrideを分離し、互換性matrixを検査する。
+7. versioned release、tag、changelog、migration guideを公開する。
+8. Unity初心者によるREADMEのみのユーザーテストを完走する。
+
+### 15.8 回答
+
+> このハーネスは、CodexへUnity作業を安全かつ追跡可能に任せるための
+> 高品質な制御基盤である。しかし、取り込むだけで誰でも企画から配布までを
+> 完全委任できるターンキー製品ではない。
+
+現時点の推奨対象は、ゲームの意図と品質判断を人間が持ち、Unity環境、
+MCP、Build、CIのセットアップを扱える個人またはチームである。
+
+### 15.9 P0-4 Agent Contract統合ゲート対応結果
+
+既存のゲーム固有`AGENTS.md`を上書きせず、Codexへ必須作業契約を確実に
+適用するため、契約本体と参照を分離した。
+
+実装:
+
+- `docs/unity_harness_agent_contract.md`をharness-managed契約として追加
+- project-ownedの`AGENTS.md`へ固定マーカーと契約path参照を要求
+- 未統合の既存`AGENTS.md`では通常Installerを全書込み前に停止
+- `--prepare-migration`では`AGENTS.md`だけのbase・local・incoming・diffを
+  生成し、local不変・終了コード`1`の導入未完了とする
+- `--skip-agents`をAgent Contract検査の明示的免除として維持
+- install manifestへ`AGENTS.md`が含まれる場合、
+  `verify_harness_integrity.py`とInstaller `--check`がマーカー、契約path、
+  `AGENTS.md`欠落を検出
+- 契約本体はharness-managedなので、将来の標準更新をゲーム固有
+  `AGENTS.md`の上書きなしで配布可能
+
+`DEBUG-005-AC05`:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-005-AC05` | `PASS` | 未統合時の無変更停止、migration-only未完了、統合済み保持、`--check`拒否、`--skip-agents`免除をPython回帰で確認 |
+
+検証結果:
+
+- Repository検証: `PASS`
+- Python回帰テスト: `PASS`、144件
+- Python構文コンパイル: `PASS`
+- Unity `6000.4.10f1` fixture: `COMPLETED / PASS`
+  - Run ID: `20260611T141954Z`
+  - Compile: `PASS`
+  - EditMode: `PASS`、6件
+  - PlayMode: `PASS`、2件
+  - Asset validation: `PASS`
+  - Validation Run integrity: `PASS`
+
+この対応により、既存`AGENTS.md`を持つProjectが必須作業契約なしで
+`Installation complete`と完全性`PASS`になる経路を閉じた。

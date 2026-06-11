@@ -6,6 +6,7 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 
 - `.codex/skills/`: Unity開発向けのCodex Skills
 - `docs/unity_harness_engineering.md`: ハーネスの運用・安全・品質ルール
+- `docs/unity_harness_agent_contract.md`: Codexへ常時適用する必須作業契約
 - `docs/unity_harness_capabilities.md`: ハーネスとして標準実装済みの能力
 - `docs/unity_harness_requirements.md`: 導入先へ適用する標準・推奨要件
 - `docs/unity_design_sheet.md`: 配布先ゲームの個別要件・適用・例外記録
@@ -104,6 +105,7 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 ├─ Assets/UnityCodexHarness/Editor/            Unity Editor資産検査
 ├─ docs/
 │  ├─ unity_harness_capabilities.md              ハーネス管理の標準実装
+│  ├─ unity_harness_agent_contract.md             Codexの必須作業契約
 │  ├─ unity_harness_requirements.md              ハーネス管理の標準・推奨要件
 │  └─ unity_design_sheet.md                     ゲーム側所有の個別要件
 ├─ harness.lock.json                           外部ツールの固定情報
@@ -247,7 +249,7 @@ python3 scripts/unity_codex_harness/verify_harness_integrity.py \
   --project-root .
 ```
 
-検査はharness-managedファイルの欠落、内容変更、symlink、専有管理ディレクトリ内の未知ファイル、manifest改変を失敗させます。`unity_design_sheet.md`などのproject-owned変更は許可されます。
+検査はharness-managedファイルの欠落、内容変更、symlink、専有管理ディレクトリ内の未知ファイル、manifest改変を失敗させます。`unity_design_sheet.md`などのproject-owned変更は許可されますが、Installerが`AGENTS.md`を導入対象にしたProjectでは、必須のAgent Contract参照マーカーとpathも検査します。
 
 失敗時にmanifestや`install-manifest.sha256`を手編集して追認しないでください。信頼するハーネスcheckoutから`--force-file`または`--force`を使ってbackup後に復旧します。独自ハーネスへ変更する場合は、ハーネス本体を明示的にforkし、そのcheckoutのInstallerから再配布します。
 
@@ -281,7 +283,30 @@ python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
 
 ### 既存の`AGENTS.md`がある場合
 
-通常実行は既存`AGENTS.md`を`project-owned`としてそのまま保持します。このリポジトリの`AGENTS.md`にある必須ルールを既存ファイルへ手動で統合してください。ハーネスの`AGENTS.md`を比較対象にも含めない場合は`--skip-agents`を使用します。
+通常実行は既存`AGENTS.md`を`project-owned`としてそのまま保持し、上書きしません。ただし、次の参照がない場合は書込み前に停止し、導入成功を報告しません。
+
+```markdown
+<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->
+
+Before Unity work, read and follow
+`docs/unity_harness_agent_contract.md`.
+```
+
+既存のチーム指示へこの参照を統合するための比較bundleを生成します。
+
+```bash
+python3 scripts/install.py "/path/to/YourUnityProject" \
+  --prepare-migration
+```
+
+この実行は`Artifacts/HarnessInstallerMigrations/<OperationId>/`へ
+`AGENTS.md`のbase・local・incoming・diffを生成しますが、localを変更せず、
+終了コード`1`と`Installation remains incomplete`の「導入未完了」で終了します。
+参照を統合してから通常のInstallerを再実行してください。
+
+ハーネスの`AGENTS.md`を比較対象にも含めず、Agent Contractの検査を明示的に
+免除する場合だけ`--skip-agents`を使用します。この場合、別のRepository指示で
+同等の作業契約を維持する責任は導入側にあります。
 
 ```bash
 python3 scripts/install.py "/path/to/YourUnityProject" --skip-agents
@@ -355,15 +380,15 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 | オプション | 用途 |
 |---|---|
 | `--dry-run` | ファイルを変更せず、導入予定を表示する |
-| `--check` | ファイルを変更せず、ローカル専用pathのGit除外とharness-managed完全性を検査する |
-| `--skip-agents` | `AGENTS.md`を導入対象から外す |
+| `--check` | ファイルを変更せず、ローカル専用pathのGit除外、harness-managed完全性、導入対象`AGENTS.md`のAgent Contract参照を検査する |
+| `--skip-agents` | `AGENTS.md`を導入対象とAgent Contract検査から明示的に外す |
 | `--force-file PATH` | 指定したharness-managedファイルだけをbackup後に置換する。複数指定可 |
 | `--force` | 内容が異なる全harness-managedファイルをbackup後に置換する |
 | `--prepare-migration` | project-owned templateの三者比較bundleを作る。localは変更しない |
 
 ### 手動導入
 
-自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+自動インストーラーを利用できない場合は、`.codex/skills/`、`docs/`、`templates/unity/`の内容、`harness.lock.json`、必要に応じて`AGENTS.md`をUnityプロジェクトルートへコピーします。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 

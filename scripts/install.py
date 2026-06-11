@@ -21,6 +21,11 @@ REQUIRED_UNITY_PATHS = (
     Path("Packages"),
     Path("ProjectSettings/ProjectVersion.txt"),
 )
+AGENTS_PATH = Path("AGENTS.md")
+AGENTS_CONTRACT_PATH = Path("docs/unity_harness_agent_contract.md")
+AGENTS_CONTRACT_MARKER = (
+    "<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->"
+)
 GITIGNORE_BEGIN = "# >>> Unity Codex Harness managed Artifacts ignore >>>"
 GITIGNORE_RULE = "/Artifacts/"
 GITIGNORE_RULES = (
@@ -137,7 +142,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Check that harness local-only paths are ignored",
+        help="Check local-only paths, managed integrity, and the AGENTS contract",
     )
     return parser.parse_args()
 
@@ -241,6 +246,62 @@ def ownership_for(relative: Path) -> str:
     if relative in PROJECT_OWNED_PATHS:
         return OWNERSHIP_PROJECT
     return OWNERSHIP_HARNESS
+
+
+def agents_contract_status(project_root: Path) -> tuple[bool, str]:
+    agents_path = project_root / AGENTS_PATH
+    if not agents_path.is_file():
+        return False, "AGENTS.md does not exist"
+    text = agents_path.read_text(encoding="utf-8")
+    missing = []
+    if AGENTS_CONTRACT_MARKER not in text:
+        missing.append(AGENTS_CONTRACT_MARKER)
+    if AGENTS_CONTRACT_PATH.as_posix() not in text:
+        missing.append(AGENTS_CONTRACT_PATH.as_posix())
+    if missing:
+        return (
+            False,
+            "AGENTS.md is missing the Unity Codex Harness contract reference: "
+            + ", ".join(missing),
+        )
+    return True, "AGENTS.md references the harness-managed agent contract"
+
+
+def prepare_agents_contract_migration(
+    project_root: Path,
+    agents_source: InstallSource,
+    *,
+    dry_run: bool,
+) -> Path:
+    destination = project_root / AGENTS_PATH
+    baseline = project_root / BASELINE_ROOT / AGENTS_PATH
+    if baseline.is_file():
+        base = baseline
+        base_kind = "recorded-template"
+    else:
+        base = destination
+        base_kind = "legacy-local-snapshot"
+    operation_id = next_operation_id(project_root)
+    migration_root = create_migration_bundle(
+        project_root,
+        [
+            ProjectTemplateChange(
+                item=agents_source,
+                baseline=base,
+                destination=destination,
+                base_kind=base_kind,
+            )
+        ],
+        operation_id,
+        dry_run=dry_run,
+    )
+    assert migration_root is not None
+    copy_if_changed(
+        agents_source.source,
+        baseline,
+        dry_run=dry_run,
+    )
+    return migration_root
 
 
 def normalized_relative_path(value: str) -> Path:
@@ -816,6 +877,65 @@ def main() -> int:
         return 0
 
     files = source_files(repository_root, args.skip_agents)
+    if not args.skip_agents:
+        agents_source = next(
+            item for item in files if item.relative == AGENTS_PATH
+        )
+        agents_path = project_root / AGENTS_PATH
+        if agents_path.exists():
+            contract_ok, contract_detail = agents_contract_status(project_root)
+            if not contract_ok:
+                if not args.prepare_migration:
+                    raise SystemExit(
+                        "Installation stopped before writing because the "
+                        "existing project-owned AGENTS.md does not activate "
+                        "the Unity Codex Harness agent contract.\n"
+                        f"{contract_detail}\n"
+                        "Rerun with --prepare-migration to create a reviewed "
+                        "AGENTS.md migration bundle, integrate the required "
+                        "marker and contract path, then rerun the installer."
+                    )
+                tracked = tracked_local_only_paths(project_root)
+                if tracked:
+                    preview = "\n".join(
+                        f"  - {path}" for path in tracked[:10]
+                    )
+                    suffix = "\n  - ..." if len(tracked) > 10 else ""
+                    raise SystemExit(
+                        "Migration stopped because harness local-only paths "
+                        "contain files already tracked by Git:\n"
+                        f"{preview}{suffix}\n"
+                        "Remove them from the Git index, then rerun."
+                    )
+                try:
+                    gitignore_action, gitignore_text = plan_gitignore_update(
+                        project_root
+                    )
+                except ValueError as error:
+                    raise SystemExit(str(error)) from error
+                write_gitignore(
+                    project_root,
+                    gitignore_text,
+                    dry_run=args.dry_run,
+                )
+                migration_root = prepare_agents_contract_migration(
+                    project_root,
+                    agents_source,
+                    dry_run=args.dry_run,
+                )
+                action_prefix = "would " if args.dry_run else ""
+                if gitignore_action != "unchanged":
+                    print(f"{action_prefix}{gitignore_action}: .gitignore")
+                prefix = "would create" if args.dry_run else "created"
+                print(
+                    f"{prefix} AGENTS.md migration: "
+                    f"{migration_root.relative_to(project_root).as_posix()}"
+                )
+                print(
+                    "Installation remains incomplete: integrate the required "
+                    "AGENTS.md contract reference, then rerun the installer."
+                )
+                return 1
     force_paths = selected_force_paths(files, args.force_file)
     conflicts: list[Path] = []
     operations: list[tuple[str, Path]] = []

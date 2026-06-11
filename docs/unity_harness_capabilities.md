@@ -98,8 +98,12 @@
 - project-ownedファイルを通常更新、`--force`、`--force-file`で上書きしない。
 - harness-managed競合は標準実行を停止し、承認された対象だけbackup後に置換する。
 - project-owned template更新は三者比較migration bundleを生成する。
+- 既存`AGENTS.md`は保持しつつ、harness-managed Agent Contractへの必須参照を
+  Installerと完全性Verifierで検査する。未統合の通常導入は書込み前に停止し、
+  `--prepare-migration`は比較bundleを生成して導入未完了で終了する。
 
-受け入れ契約: `DEBUG-005-AC01`から`DEBUG-005-AC04`
+受け入れ契約: `DEBUG-005-AC01`から`DEBUG-005-AC04`、
+`DEBUG-005-AC05`
 
 <a id="hcap-ci-001"></a>
 ## HCAP-CI-001 GameCI

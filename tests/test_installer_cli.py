@@ -13,6 +13,14 @@ INSTALLER = ROOT / "scripts" / "install.py"
 
 
 class InstallerCliRegressionTests(unittest.TestCase):
+    def compliant_agents(self, prefix: str = "custom agents") -> str:
+        return (
+            f"{prefix}\n\n"
+            "<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->\n\n"
+            "Before Unity work, read and follow "
+            "`docs/unity_harness_agent_contract.md`.\n"
+        )
+
     def create_project(self, root: Path) -> Path:
         project = root / "UnityProject"
         (project / "Assets").mkdir(parents=True)
@@ -185,6 +193,95 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertFalse((skipped / "AGENTS.md").exists())
             self.assertTrue((included / "AGENTS.md").is_file())
 
+    def test_existing_agents_without_contract_stops_before_writes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            agents = project / "AGENTS.md"
+            agents.write_text("custom project instructions\n", encoding="utf-8")
+            original_gitignore = (project / ".gitignore").read_text(
+                encoding="utf-8"
+            )
+
+            result = self.run_installer(project)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "existing project-owned AGENTS.md does not activate",
+                result.stderr,
+            )
+            self.assertIn("--prepare-migration", result.stderr)
+            self.assertEqual(
+                agents.read_text(encoding="utf-8"),
+                "custom project instructions\n",
+            )
+            self.assertEqual(
+                (project / ".gitignore").read_text(encoding="utf-8"),
+                original_gitignore,
+            )
+            self.assertFalse((project / ".codex").exists())
+            self.assertFalse((project / "docs").exists())
+            self.assertFalse((project / ".unity-codex-harness").exists())
+
+    def test_prepare_agents_migration_remains_incomplete(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            agents = project / "AGENTS.md"
+            agents.write_text("custom project instructions\n", encoding="utf-8")
+
+            result = self.run_installer(project, "--prepare-migration")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("created AGENTS.md migration", result.stdout)
+            self.assertIn("Installation remains incomplete", result.stdout)
+            self.assertEqual(
+                agents.read_text(encoding="utf-8"),
+                "custom project instructions\n",
+            )
+            self.assertFalse((project / ".codex").exists())
+            self.assertFalse((project / "docs").exists())
+            self.assertIn(
+                "/Artifacts/",
+                (project / ".gitignore").read_text(encoding="utf-8"),
+            )
+            migration_root = next(
+                (
+                    project / "Artifacts" / "HarnessInstallerMigrations"
+                ).iterdir()
+            )
+            self.assertEqual(
+                (
+                    migration_root / "local" / "AGENTS.md"
+                ).read_text(encoding="utf-8"),
+                "custom project instructions\n",
+            )
+            incoming = (
+                migration_root / "incoming" / "AGENTS.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->",
+                incoming,
+            )
+            self.assertIn(
+                "docs/unity_harness_agent_contract.md",
+                incoming,
+            )
+
+    def test_existing_agents_with_contract_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            agents = project / "AGENTS.md"
+            custom = self.compliant_agents("team-specific instructions")
+            agents.write_text(custom, encoding="utf-8")
+
+            result = self.run_installer(project)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(agents.read_text(encoding="utf-8"), custom)
+            self.assertIn(
+                "Harness integrity verification: PASS",
+                result.stdout,
+            )
+
     def test_existing_asset_validation_config_is_preserved(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -207,7 +304,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
             first = self.run_installer(project)
             self.assertEqual(first.returncode, 0, first.stderr)
             project_owned = {
-                "AGENTS.md": "custom agents\n",
+                "AGENTS.md": self.compliant_agents(),
                 "docs/unity_design_sheet.md": "custom design\n",
                 "docs/mcp_and_skills_list.md": "custom tools\n",
                 "harness.lock.json": '{"custom":true}\n',
@@ -572,6 +669,25 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertIn("Harness integrity verification: FAIL", result.stderr)
             self.assertIn(
                 "harness-managed SHA-256 mismatch",
+                result.stderr,
+            )
+
+    def test_check_rejects_missing_agents_contract_reference(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            (project / "AGENTS.md").write_text(
+                "team instructions without harness contract\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_installer(project, "--check")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Harness integrity verification: FAIL", result.stderr)
+            self.assertIn(
+                "AGENTS.md is missing required harness contract marker",
                 result.stderr,
             )
 

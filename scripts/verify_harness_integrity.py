@@ -13,6 +13,11 @@ from typing import Any
 
 MANIFEST_PATH = Path(".unity-codex-harness/install-manifest.json")
 MANIFEST_HASH_PATH = Path(".unity-codex-harness/install-manifest.sha256")
+AGENTS_PATH = Path("AGENTS.md")
+AGENTS_CONTRACT_PATH = Path("docs/unity_harness_agent_contract.md")
+AGENTS_CONTRACT_MARKER = (
+    "<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->"
+)
 SUPPORTED_SCHEMA_VERSION = 2
 OWNERSHIP_HARNESS = "harness-managed"
 OWNERSHIP_PROJECT = "project-owned"
@@ -126,6 +131,7 @@ def validate_integrity(project_root: Path) -> list[str]:
 
     managed_paths: set[Path] = set()
     all_paths: set[Path] = set()
+    agents_contract_required = False
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             errors.append(f"install manifest file entry {index} must be an object")
@@ -149,6 +155,8 @@ def validate_integrity(project_root: Path) -> list[str]:
                 f"invalid ownership for {relative.as_posix()}: {ownership!r}"
             )
             continue
+        if relative == AGENTS_PATH:
+            agents_contract_required = True
         source_hash = entry.get("sourceSha256")
         if not isinstance(source_hash, str) or not SHA256_RE.fullmatch(source_hash):
             errors.append(
@@ -181,6 +189,26 @@ def validate_integrity(project_root: Path) -> list[str]:
 
     if not managed_paths:
         errors.append("install manifest contains no harness-managed files")
+
+    if agents_contract_required:
+        agents_path = project_root / AGENTS_PATH
+        if not agents_path.is_file():
+            errors.append(
+                "missing project-owned AGENTS.md required by the install "
+                "manifest"
+            )
+        else:
+            text = agents_path.read_text(encoding="utf-8")
+            if AGENTS_CONTRACT_MARKER not in text:
+                errors.append(
+                    "AGENTS.md is missing required harness contract marker: "
+                    f"{AGENTS_CONTRACT_MARKER}"
+                )
+            if AGENTS_CONTRACT_PATH.as_posix() not in text:
+                errors.append(
+                    "AGENTS.md is missing required harness contract path: "
+                    f"{AGENTS_CONTRACT_PATH.as_posix()}"
+                )
 
     roots = manifest.get("exclusiveManagedRoots")
     if not isinstance(roots, list):

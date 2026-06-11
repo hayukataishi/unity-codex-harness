@@ -547,6 +547,13 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
 更新規則:
 
 - `project-owned`は存在しない場合だけ初回生成する。既存ファイルは内容がtemplateと同じでも異なっていても、`--force`と`--force-file`を含むInstaller操作で上書きしない。
+- `AGENTS.md`はproject-ownedのまま保持するが、Installer対象に含めた場合は
+  `UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED`マーカーと
+  `docs/unity_harness_agent_contract.md`への参照を必須とする。参照がない既存
+  `AGENTS.md`では通常導入を全書込み前に停止する。
+- `--prepare-migration`は未統合`AGENTS.md`のbase・local・incoming・diffだけを
+  生成し、localを変更せず導入未完了で終了する。`--skip-agents`は明示的な
+  Agent Contract検査免除として扱う。
 - `harness-managed`の競合は標準実行で全書込み前に停止する。`--force-file <relative-path>`で対象を限定するか、全harness-managed競合を確認済みの場合だけ`--force`を使う。
 - 置換対象は書込み前に`Artifacts/HarnessInstallerBackups/<OperationId>/`へbackupし、元・置換後のSHA-256をBackup Manifestへ記録する。
 - project-owned templateの元版は`.unity-codex-harness/baselines/`へ保存する。template更新時は`--prepare-migration`でbase・local・incomingとunified diffを`Artifacts/HarnessInstallerMigrations/<OperationId>/`へ出力する。
@@ -568,7 +575,9 @@ python3 scripts/unity_codex_harness/verify_harness_integrity.py \
 - harness-managedファイルの欠落、変更、symlink化を拒否する。
 - `Assets/UnityCodexHarness`、ハーネスSkill、検証scriptなどの専有管理rootに
   manifest未登録ファイルが追加されていれば拒否する。
-- project-ownedファイルの内容は検査対象外とし、ゲーム固有設計を妨げない。
+- project-ownedファイルの内容は原則として検査対象外とし、ゲーム固有設計を
+  妨げない。ただしinstall manifestへ`AGENTS.md`が登録されている場合は、
+  必須Agent Contractマーカーとharness-managed契約文書への参照だけを検査する。
 - 完全性失敗中はCodex作業と受け入れを開始せず、CIも失敗させる。
 - 復旧は信頼するハーネスcheckoutからInstallerを再実行し、
   置換対象をbackupする。manifestの手編集で追認しない。

@@ -1342,6 +1342,10 @@ class InstallerSourceTests(unittest.TestCase):
             ".codex/agents/game-design-auditor.toml",
             relative_paths,
         )
+        self.assertIn(
+            "docs/unity_harness_agent_contract.md",
+            relative_paths,
+        )
         self.assertIn("harness.lock.json", relative_paths)
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
@@ -1378,6 +1382,16 @@ class InstallerSourceTests(unittest.TestCase):
             if item.relative.as_posix() == "docs/unity_harness_requirements.md"
         )
         self.assertEqual(requirements.ownership, installer.OWNERSHIP_HARNESS)
+        agent_contract = next(
+            item
+            for item in sources
+            if item.relative.as_posix()
+            == "docs/unity_harness_agent_contract.md"
+        )
+        self.assertEqual(
+            agent_contract.ownership,
+            installer.OWNERSHIP_HARNESS,
+        )
         integrity_checker = next(
             item
             for item in sources

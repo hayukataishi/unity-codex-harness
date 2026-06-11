@@ -1,5 +1,10 @@
 # Unity Codex Harness Instructions
 
+<!-- UNITY_CODEX_HARNESS_AGENT_CONTRACT: REQUIRED -->
+
+Before Unity work, read and follow
+`docs/unity_harness_agent_contract.md`.
+
 ## Required context
 
 Before Unity design, implementation, validation, or gameplay-review work, read:
