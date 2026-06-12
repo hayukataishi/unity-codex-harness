@@ -79,6 +79,13 @@ Compatibility band外へ更新する場合は、release metadata、fixture、
 旧版で配布されたsource-only評価レポートは、旧manifestのsource hashと
 一致する場合だけbackup後に退役する。ローカル変更済みの場合は削除せず停止する。
 
+旧`.codex/skills/`に配布されたHarness Skillも同様に、旧manifestで
+`harness-managed`かつ実ファイルhash一致の場合だけbackup後に退役し、
+`.agents/skills/`へ再配置する。ローカル変更、symlink、所有記録なし、
+manifest不整合がある場合は、重複Skillを残したまま続行せず書き込み前に停止する。
+旧配置のproject-owned外部Skillは自動移動せず、上流と内容を確認して
+`.agents/skills/`へ手動移行し、旧コピーを除去してからInstallerを再実行する。
+
 ## Release artifact verification
 
 Release archiveは固定timestamp、sorted path、固定permissionで生成する。

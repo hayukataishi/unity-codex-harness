@@ -4,7 +4,7 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 
 このリポジトリには以下が含まれます。
 
-- `.codex/skills/`: Unity開発向けのCodex Skills
+- `.agents/skills/`: Unity開発向けのCodex Skills
 - `docs/unity_harness_engineering.md`: ハーネスの運用・安全・品質ルール
 - `docs/unity_harness_agent_contract.md`: Codexへ常時適用する必須作業契約
 - `docs/unity_harness_capabilities.md`: ハーネスとして標準実装済みの能力
@@ -44,6 +44,28 @@ python3 scripts/build_release.py \
 cd Artifacts/Releases/v0.1.0
 shasum -a 256 -c SHA256SUMS
 ```
+
+## Codex標準配布形態
+
+Harness Skillの正本と導入先は、Codexがrepository-scoped Skillの標準配置として
+案内する`.agents/skills/`です。旧`.codex/skills/`は使用しません。
+Project Custom Agentは別機能なので、引き続き`.codex/agents/`へ配置します。
+
+Installerで旧版から更新する場合、旧install manifestでharness-managedと記録され、
+実ファイルのSHA-256が一致する旧Skillだけをbackup後に退役します。ローカル変更、
+symlink、所有記録なし、manifest不整合があれば書き込み前に停止します。
+旧配置にあるagent-sprite-forge等のproject-owned外部Skillは自動移動せず、
+内容を確認して`.agents/skills/`へ手動移行するまでInstallerを停止します。
+
+現時点ではPluginを主配布経路にしません。本HarnessはSkillだけでなく、
+Unity template、runtime文書、Installer、ownership manifestを同じ更新単位で
+ゲームrepositoryへ導入するためです。複数repositoryへHarnessを独立配布する場合は、
+`.agents/skills`を正本に保ったままPluginを追加配布経路として評価します。
+
+公式参照:
+
+- [Agent Skills](https://developers.openai.com/codex/skills/)
+- [Build a plugin](https://developers.openai.com/codex/plugins/build/)
 
 ## Unityプロジェクトへの導入
 
@@ -234,7 +256,7 @@ ConceptやPrototypeでは、その時点に不要なRelease級の決定を期限
 Subagentはユーザーへ直接質問せず、設計書を書き換えず、最終判断を代行しません。
 新しくAgentを導入した直後のセッションで認識されない場合はCodexを再起動します。
 
-`.codex/skills/bootstrap-game-design/agents/openai.yaml`はSkillの表示名、
+`.agents/skills/bootstrap-game-design/agents/openai.yaml`はSkillの表示名、
 既定プロンプトなどのmetadataであり、Subagent定義ではありません。
 `AGENTS.md`はRepository全体の役割分担、Skillは対話手順、`.codex/agents/*.toml`は
 実際にspawnされる専門Agentを担当します。
@@ -310,7 +332,7 @@ Unity MCPまたは外部Skillがない場合、このコマンドは終了コー
 その後、静的プリフライトを実行します。
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
+python3 .agents/skills/validate-unity-change/scripts/preflight_unity_project.py \
   --project-root .
 ```
 
@@ -432,7 +454,7 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 
 ### 手動導入
 
-自動インストーラーを利用できない場合は、`.codex/skills/`と`templates/unity/`の内容に加え、`docs/`から`mcp_and_skills_list.md`、`unity_design_sheet.md`、`unity_harness_agent_contract.md`、`unity_harness_capabilities.md`、`unity_harness_engineering.md`、`unity_harness_release.md`、`unity_harness_requirements.md`だけをUnityプロジェクトルートへコピーします。source-onlyの`docs/unity_harness_evaluation_2026-06-08.md`はコピーしません。さらに`harness.lock.json`、`harness.overrides.json`、`harness.release.json`、必要に応じて`AGENTS.md`を配置します。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+自動インストーラーを利用できない場合は、`.agents/skills/`と`templates/unity/`の内容に加え、`docs/`から`mcp_and_skills_list.md`、`unity_design_sheet.md`、`unity_harness_agent_contract.md`、`unity_harness_capabilities.md`、`unity_harness_engineering.md`、`unity_harness_release.md`、`unity_harness_requirements.md`だけをUnityプロジェクトルートへコピーします。source-onlyの`docs/unity_harness_evaluation_2026-06-08.md`はコピーしません。さらに`harness.lock.json`、`harness.overrides.json`、`harness.release.json`、必要に応じて`AGENTS.md`を配置します。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 
@@ -560,7 +582,7 @@ Package Managerが記録する`Packages/manifest.json`と`Packages/packages-lock
 agent-sprite-forgeをプロジェクト単位で導入する例:
 
 ```bash
-mkdir -p .codex/external .codex/skills
+mkdir -p .codex/external .agents/skills
 git clone https://github.com/0x0funky/agent-sprite-forge.git \
   .codex/external/agent-sprite-forge
 git -C .codex/external/agent-sprite-forge checkout --detach \
@@ -568,14 +590,14 @@ git -C .codex/external/agent-sprite-forge checkout --detach \
 python3 -m pip install -r \
   .codex/external/agent-sprite-forge/requirements.txt
 cp -R .codex/external/agent-sprite-forge/skills/generate2dsprite \
-  .codex/skills/generate2dsprite
+  .agents/skills/generate2dsprite
 cp -R .codex/external/agent-sprite-forge/skills/generate2dmap \
-  .codex/skills/generate2dmap
+  .agents/skills/generate2dmap
 ```
 
 上記はmacOS / Linux shellの例です。Windowsでは同じパスを`New-Item`と`Copy-Item -Recurse`で作成・コピーします。既存の外部Skillがある場合は、内容と参照元を確認してから置換してください。
 
-`.codex/external/`と2つの外部Skillコピーはインストーラーが`.gitignore`へ追加するため、ハーネス本体やゲームリポジトリへ再配布されません。導入後はCodexを再起動し、診断CLIを再実行します。全プロジェクトで共用する場合は`$CODEX_HOME/external/agent-sprite-forge`と`$CODEX_HOME/skills/`へ同じ固定commitから導入できます。
+`.codex/external/`と2つの外部Skillコピーはインストーラーが`.gitignore`へ追加するため、ハーネス本体やゲームリポジトリへ再配布されません。導入後はCodexを再起動し、診断CLIを再実行します。全プロジェクトで共用する場合は`$CODEX_HOME/external/agent-sprite-forge`と`~/.agents/skills/`へ同じ固定commitから導入できます。
 
 ハーネス標準pinの更新時は公式Release、commit、Package metadataまたはrequirementsを確認して`harness.lock.json`を変更し、対象環境で実行した後にだけ`verification.status`を`PASS`へ変更します。ゲーム固有pinは`harness.overrides.json`へ記録し、標準lockを直接変更しません。
 
@@ -604,14 +626,14 @@ python3 -m unittest discover -s tests -p "test_*.py" -v
 Unityプロジェクトの静的プリフライト:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
+python3 .agents/skills/validate-unity-change/scripts/preflight_unity_project.py \
   --project-root /path/to/YourUnityProject
 ```
 
 Unity Editorのコンパイル、EditMode、PlayMode、Editor API資産検査を一つのValidation Runへ保存:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+python3 .agents/skills/validate-unity-change/scripts/run_unity_validation.py \
   --project-root /path/to/YourUnityProject \
   --design-id MECH-001 \
   --ac-id MECH-001-AC01
@@ -625,7 +647,7 @@ macOSでは`ProjectVersion.txt`と一致するUnity Hub Editorを自動検出し
 手動で開始したRunが継続不能になった場合は、開始状態のまま放置せず、理由付き`BLOCKED`で閉じます。
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/finalize_validation_run.py \
   --project-root /path/to/YourUnityProject \
   --run-dir "Artifacts/ValidationRuns/<RunId>" \
   --blocked-reason "Unity Editor license was unavailable"
@@ -634,7 +656,7 @@ python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
 完了済みRunのManifest sidecar hashと全成果物を再検査:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/verify_validation_run.py \
   --project-root /path/to/YourUnityProject \
   --run-dir "Artifacts/ValidationRuns/<RunId>"
 ```
@@ -667,7 +689,7 @@ python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
 ハーネス自身のUnity 6.4 fixtureを検証:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+python3 .agents/skills/validate-unity-change/scripts/run_unity_validation.py \
   --project-root tests/fixtures/UnityValidationFixture \
   --design-id DEBUG-003 \
   --ac-id DEBUG-003-AC01 \
@@ -685,7 +707,7 @@ fixtureにはRuntime / Editor / EditMode / PlayMode asmdef、保存済みPrefab�
 - `Repository`: 文書・Skill構造、Pythonテスト、Python構文、Unity fixtureの静的プリフライト
 - `Unity 6.4 Fixture`: GameCIでfixtureのEditMode / PlayModeと資産検査回帰テストを実行し、結果をArtifactへ保存
 
-`tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.codex/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
+`tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.agents/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
 
 `.github/workflows/release-harness.yml`は`v<SemVer>` tagだけを受け付け、
 release契約、Repository検証、全Python回帰、構文検査、checksum検証に成功した

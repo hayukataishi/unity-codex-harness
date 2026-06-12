@@ -41,7 +41,7 @@ jobs:
         run: >-
           python3 -m py_compile
           scripts/*.py
-          .codex/skills/validate-unity-change/scripts/*.py
+          .agents/skills/validate-unity-change/scripts/*.py
 
       - name: Build deterministic release artifact
         run: >-

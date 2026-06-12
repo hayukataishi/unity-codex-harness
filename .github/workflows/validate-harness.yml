@@ -52,12 +52,12 @@ jobs:
         run: >-
           python3 -m py_compile
           scripts/*.py
-          .codex/skills/validate-unity-change/scripts/*.py
+          .agents/skills/validate-unity-change/scripts/*.py
 
       - name: Run fixture preflight
         run: >-
           python3
-          .codex/skills/validate-unity-change/scripts/preflight_unity_project.py
+          .agents/skills/validate-unity-change/scripts/preflight_unity_project.py
           --project-root "${FIXTURE_PROJECT_PATH}"
 
   unity-fixture:

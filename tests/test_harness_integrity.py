@@ -258,7 +258,7 @@ class HarnessIntegrityTests(unittest.TestCase):
             project = self.create_project(Path(temporary_directory))
             unexpected = (
                 project
-                / ".codex"
+                / ".agents"
                 / "skills"
                 / "maintain-game-design"
                 / "LOCAL_OVERRIDE.md"
@@ -269,7 +269,7 @@ class HarnessIntegrityTests(unittest.TestCase):
 
             self.assertIn(
                 "unexpected file in exclusive managed root: "
-                ".codex/skills/maintain-game-design/LOCAL_OVERRIDE.md",
+                ".agents/skills/maintain-game-design/LOCAL_OVERRIDE.md",
                 errors,
             )
 

@@ -662,7 +662,7 @@ Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも
 - Releaseのない依存はbranch名ではなくcommit SHAを`ref`として使用する。
 - Package名、Package version、必要なUnity・Python・Python Package条件を公式metadataから記録する。
 - 根拠にしたRelease、commit、metadata、requirementsのURLを`sources`として残す。
-- Unity Packageはcommit固定のUPM URLを`Packages/manifest.json`へ記録する。外部Skillは`.codex/external/`または`$CODEX_HOME/external/`の固定commit checkoutから導入する。
+- Unity Packageはcommit固定のUPM URLを`Packages/manifest.json`へ記録する。外部Skillは`.codex/external/`または`$CODEX_HOME/external/`の固定commit checkoutから、repositoryでは`.agents/skills/`、ユーザー共通では`~/.agents/skills/`へ導入する。
 - ゲームリポジトリ内の外部checkoutと外部Skillコピーは`.gitignore`へ追加し、意図しない再配布と上流コードの混在を防ぐ。
 - `check_external_dependencies.py`は不足・版違いと固定導入手順を報告するだけとし、ネットワーク取得、Package変更、Skillコピーを行わない。
 - 固定情報の確認と、実際の接続・生成・Unityへの統合確認を分離する。

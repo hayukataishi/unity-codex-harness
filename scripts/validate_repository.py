@@ -58,7 +58,7 @@ BUILD_PROFILE_REQUIRED_TEXT = {
         "Legacy Build Settings",
         "-activeBuildProfile",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "Build Profile asset path",
         "-activeBuildProfile",
     ),
@@ -107,21 +107,21 @@ CROSS_CUTTING_REQUIRED_TEXT = {
         "空欄を不採用と解釈しない",
         "Codexは法務判断を代替せず",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Cross-cutting adoption gate",
         "begins as `未決定`",
         "must become `採用`, `不採用`, or",
         "legal, store-policy, child-safety, or security",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "Check the cross-cutting adoption matrix",
         "`未決定`, `保留`, or contradicts",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "For cross-cutting changes",
         "implementation under `未決定`, `不採用`,",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "For cross-cutting changes",
         "reevaluation trigger",
     ),
@@ -158,22 +158,22 @@ ARCHITECTURE_PROFILE_REQUIRED_TEXT = {
         "Service Locatorは規模別の推奨方式にしない",
         "機能またはModule単位で段階的に移行する",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Architecture profile gate",
         "smallest profile",
         "Do not recommend Service Locator",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "selected `Small`, `Standard`, or `Large` profile",
         "Do not create",
         "Do not introduce a DI container, Service Locator",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "selected architecture profile",
         "unapproved DI container, Service Locator",
         "`No Engine References` assemblies",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "For architecture work",
         "selected profile",
         "migration trigger",
@@ -196,7 +196,7 @@ OUTDATED_ARCHITECTURE_GUIDANCE = {
         "| ServiceLocator | ☐ | 中規模向け |",
         "ScriptableObject Event Channel** | シーン跨ぎ・疎結合な通知（推奨）",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "Preserve layer direction: Presentation → Application → Domain",
     ),
 }
@@ -221,24 +221,24 @@ SAVE_COMPATIBILITY_REQUIRED_TEXT = {
         "未来Versionの非破壊拒否",
         "実在ユーザーのSave",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Save compatibility gate",
         "sequential `N -> N+1` migrations",
         "anonymous fixtures",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "### Save data",
         "Never overwrite a valid primary save in place",
         "unknown future schema",
         "anonymous synthetic fixtures",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "**Save compatibility**",
         "migration tests for every",
         "unknown future schemas",
         "Cloud Save is adopted",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "For save work",
         "supported-oldest schema",
         "atomic-write and backup results",
@@ -282,23 +282,23 @@ SOURCE_CONTROL_REQUIRED_TEXT = {
         "Visible Meta Files",
         "履歴rewrite",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Repository and asset gate",
         "Do not prescribe `main / develop / feature/*`",
         "An extension such as `.png` is not sufficient",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "read `HREQ-REPO-001`",
         "Do not put `.meta` files in",
         "Use UnityYAMLMerge only",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "For repository or asset changes",
         "`git check-attr`",
         "`git lfs fsck`",
         "`Visible Meta Files`",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "For repository and large-asset work",
         "LFS paths and size rule",
         "history-migration impact",
@@ -338,13 +338,13 @@ CINEMACHINE_3_REQUIRED_TEXT = {
         "packages-lock.json",
         "Cinemachine Upgrader",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "Before Cinemachine work",
         "Unity.Cinemachine",
         "CinemachineCamera",
         "Cinemachine Upgrader",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "For Cinemachine changes",
         "Position / Rotation Control components",
     ),
@@ -372,22 +372,22 @@ VALIDATION_RUN_REQUIRED_TEXT = {
         "有効なNUnit XML",
         "未生成path",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "## Finalize and verify",
         "--blocked-reason",
         "verify_validation_run.py",
         "Never add an expected but missing",
     ),
-    ".codex/skills/validate-unity-change/scripts/create_validation_run.py": (
+    ".agents/skills/validate-unity-change/scripts/create_validation_run.py": (
         '"schemaVersion": 2',
         '"state": "RUNNING"',
     ),
-    ".codex/skills/validate-unity-change/scripts/finalize_validation_run.py": (
+    ".agents/skills/validate-unity-change/scripts/finalize_validation_run.py": (
         'MANIFEST_SCHEMA_VERSION = 2',
         'MANIFEST_HASH_NAME = "RunManifest.sha256"',
         "Validation run is already completed",
     ),
-    ".codex/skills/validate-unity-change/scripts/verify_validation_run.py": (
+    ".agents/skills/validate-unity-change/scripts/verify_validation_run.py": (
         'SCHEMA_VERSION = 2',
         "artifact SHA-256 mismatch",
         "missing evidence",
@@ -567,35 +567,35 @@ HARNESS_INTEGRITY_REQUIRED_TEXT = {
         "$bootstrap-game-design",
         "$report-unity-work",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
         "Stop if it fails",
     ),
-    ".codex/skills/bootstrap-game-design/SKILL.md": (
+    ".agents/skills/bootstrap-game-design/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
         "Stop if it fails",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
         "Stop on any missing, modified",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
         "Treat failure as `BLOCKED`",
     ),
-    ".codex/skills/integrate-2d-assets/SKILL.md": (
+    ".agents/skills/integrate-2d-assets/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
     ),
-    ".codex/skills/review-gameplay/SKILL.md": (
+    ".agents/skills/review-gameplay/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "## Integrity gate",
         "verify_harness_integrity.py",
         "do not claim acceptance",
@@ -774,7 +774,7 @@ RELEASE_CONTRACT_REQUIRED_TEXT = {
 }
 
 INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
-    ".codex/skills/bootstrap-game-design/SKILL.md": (
+    ".agents/skills/bootstrap-game-design/SKILL.md": (
         "name: bootstrap-game-design",
         "## Conversation contract",
         "one focused question",
@@ -799,7 +799,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "references/interview-phases.md",
         "references/subagent-audit.md",
     ),
-    ".codex/skills/bootstrap-game-design/references/interview-phases.md": (
+    ".agents/skills/bootstrap-game-design/references/interview-phases.md": (
         "## Milestone depth",
         "## Phase depth by milestone",
         "## Dialogue lanes",
@@ -819,7 +819,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "`HREQ-CROSS-001`",
         "Technical baseline",
     ),
-    ".codex/skills/bootstrap-game-design/references/subagent-audit.md": (
+    ".agents/skills/bootstrap-game-design/references/subagent-audit.md": (
         "independent, read-only auditor",
         "Do not edit files",
         "Do not invent or approve game decisions",
@@ -829,7 +829,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "Phase recommendation: COMPLETE / NEEDS FOLLOW-UP",
         "Next user questions:",
     ),
-    ".codex/skills/bootstrap-game-design/agents/openai.yaml": (
+    ".agents/skills/bootstrap-game-design/agents/openai.yaml": (
         'display_name: "Bootstrap Game Design"',
         "initial Unity game design",
         "$bootstrap-game-design",
@@ -862,7 +862,7 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "| 質問区分 |",
         "| 関連HREQ ID |",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "use `$bootstrap-game-design` first",
         "incremental maintenance",
     ),
@@ -931,16 +931,16 @@ DESIGN_READINESS_REQUIRED_TEXT = {
         "| 領域 | 状態 | 理由・対象範囲 | Package / Service |",
         "| 決定者 |",
     ),
-    ".codex/skills/bootstrap-game-design/SKILL.md": (
+    ".agents/skills/bootstrap-game-design/SKILL.md": (
         "validate_design_readiness.py",
         "Artifacts/DesignReadiness/",
         "readiness report path and `PASS` status",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "validate_design_readiness.py",
         "cannot infer the",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "validate_design_readiness.py",
         "readiness error as a design mismatch",
     ),
@@ -1048,7 +1048,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "may not silently weaken an HREQ",
         "validate_design_contract.py",
     ),
-    ".codex/skills/maintain-game-design/SKILL.md": (
+    ".agents/skills/maintain-game-design/SKILL.md": (
         "## Requirements boundary",
         "Read `docs/unity_harness_capabilities.md`",
         "Read `docs/unity_harness_requirements.md`",
@@ -1058,7 +1058,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "Never copy harness `HCAP-*`, `DEBUG-*`",
         "older installation still has rules and game decisions mixed",
     ),
-    ".codex/skills/implement-unity-feature/SKILL.md": (
+    ".agents/skills/implement-unity-feature/SKILL.md": (
         "`docs/unity_harness_capabilities.md`",
         "`docs/unity_harness_requirements.md`",
         "`docs/unity_design_sheet.md`",
@@ -1066,7 +1066,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "validate_design_contract.py",
         "may not silently weaken an HREQ",
     ),
-    ".codex/skills/validate-unity-change/SKILL.md": (
+    ".agents/skills/validate-unity-change/SKILL.md": (
         "`docs/unity_harness_capabilities.md`",
         "inherited `HREQ-*` standards",
         "standard-requirement",
@@ -1074,7 +1074,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "validate_design_contract.py",
         "Validate both inherited standards and game-specific ACs",
     ),
-    ".codex/skills/report-unity-work/SKILL.md": (
+    ".agents/skills/report-unity-work/SKILL.md": (
         "Use `docs/unity_design_sheet.md` for project decisions",
         "`docs/unity_harness_requirements.md` for inherited `HREQ-*` standards",
         "`docs/unity_harness_capabilities.md` for implemented harness",
@@ -1142,7 +1142,15 @@ def frontmatter_value(frontmatter: str, key: str) -> str | None:
 
 def validate_skills(root: Path) -> list[str]:
     errors: list[str] = []
-    skills_root = root / ".codex" / "skills"
+    skills_root = root / ".agents" / "skills"
+    legacy_skills_root = root / ".codex" / "skills"
+    if legacy_skills_root.exists() or legacy_skills_root.is_symlink():
+        errors.append(
+            "legacy Codex Skill root must not exist: .codex/skills"
+        )
+    if not skills_root.is_dir():
+        errors.append("missing standard Codex Skill root: .agents/skills")
+        return errors
     for skill_dir in sorted(path for path in skills_root.iterdir() if path.is_dir()):
         skill_file = skill_dir / "SKILL.md"
         agent_file = skill_dir / "agents" / "openai.yaml"

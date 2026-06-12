@@ -260,8 +260,9 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 ```text
 <UNITY_PROJECT_ROOT>/
 ├─ .codex/
-│  ├─ agents/
-│  │  └─ game-design-auditor.toml
+│  └─ agents/
+│     └─ game-design-auditor.toml
+├─ .agents/
 │  └─ skills/
 │     ├─ bootstrap-game-design/
 │     ├─ maintain-game-design/
@@ -277,6 +278,9 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
    ├─ unity_design_sheet.md
    └─ mcp_and_skills_list.md
 ```
+
+`.agents/skills/`はrepository-scoped Codex Skillの標準配置である。
+`.codex/agents/`はProject Custom Agent用であり、Skill配置とは分けて扱う。
 
 `unity_harness_capabilities.md`はハーネスが標準実装している能力、`unity_harness_requirements.md`は導入先へ適用する必須標準と対話で決める推奨要件であり、通常のゲーム制作では変更しない。`unity_design_sheet.md`は配布先ゲームが所有し、HREQ適用状態、個別要件、例外、設計項目ID、AC、承認履歴を記入する。
 

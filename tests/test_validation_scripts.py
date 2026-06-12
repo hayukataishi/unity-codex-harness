@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = (
     ROOT
-    / ".codex"
+    / ".agents"
     / "skills"
     / "validate-unity-change"
     / "scripts"
@@ -1025,7 +1025,7 @@ class HarnessIntegrityContractTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 values = list(required_values)
-                if relative == ".codex/skills/implement-unity-feature/SKILL.md":
+                if relative == ".agents/skills/implement-unity-feature/SKILL.md":
                     values.remove("verify_harness_integrity.py")
                 path.write_text("\n".join(values), encoding="utf-8")
 
@@ -1452,21 +1452,21 @@ class InstallerSourceTests(unittest.TestCase):
             relative_paths,
         )
         self.assertIn(
-            ".codex/skills/validate-unity-change/scripts/"
+            ".agents/skills/validate-unity-change/scripts/"
             "finalize_validation_run.py",
             relative_paths,
         )
         self.assertIn(
-            ".codex/skills/validate-unity-change/scripts/"
+            ".agents/skills/validate-unity-change/scripts/"
             "verify_validation_run.py",
             relative_paths,
         )
         self.assertIn(
-            ".codex/skills/bootstrap-game-design/SKILL.md",
+            ".agents/skills/bootstrap-game-design/SKILL.md",
             relative_paths,
         )
         self.assertIn(
-            ".codex/skills/bootstrap-game-design/references/"
+            ".agents/skills/bootstrap-game-design/references/"
             "subagent-audit.md",
             relative_paths,
         )
@@ -1560,7 +1560,7 @@ class InstallerSourceTests(unittest.TestCase):
             item
             for item in sources
             if item.relative.as_posix()
-            == ".codex/skills/bootstrap-game-design/SKILL.md"
+            == ".agents/skills/bootstrap-game-design/SKILL.md"
         )
         self.assertEqual(bootstrap_skill.ownership, installer.OWNERSHIP_HARNESS)
         design_auditor = next(
@@ -1601,6 +1601,36 @@ class InstallerSourceTests(unittest.TestCase):
                 (template_root / relative_path).read_bytes(),
                 (fixture_root / relative_path).read_bytes(),
                 relative_path.as_posix(),
+            )
+
+
+class SkillLayoutTests(unittest.TestCase):
+    def test_repository_uses_standard_skill_root(self):
+        self.assertEqual(repository_validator.validate_skills(ROOT), [])
+
+    def test_rejects_legacy_skill_root(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            skill = root / ".agents" / "skills" / "example"
+            (skill / "agents").mkdir(parents=True)
+            (skill / "SKILL.md").write_text(
+                "---\n"
+                "name: example\n"
+                "description: Example project Skill.\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (skill / "agents" / "openai.yaml").write_text(
+                "interface:\n  display_name: Example\n",
+                encoding="utf-8",
+            )
+            (root / ".codex" / "skills").mkdir(parents=True)
+
+            errors = repository_validator.validate_skills(root)
+
+            self.assertIn(
+                "legacy Codex Skill root must not exist: .codex/skills",
+                errors,
             )
 
 

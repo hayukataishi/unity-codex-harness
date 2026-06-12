@@ -1758,20 +1758,22 @@ doctorは、必須指示の統合済み状態を検査し、未統合なら導�
 
 ### 15.5 P1
 
-#### P1-1: 現行Codexの標準配布形態へ未追随
+#### P1-1: 現行Codexの標準配布形態へ未追随（対応済み）
 
 2026-06-11の公式Codex ManualはRepository Skillの標準配置を
 `.agents/skills`、複数Skillの再利用配布をPluginとして案内している。
 本ハーネスは`.codex/skills`を使用する。
 
-Codex CLI `0.137.0`では、source repositoryと新規導入先の両方で7 Skillを
-実際に検出したため、現時点の不動作ではない。ただし互換経路への依存であり、
-CLI、IDE、App、将来versionを対象にした配布契約としてはPlugin化または
-`.agents/skills`への移行・二重検証が望ましい。
+Codex CLI `0.137.0`では旧配置でもsource repositoryと新規導入先の両方で
+7 Skillを検出したが、互換経路への依存だった。2026-06-12にSection 15.13の
+対応を実施し、正本、Installer、release artifact、CI、文書、外部Skill診断を
+`.agents/skills`へ移行した。PluginはSkill以外のUnity template、runtime文書、
+Installer、ownership manifestを置き換えないため、現時点の主配布経路にはしない。
 
 公式参照:
 
 - https://developers.openai.com/codex/skills
+- https://developers.openai.com/codex/plugins/build
 - https://developers.openai.com/codex/guides/agents-md
 - https://developers.openai.com/codex/mcp
 - https://developers.openai.com/codex/subagents
@@ -2017,3 +2019,58 @@ Harnessの版、互換性、移行、artifact、tag公開を一つの検証可�
 この段階で導入済みProjectはHarness契約版を安定して説明できる。
 P1-4の外部公開完了は、変更commit後に`v0.1.0` tagをpushし、
 release Workflowが成功した時点とする。
+
+### 15.13 P1-1 Codex標準配布形態対応結果
+
+Repository-scoped Skillの正本、導入先、release artifactを、公式Codex Manualが
+案内する`.agents/skills/`へ移行した。
+
+実装:
+
+- 7つのHarness Skillを`.codex/skills/`から`.agents/skills/`へ移動
+- AGENTS契約、Skill内command、README、capability文書、CI、Repository validator、
+  Python回帰、release builderの参照を標準配置へ統一
+- Installerのsource mapping、exclusive managed roots、install manifest、
+  `.gitignore`管理blockを`.agents/skills/`へ変更
+- 旧manifestでharness-managedかつ実ファイルhash一致の旧Skillだけを
+  `Artifacts/HarnessInstallerBackups/<OperationId>/`へbackupして退役
+- 旧Skillがローカル変更済み、symlink、manifest未記録、project-owned、
+  manifest不在・不整合の場合は全書込み前に停止
+- 旧配置のproject-owned外部Skillは自動移動せず、手動移行まで全書込み前に停止
+- 外部Skillのrepository配置を`.agents/skills/`、ユーザー共通配置を
+  `~/.agents/skills/`へ変更
+- Repository validatorが標準rootの存在と旧`.codex/skills/`不在を検査
+- release ZIPが`.agents/skills/`を含み、旧Skill rootを含まないことを回帰
+- Project Custom Agentは別機能のため`.codex/agents/`を維持
+
+Pluginは現時点の主配布経路にしない。Pluginは複数SkillをCodexへ独立配布する
+選択肢だが、本Harnessの導入単位にはUnity template、runtime文書、Installer、
+ownership manifest、migration処理も含まれる。まずrepository-scoped標準配置を
+正本とし、将来Marketplace等へ独立配布する段階で追加経路として評価する。
+
+`DEBUG-009`:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-009-AC01` | `PASS` | source repositoryと新規Installer導入先の両方でCodex CLI `0.137.0`が7 Skillを`.agents/skills/`の実パスから検出 |
+| `DEBUG-009-AC02` | `PASS` | 旧Skillの未改変時backup付き退役、改変・所有不明・manifestなし・外部Skill残存時の無変更停止をInstaller回帰で確認 |
+| `DEBUG-009-AC03` | `PASS` | install manifest、完全性検査、release archive、CI、外部Skill診断が標準配置を使用し、Repository validatorが旧rootを拒否 |
+| `DEBUG-009-AC04` | `NOT RUN` | Codex IDE / Appの新規セッションでのSkill検出。今回の実検出はCLIのみ |
+
+検証:
+
+- `python3 scripts/validate_repository.py`: `PASS`
+- `python3 scripts/build_release.py --check --tag v0.1.0`: `PASS`
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`:
+  175 tests `PASS`
+- 全Python scriptとtestの`py_compile`: `PASS`
+- Codex CLI `0.137.0` source repository Skill検出: 7件 `PASS`
+- Codex CLI `0.137.0` Installer新規導入先 Skill検出: 7件 `PASS`
+- Unity fixture実行: `NOT RUN`
+  - Unity C#、asset、scene、prefab、ProjectSettingsの内容は変更していない
+  - 今回の対象はCodex Skill配布path、Installer migration、Python回帰、
+    文書、CI path、release archiveに限定
+
+この対応により、P1-1の「互換配置に依存したrepository Skill配布」は解消した。
+残る製品surface別の検証不足はCodex IDE / Appであり、CLIの標準配置対応とは
+分けて`NOT RUN`として扱う。

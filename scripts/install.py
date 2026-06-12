@@ -42,13 +42,30 @@ SOURCE_ONLY_DOC_PATHS = (
     Path("docs/unity_harness_evaluation_2026-06-08.md"),
 )
 RETIRED_MANAGED_PATHS = SOURCE_ONLY_DOC_PATHS
+HARNESS_SKILL_NAMES = (
+    "bootstrap-game-design",
+    "implement-unity-feature",
+    "integrate-2d-assets",
+    "maintain-game-design",
+    "report-unity-work",
+    "review-gameplay",
+    "validate-unity-change",
+)
+LEGACY_SKILLS_ROOT = Path(".codex/skills")
+RETIRED_MANAGED_ROOTS = tuple(
+    LEGACY_SKILLS_ROOT / name for name in HARNESS_SKILL_NAMES
+)
+LEGACY_EXTERNAL_SKILL_ROOTS = (
+    LEGACY_SKILLS_ROOT / "generate2dsprite",
+    LEGACY_SKILLS_ROOT / "generate2dmap",
+)
 GITIGNORE_BEGIN = "# >>> Unity Codex Harness managed Artifacts ignore >>>"
 GITIGNORE_RULE = "/Artifacts/"
 GITIGNORE_RULES = (
     GITIGNORE_RULE,
     "/.codex/external/",
-    "/.codex/skills/generate2dsprite/",
-    "/.codex/skills/generate2dmap/",
+    "/.agents/skills/generate2dsprite/",
+    "/.agents/skills/generate2dmap/",
 )
 GITIGNORE_END = "# <<< Unity Codex Harness managed Artifacts ignore <<<"
 GITIGNORE_BLOCK = "\n".join(
@@ -61,14 +78,14 @@ GITIGNORE_BLOCK = "\n".join(
 GITIGNORE_CHECK_PATHS = (
     "Artifacts/.unity-codex-harness-ignore-check",
     ".codex/external/.unity-codex-harness-ignore-check",
-    ".codex/skills/generate2dsprite/.unity-codex-harness-ignore-check",
-    ".codex/skills/generate2dmap/.unity-codex-harness-ignore-check",
+    ".agents/skills/generate2dsprite/.unity-codex-harness-ignore-check",
+    ".agents/skills/generate2dmap/.unity-codex-harness-ignore-check",
 )
 LOCAL_ONLY_PATHS = (
     "Artifacts",
     ".codex/external",
-    ".codex/skills/generate2dsprite",
-    ".codex/skills/generate2dmap",
+    ".agents/skills/generate2dsprite",
+    ".agents/skills/generate2dmap",
 )
 OWNERSHIP_HARNESS = "harness-managed"
 OWNERSHIP_PROJECT = "project-owned"
@@ -80,13 +97,7 @@ BACKUP_ROOT = Path("Artifacts/HarnessInstallerBackups")
 MIGRATION_ROOT = Path("Artifacts/HarnessInstallerMigrations")
 EXCLUSIVE_MANAGED_ROOTS = (
     Path("Assets/UnityCodexHarness"),
-    Path(".codex/skills/bootstrap-game-design"),
-    Path(".codex/skills/implement-unity-feature"),
-    Path(".codex/skills/integrate-2d-assets"),
-    Path(".codex/skills/maintain-game-design"),
-    Path(".codex/skills/report-unity-work"),
-    Path(".codex/skills/review-gameplay"),
-    Path(".codex/skills/validate-unity-change"),
+    *(Path(".agents/skills") / name for name in HARNESS_SKILL_NAMES),
     Path("scripts/unity_codex_harness"),
 )
 PROJECT_OWNED_PATHS = {
@@ -181,10 +192,31 @@ def validate_unity_project(project_root: Path) -> None:
         )
 
 
+def validate_no_legacy_external_skills(project_root: Path) -> None:
+    existing = [
+        root
+        for root in LEGACY_EXTERNAL_SKILL_ROOTS
+        if (
+            (project_root / root).exists()
+            or (project_root / root).is_symlink()
+        )
+    ]
+    if not existing:
+        return
+    rendered = "\n".join(f"  - {path.as_posix()}" for path in existing)
+    raise SystemExit(
+        "Installation stopped before writing because project-owned external "
+        "Skills still use the legacy Codex path:\n"
+        f"{rendered}\n"
+        "Review the third-party contents, move the approved Skills to "
+        ".agents/skills, remove the legacy copies, then rerun."
+    )
+
+
 def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource]:
     mappings = [
         (repository_root / ".codex" / "agents", Path(".codex/agents")),
-        (repository_root / ".codex" / "skills", Path(".codex/skills")),
+        (repository_root / ".agents" / "skills", Path(".agents/skills")),
         (repository_root / "templates" / "unity", Path(".")),
     ]
     files: list[InstallSource] = []
@@ -551,7 +583,7 @@ def load_previous_install_manifest(
 def plan_retired_managed_files(
     project_root: Path,
 ) -> list[RetiredManagedFile]:
-    existing_paths = [
+    fixed_existing_paths = [
         relative
         for relative in RETIRED_MANAGED_PATHS
         if (
@@ -559,11 +591,35 @@ def plan_retired_managed_files(
             or (project_root / relative).is_symlink()
         )
     ]
-    if not existing_paths:
+    legacy_existing_paths: list[Path] = []
+    for root in RETIRED_MANAGED_ROOTS:
+        destination_root = project_root / root
+        if destination_root.is_symlink():
+            legacy_existing_paths.append(root)
+            continue
+        if not destination_root.exists():
+            continue
+        legacy_existing_paths.extend(
+            path.relative_to(project_root)
+            for path in destination_root.rglob("*")
+            if path.is_file() or path.is_symlink()
+        )
+    if not fixed_existing_paths and not legacy_existing_paths:
         return []
 
     manifest = load_previous_install_manifest(project_root)
     if manifest is None:
+        if legacy_existing_paths:
+            rendered = "\n".join(
+                f"  - {path.as_posix()}"
+                for path in sorted(legacy_existing_paths, key=Path.as_posix)
+            )
+            raise SystemExit(
+                "Installation stopped before writing because legacy harness "
+                "Skill files exist without a verified install manifest:\n"
+                f"{rendered}\n"
+                "Preserve or remove the legacy files manually, then rerun."
+            )
         return []
     entries = manifest.get("files")
     if not isinstance(entries, list):
@@ -571,18 +627,48 @@ def plan_retired_managed_files(
             "Installation stopped because the previous install manifest "
             "files value is not an array."
         )
-    by_path = {
-        entry.get("path"): entry
-        for entry in entries
-        if isinstance(entry, dict) and isinstance(entry.get("path"), str)
-    }
+    by_path: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        path_value = entry.get("path")
+        if not isinstance(path_value, str):
+            continue
+        relative = Path(path_value)
+        if (
+            relative.is_absolute()
+            or not relative.parts
+            or ".." in relative.parts
+        ):
+            continue
+        by_path[path_value] = entry
+    existing_paths = sorted(
+        set(fixed_existing_paths + legacy_existing_paths),
+        key=Path.as_posix,
+    )
     retirements: list[RetiredManagedFile] = []
     conflicts: list[str] = []
     for relative in existing_paths:
         entry = by_path.get(relative.as_posix())
         if not isinstance(entry, dict):
+            if (
+                relative == LEGACY_SKILLS_ROOT
+                or LEGACY_SKILLS_ROOT in relative.parents
+            ):
+                conflicts.append(
+                    f"{relative.as_posix()} is not recorded in the previous "
+                    "install manifest"
+                )
             continue
         if entry.get("ownership") != OWNERSHIP_HARNESS:
+            if (
+                relative == LEGACY_SKILLS_ROOT
+                or LEGACY_SKILLS_ROOT in relative.parents
+            ):
+                conflicts.append(
+                    f"{relative.as_posix()} was not previously "
+                    "harness-managed"
+                )
             continue
         destination = project_root / relative
         if destination.is_symlink() or not destination.is_file():
@@ -613,13 +699,40 @@ def plan_retired_managed_files(
     if conflicts:
         rendered = "\n".join(f"  - {conflict}" for conflict in conflicts)
         raise SystemExit(
-            "Installation stopped before writing because a source-only "
-            "document cannot be retired safely:\n"
+            "Installation stopped before writing because previously "
+            "distributed harness-managed files cannot be retired safely:\n"
             f"{rendered}\n"
             "Preserve the local content outside the harness-managed path or "
             "restore the previously distributed version, then rerun."
         )
     return retirements
+
+
+def prune_empty_legacy_skill_directories(
+    project_root: Path,
+    retirements: list[RetiredManagedFile],
+) -> None:
+    legacy_root = project_root / LEGACY_SKILLS_ROOT
+    directories: set[Path] = set()
+    for item in retirements:
+        if not (
+            item.relative == LEGACY_SKILLS_ROOT
+            or LEGACY_SKILLS_ROOT in item.relative.parents
+        ):
+            continue
+        directory = item.destination.parent
+        while directory == legacy_root or legacy_root in directory.parents:
+            directories.add(directory)
+            directory = directory.parent
+    for directory in sorted(
+        directories,
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
 
 
 def install_file(
@@ -1144,6 +1257,7 @@ def main() -> int:
     if args.check:
         check_installation(repository_root, project_root)
         return 0
+    validate_no_legacy_external_skills(project_root)
 
     files = source_files(repository_root, args.skip_agents)
     if not args.skip_agents:
@@ -1376,6 +1490,8 @@ def main() -> int:
         if not args.dry_run:
             item.destination.unlink()
         operations.append(("retire", item.relative))
+    if not args.dry_run:
+        prune_empty_legacy_skill_directories(project_root, retirements)
 
     for item in files:
         source = item.source

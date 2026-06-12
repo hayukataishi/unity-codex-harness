@@ -14,7 +14,7 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 3. `docs/unity_harness_requirements.md`
 4. `docs/unity_design_sheet.md`
 5. `docs/mcp_and_skills_list.md`
-6. The applicable Skill under `.codex/skills/`
+6. The applicable Skill under `.agents/skills/`
 
 ## Working contract
 
@@ -70,5 +70,5 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 - When the user explicitly authorizes subagents, spawn the project custom agent
   `game_design_auditor` after each initial-design phase and before final
   approval. It is read-only and may report findings only.
-- `.codex/skills/*/agents/openai.yaml` is Skill UI and dependency metadata. It
+- `.agents/skills/*/agents/openai.yaml` is Skill UI and dependency metadata. It
   is not a Subagent definition.

@@ -271,6 +271,10 @@ def codex_home() -> Path:
     return Path(configured).expanduser() if configured else Path.home() / ".codex"
 
 
+def user_skills_root() -> Path:
+    return Path.home() / ".agents" / "skills"
+
+
 def git_head(repository: Path) -> str | None:
     if not (repository / ".git").exists():
         return None
@@ -359,8 +363,8 @@ def check_agent_sprite_forge(
     )
     skill_roots = unique_paths(
         [
-            project_root / ".codex/skills",
-            codex_home() / "skills",
+            project_root / ".agents/skills",
+            user_skills_root(),
         ]
     )
     checkout_heads = [
@@ -426,7 +430,7 @@ def install_instructions(
 ) -> list[str]:
     sprite_install = sprite_forge["install"]
     project_checkout = project_root / sprite_install["projectCheckoutPath"]
-    skill_root = project_root / ".codex/skills"
+    skill_root = project_root / ".agents/skills"
     repository = sprite_forge["repository"]
     commit = sprite_forge["commit"]
     skill_names = sprite_install["skillNames"]

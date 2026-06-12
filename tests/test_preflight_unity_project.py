@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREFLIGHT = (
     ROOT
-    / ".codex"
+    / ".agents"
     / "skills"
     / "validate-unity-change"
     / "scripts"

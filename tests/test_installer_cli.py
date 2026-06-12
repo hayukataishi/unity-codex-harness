@@ -90,6 +90,60 @@ class InstallerCliRegressionTests(unittest.TestCase):
         )
         return evaluation
 
+    def convert_install_to_legacy_skill_layout(self, project: Path) -> None:
+        manifest_path = (
+            project / ".unity-codex-harness" / "install-manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for entry in manifest["files"]:
+            path = entry["path"]
+            if not path.startswith(".agents/skills/"):
+                continue
+            legacy_path = path.replace(
+                ".agents/skills/",
+                ".codex/skills/",
+                1,
+            )
+            source = project / path
+            destination = project / legacy_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            source.replace(destination)
+            entry["path"] = legacy_path
+        manifest["exclusiveManagedRoots"] = [
+            path.replace(".agents/skills/", ".codex/skills/", 1)
+            for path in manifest["exclusiveManagedRoots"]
+        ]
+        for directory in sorted(
+            (project / ".agents").rglob("*"),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            if directory.is_dir():
+                directory.rmdir()
+        (project / ".agents").rmdir()
+        gitignore = project / ".gitignore"
+        gitignore.write_text(
+            gitignore.read_text(encoding="utf-8").replace(
+                "/.agents/skills/",
+                "/.codex/skills/",
+            ),
+            encoding="utf-8",
+        )
+        manifest_text = json.dumps(
+            manifest,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n"
+        manifest_path.write_text(manifest_text, encoding="utf-8")
+        sidecar = (
+            project / ".unity-codex-harness" / "install-manifest.sha256"
+        )
+        sidecar.write_text(
+            f"{hashlib.sha256(manifest_text.encode('utf-8')).hexdigest()}  "
+            "install-manifest.json\n",
+            encoding="utf-8",
+        )
+
     def test_rejects_non_unity_project_without_writes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = Path(temporary_directory) / "NotUnity"
@@ -211,6 +265,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Dry run complete", result.stdout)
             self.assertFalse((project / ".codex").exists())
+            self.assertFalse((project / ".agents").exists())
             self.assertFalse((project / "docs").exists())
             self.assertFalse((project / "harness.lock.json").exists())
             self.assertFalse((project / "harness.overrides.json").exists())
@@ -619,6 +674,186 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 {entry["path"] for entry in manifest["files"]},
             )
 
+    def test_upgrade_moves_unmodified_skills_to_standard_layout(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.convert_install_to_legacy_skill_layout(project)
+            legacy_skill = (
+                project
+                / ".codex"
+                / "skills"
+                / "bootstrap-game-design"
+                / "SKILL.md"
+            )
+            self.assertTrue(legacy_skill.is_file())
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(
+                "retire: .codex/skills/bootstrap-game-design/SKILL.md",
+                result.stdout,
+            )
+            self.assertFalse((project / ".codex" / "skills").exists())
+            self.assertTrue(
+                (
+                    project
+                    / ".agents"
+                    / "skills"
+                    / "bootstrap-game-design"
+                    / "SKILL.md"
+                ).is_file()
+            )
+            gitignore = (project / ".gitignore").read_text(encoding="utf-8")
+            self.assertIn("/.agents/skills/generate2dsprite/", gitignore)
+            self.assertNotIn("/.codex/skills/generate2dsprite/", gitignore)
+            backup_root = next(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).iterdir()
+            )
+            self.assertTrue(
+                (
+                    backup_root
+                    / "files"
+                    / ".codex"
+                    / "skills"
+                    / "bootstrap-game-design"
+                    / "SKILL.md"
+                ).is_file()
+            )
+            manifest = json.loads(
+                (
+                    project
+                    / ".unity-codex-harness"
+                    / "install-manifest.json"
+                ).read_text(encoding="utf-8")
+            )
+            paths = {entry["path"] for entry in manifest["files"]}
+            self.assertTrue(
+                any(path.startswith(".agents/skills/") for path in paths)
+            )
+            self.assertFalse(
+                any(path.startswith(".codex/skills/") for path in paths)
+            )
+
+    def test_upgrade_stops_for_modified_legacy_skill(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.convert_install_to_legacy_skill_layout(project)
+            legacy_skill = (
+                project
+                / ".codex"
+                / "skills"
+                / "bootstrap-game-design"
+                / "SKILL.md"
+            )
+            legacy_skill.write_text(
+                "# Local legacy skill changes\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "cannot be retired safely",
+                result.stderr,
+            )
+            self.assertIn(
+                ".codex/skills/bootstrap-game-design/SKILL.md differs",
+                result.stderr,
+            )
+            self.assertEqual(
+                legacy_skill.read_text(encoding="utf-8"),
+                "# Local legacy skill changes\n",
+            )
+            self.assertFalse((project / ".agents").exists())
+            self.assertFalse(
+                (
+                    project / "Artifacts" / "HarnessInstallerBackups"
+                ).exists()
+            )
+
+    def test_legacy_skill_without_manifest_stops_before_writes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            legacy_skill = (
+                project
+                / ".codex"
+                / "skills"
+                / "bootstrap-game-design"
+                / "SKILL.md"
+            )
+            legacy_skill.parent.mkdir(parents=True)
+            legacy_skill.write_text(
+                "# Unknown legacy ownership\n",
+                encoding="utf-8",
+            )
+            original_gitignore = (project / ".gitignore").read_text(
+                encoding="utf-8"
+            )
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "without a verified install manifest",
+                result.stderr,
+            )
+            self.assertEqual(
+                legacy_skill.read_text(encoding="utf-8"),
+                "# Unknown legacy ownership\n",
+            )
+            self.assertFalse((project / ".agents").exists())
+            self.assertFalse((project / "docs").exists())
+            self.assertEqual(
+                (project / ".gitignore").read_text(encoding="utf-8"),
+                original_gitignore,
+            )
+
+    def test_legacy_external_skill_requires_manual_migration(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            external_skill = (
+                project
+                / ".codex"
+                / "skills"
+                / "generate2dsprite"
+                / "SKILL.md"
+            )
+            external_skill.parent.mkdir(parents=True)
+            external_skill.write_text(
+                "# Third-party local Skill\n",
+                encoding="utf-8",
+            )
+            original_gitignore = (project / ".gitignore").read_text(
+                encoding="utf-8"
+            )
+
+            result = self.run_installer(project, "--skip-agents")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "project-owned external Skills still use the legacy",
+                result.stderr,
+            )
+            self.assertIn(".agents/skills", result.stderr)
+            self.assertEqual(
+                external_skill.read_text(encoding="utf-8"),
+                "# Third-party local Skill\n",
+            )
+            self.assertFalse((project / ".agents").exists())
+            self.assertFalse((project / "docs").exists())
+            self.assertEqual(
+                (project / ".gitignore").read_text(encoding="utf-8"),
+                original_gitignore,
+            )
+
     def test_upgrade_preserves_modified_evaluation_report_and_stops(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -637,7 +872,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(
-                "source-only document cannot be retired safely",
+                "cannot be retired safely",
                 result.stderr,
             )
             self.assertIn(
@@ -670,7 +905,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(
-                "source-only document cannot be retired safely",
+                "cannot be retired safely",
                 result.stderr,
             )
             self.assertIn("is not a regular file", result.stderr)
@@ -928,11 +1163,11 @@ class InstallerCliRegressionTests(unittest.TestCase):
             gitignore = (project / ".gitignore").read_text(encoding="utf-8")
             self.assertIn("/.codex/external/", gitignore)
             self.assertIn(
-                "/.codex/skills/generate2dsprite/",
+                "/.agents/skills/generate2dsprite/",
                 gitignore,
             )
             self.assertIn(
-                "/.codex/skills/generate2dmap/",
+                "/.agents/skills/generate2dmap/",
                 gitignore,
             )
             self.assertIn(

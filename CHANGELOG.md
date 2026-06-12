@@ -21,6 +21,9 @@
 
 - 評価レポートをsource-onlyとし、導入先ゲームへの配布対象から除外
 - `harness.lock.json`をharness-managed標準pinへ変更
+- repository-scoped Skillの正本と導入先をCodex標準の
+  `.agents/skills/`へ変更
+- 旧`.codex/skills/`の未改変Harness Skillをbackup付きで安全に退役
 
 ### Migration
 

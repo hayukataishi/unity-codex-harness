@@ -60,7 +60,7 @@ game-specific AC list. Validate both inherited standards and game-specific ACs.
 Run:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/create_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/create_validation_run.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --design-id MECH-001 \
   --ac-id MECH-001-AC01
@@ -90,7 +90,7 @@ separately when Unity-facing behavior can be affected.
 
 1. **Static preflight**
    ```bash
-   python3 .codex/skills/validate-unity-change/scripts/preflight_unity_project.py \
+   python3 .agents/skills/validate-unity-change/scripts/preflight_unity_project.py \
      --project-root "$UNITY_PROJECT_ROOT" \
      --output "Artifacts/ValidationRuns/<RunId>/Logs/Preflight.json"
    ```
@@ -167,7 +167,7 @@ For a manually orchestrated run, write a schema version 1 results JSON with
 `commands`, `checks`, and optional per-AC `acceptanceCriteria`, then run:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/finalize_validation_run.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --run-dir "Artifacts/ValidationRuns/<RunId>" \
   --results "Artifacts/ValidationRuns/<RunId>/Logs/ValidationResults.json"
@@ -176,7 +176,7 @@ python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
 If the run cannot continue, close it honestly instead of leaving it running:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/finalize_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/finalize_validation_run.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --run-dir "Artifacts/ValidationRuns/<RunId>" \
   --blocked-reason "Unity Editor license was unavailable"
@@ -187,7 +187,7 @@ The finalizer returns a non-zero exit code for `FAIL`, `BLOCKED`, and
 completed run:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/verify_validation_run.py \
+python3 .agents/skills/validate-unity-change/scripts/verify_validation_run.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --run-dir "Artifacts/ValidationRuns/<RunId>"
 ```
@@ -245,7 +245,7 @@ If any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`, do not call the change acce
 Run the complete local path with automated AC IDs only:
 
 ```bash
-python3 .codex/skills/validate-unity-change/scripts/run_unity_validation.py \
+python3 .agents/skills/validate-unity-change/scripts/run_unity_validation.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --design-id MECH-001 \
   --ac-id MECH-001-AC01

@@ -51,10 +51,10 @@
 
 実装:
 
-- `.codex/skills/validate-unity-change/scripts/create_validation_run.py`
-- `.codex/skills/validate-unity-change/scripts/finalize_validation_run.py`
-- `.codex/skills/validate-unity-change/scripts/verify_validation_run.py`
-- `.codex/skills/validate-unity-change/scripts/run_unity_validation.py`
+- `.agents/skills/validate-unity-change/scripts/create_validation_run.py`
+- `.agents/skills/validate-unity-change/scripts/finalize_validation_run.py`
+- `.agents/skills/validate-unity-change/scripts/verify_validation_run.py`
+- `.agents/skills/validate-unity-change/scripts/run_unity_validation.py`
 
 受け入れ契約: `DEBUG-001-AC01`、`DEBUG-001-AC02`、
 `DEBUG-001-AC03`、`DEBUG-001-AC04`

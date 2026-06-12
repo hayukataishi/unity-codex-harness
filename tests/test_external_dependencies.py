@@ -43,6 +43,7 @@ class ExternalDependencyCheckTests(unittest.TestCase):
         if env is None:
             env = os.environ.copy()
             env["CODEX_HOME"] = str(project / ".test-codex-home")
+            env["HOME"] = str(project / ".test-home")
         return subprocess.run(
             [
                 sys.executable,
@@ -103,7 +104,7 @@ class ExternalDependencyCheckTests(unittest.TestCase):
             encoding="utf-8",
         )
         for name in sprite["install"]["skillNames"]:
-            skill = project / ".codex/skills" / name
+            skill = project / ".agents/skills" / name
             skill.mkdir(parents=True)
             (skill / "SKILL.md").write_text(
                 f"# {name}\n",
@@ -354,11 +355,12 @@ class ExternalDependencyCheckTests(unittest.TestCase):
                 result.stderr,
             )
 
-    def test_codex_home_installation_is_detected(self):
+    def test_user_level_skill_installation_is_detected(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary = Path(temporary_directory)
             project = self.create_project(temporary)
             codex_home = temporary / "codex-home"
+            user_home = temporary / "user-home"
             checkout = codex_home / "external/agent-sprite-forge"
             checkout.mkdir(parents=True)
             subprocess.run(
@@ -405,7 +407,7 @@ class ExternalDependencyCheckTests(unittest.TestCase):
                 encoding="utf-8",
             )
             for name in sprite["install"]["skillNames"]:
-                skill = codex_home / "skills" / name
+                skill = user_home / ".agents" / "skills" / name
                 skill.mkdir(parents=True)
                 (skill / "SKILL.md").write_text(
                     f"# {name}\n",
@@ -414,6 +416,7 @@ class ExternalDependencyCheckTests(unittest.TestCase):
             self.install_pinned_unity_mcp_reference(project)
             env = os.environ.copy()
             env["CODEX_HOME"] = str(codex_home)
+            env["HOME"] = str(user_home)
 
             result = self.run_checker(project, "--json", env=env)
 
