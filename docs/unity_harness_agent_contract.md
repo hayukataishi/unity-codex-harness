@@ -23,8 +23,9 @@ review, or reporting, read:
 2. `docs/unity_harness_capabilities.md`
 3. `docs/unity_harness_requirements.md`
 4. `docs/unity_design_sheet.md`
-5. `docs/mcp_and_skills_list.md`
-6. The applicable Skill under `.agents/skills/`
+5. The affected acceptance and design files under `docs/game_design/`
+6. `docs/mcp_and_skills_list.md`
+7. The applicable Skill under `.agents/skills/`
 
 ## Working contract
 
@@ -39,8 +40,12 @@ review, or reporting, read:
   inventory of implemented capabilities. Do not record game decisions there.
 - Treat `docs/unity_harness_requirements.md` as inherited, binding mandatory
   standards and dialogue-driven recommended requirements.
-- Treat `docs/unity_design_sheet.md` as the `project-owned` source of truth
-  for game-specific requirements, HREQ applicability, and approved exceptions.
+- Treat `docs/unity_design_sheet.md` as the `project-owned` index and
+  `docs/game_design/` as the source of truth for game-specific acceptance
+  criteria, design, HREQ applicability, and approved exceptions.
+- Preserve the order `acceptance criterion -> design item -> Unity
+  implementation mapping`. Record user intent as a game-wide or Scene AC
+  before approving its design or implementation.
 - Treat `harness.lock.json` as harness-managed standard pins. Record an
   approved game-specific external dependency difference in the project-owned
   `harness.overrides.json`; do not edit the standard lock in an installed game.
@@ -52,8 +57,9 @@ review, or reporting, read:
   Release design complete, run
   `scripts/unity_codex_harness/validate_design_readiness.py` for that
   milestone and require `PASS`.
-- During ordinary game work, update only `docs/unity_design_sheet.md`. Change
-  standard requirements only for an explicitly requested harness change.
+- During ordinary game work, update only the affected project-owned files
+  under `docs/game_design/`. Change standard requirements only for an
+  explicitly requested harness change.
 - Resolve the Unity project root by verifying `Assets/`, `Packages/`, and
   `ProjectSettings/ProjectVersion.txt`. Never persist a machine-specific
   absolute path.

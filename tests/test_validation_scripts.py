@@ -936,7 +936,7 @@ class DesignDocumentBoundaryTests(unittest.TestCase):
                 values = [
                     value
                     for value in required_values
-                    if "UNITY_CODEX_PROJECT_OWNED: EDIT" not in value
+                    if "UNITY_CODEX_GAME_DESIGN_INDEX: PROJECT-OWNED" not in value
                 ]
                 path.write_text("\n".join(values), encoding="utf-8")
 
@@ -947,7 +947,7 @@ class DesignDocumentBoundaryTests(unittest.TestCase):
 
             self.assertTrue(
                 any(
-                    "UNITY_CODEX_PROJECT_OWNED: EDIT" in error
+                    "UNITY_CODEX_GAME_DESIGN_INDEX: PROJECT-OWNED" in error
                     for error in errors
                 ),
                 errors,
@@ -1086,7 +1086,7 @@ class InitialDesignDialogueTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 values = list(required_values)
-                if relative == "docs/unity_design_sheet.md":
+                if relative == "docs/game_design/all/initial_design.md":
                     values.remove("| `PHASE-09` |")
                 path.write_text("\n".join(values), encoding="utf-8")
 
@@ -1094,7 +1094,7 @@ class InitialDesignDialogueTests(unittest.TestCase):
 
             self.assertTrue(
                 any(
-                    "docs/unity_design_sheet.md" in error
+                    "docs/game_design/all/initial_design.md" in error
                     and "PHASE-09" in error
                     for error in errors
                 ),
@@ -1136,15 +1136,15 @@ class InitialDesignDialogueTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 values = list(required_values)
-                if relative == "docs/unity_design_sheet.md":
-                    values.remove("#### 対話証跡")
+                if relative == "docs/game_design/all/initial_design.md":
+                    values.remove("### 対話証跡")
                 path.write_text("\n".join(values), encoding="utf-8")
 
             errors = repository_validator.validate_initial_design_dialogue(root)
 
             self.assertTrue(
                 any(
-                    "docs/unity_design_sheet.md" in error
+                    "docs/game_design/all/initial_design.md" in error
                     and "対話証跡" in error
                     for error in errors
                 ),

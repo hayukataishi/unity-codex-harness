@@ -41,9 +41,10 @@ Read:
 2. `docs/unity_harness_capabilities.md`
 3. `docs/unity_harness_requirements.md`
 4. `docs/unity_design_sheet.md`
-5. `docs/mcp_and_skills_list.md`
-6. [interview-phases.md](references/interview-phases.md)
-7. Repository instructions
+5. The relevant files under `docs/game_design/`
+6. `docs/mcp_and_skills_list.md`
+7. [interview-phases.md](references/interview-phases.md)
+8. Repository instructions
 
 Resolve `UNITY_PROJECT_ROOT` from `Assets/`, `Packages/`, and
 `ProjectSettings/ProjectVersion.txt`.
@@ -92,7 +93,8 @@ Resolve `UNITY_PROJECT_ROOT` from `Assets/`, `Packages/`, and
    - ask the next focused question
    - classify and summarize the answer
    - obtain confirmation when needed
-   - update the smallest relevant part of `docs/unity_design_sheet.md`
+   - record confirmed player outcomes first as game-wide or Scene ACs
+   - update the smallest owning design document under `docs/game_design/`
    - update the dialogue checkpoint and evidence row before yielding
 4. Record deferred decisions in `未決事項` with owner and deadline or
    milestone. Mark genuinely irrelevant conditional requirements as `対象外`
@@ -121,7 +123,8 @@ Resolve `UNITY_PROJECT_ROOT` from `Assets/`, `Packages/`, and
     In the harness source repository, use `scripts/validate_design_readiness.py`
     directly. If it fails, reopen the affected phase, resolve the error, and
     obtain approval again for any changed decision.
-11. Check all phases, unresolved decisions, design IDs, active ACs, approval
+11. Check all phases, unresolved decisions, Approved ACs, design IDs,
+    reciprocal AC/design links, approval
     state, and implementation readiness. Treat the milestone as complete only
     when explicit user approval and the subsequent readiness report both pass.
 
@@ -178,12 +181,16 @@ A phase cannot become `人間承認済` while any of these is true:
 
 ## Writing rules
 
-- Write game decisions only to `docs/unity_design_sheet.md`.
+- Write game decisions only to the matching project-owned documents under
+  `docs/game_design/`; keep `docs/unity_design_sheet.md` as an index.
+- Record user-facing outcomes as `GAME-AC-<NNN>` or
+  `SCENE-<SCENE-KEY>-AC-<NNN>` before creating the design items that satisfy
+  them.
 - Treat `初期設計対話`の`対話チェックポイント` and `対話証跡` as
   non-normative resume and audit records. Never treat unconfirmed evidence as
   a game requirement or implementation approval.
-- Update `初期設計対話`, related HREQ conformance rows, affected design
-  sections, `未決事項`, and approval history together.
+- Update `initial_design.md`, related HREQ conformance rows, affected AC and
+  design documents, `open_questions.md`, and approval history together.
 - Use `$maintain-game-design` conventions for design IDs and acceptance
   criteria.
 - Do not copy `HCAP-*`, harness regression results, or explanatory examples

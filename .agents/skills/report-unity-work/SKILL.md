@@ -17,8 +17,9 @@ do not claim acceptance. In the harness source repository, use
 
 Before writing:
 
-1. Read the relevant design items and active ACs.
-   Use `docs/unity_design_sheet.md` for project decisions and
+1. Read the relevant acceptance rows, design items, and implementation
+   mappings under `docs/game_design/`.
+   Use `docs/unity_design_sheet.md` as their index and
    `docs/unity_harness_requirements.md` for inherited `HREQ-*` standards.
    Use `docs/unity_harness_capabilities.md` for implemented harness
    capabilities and known capability gaps.

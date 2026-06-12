@@ -197,8 +197,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first.stderr)
             destination = project / "docs" / "unity_harness_engineering.md"
             destination.write_text("outdated managed file\n", encoding="utf-8")
-            design = project / "docs" / "unity_design_sheet.md"
-            design.write_text("project-owned design\n", encoding="utf-8")
+            design = (
+                project
+                / "docs"
+                / "game_design"
+                / "all"
+                / "acceptance.md"
+            )
+            design.write_text("project-owned acceptance\n", encoding="utf-8")
 
             result = self.run_installer(
                 project,
@@ -214,7 +220,7 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertEqual(
                 design.read_text(encoding="utf-8"),
-                "project-owned design\n",
+                "project-owned acceptance\n",
             )
             backup_roots = list(
                 (
@@ -403,7 +409,13 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first.stderr)
             project_owned = {
                 "AGENTS.md": self.compliant_agents(),
-                "docs/unity_design_sheet.md": "custom design\n",
+                "docs/unity_design_sheet.md": (
+                    (ROOT / "docs" / "unity_design_sheet.md").read_text(
+                        encoding="utf-8"
+                    )
+                    + "\ncustom index note\n"
+                ),
+                "docs/game_design/all/acceptance.md": "custom acceptance\n",
                 "docs/mcp_and_skills_list.md": "custom tools\n",
                 "harness.overrides.json": (
                     '{"schemaVersion":1,"externalDependencies":{}}\n'
@@ -443,7 +455,13 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 "outdated harness capabilities\n",
                 encoding="utf-8",
             )
-            sheet.write_text("project game decisions\n", encoding="utf-8")
+            sheet.write_text(
+                (ROOT / "docs" / "unity_design_sheet.md").read_text(
+                    encoding="utf-8"
+                )
+                + "\nproject game decisions\n",
+                encoding="utf-8",
+            )
 
             result = self.run_installer(
                 project,
@@ -462,7 +480,10 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertEqual(
                 sheet.read_text(encoding="utf-8"),
-                "project game decisions\n",
+                (ROOT / "docs" / "unity_design_sheet.md").read_text(
+                    encoding="utf-8"
+                )
+                + "\nproject game decisions\n",
             )
             backup_root = next(
                 (
@@ -491,24 +512,31 @@ class InstallerCliRegressionTests(unittest.TestCase):
     def test_force_file_rejects_project_owned_path_without_writes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
-            design = project / "docs" / "unity_design_sheet.md"
-            design.parent.mkdir(parents=True)
-            design.write_text("custom design\n", encoding="utf-8")
+            first = self.run_installer(project, "--skip-agents")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            design = (
+                project
+                / "docs"
+                / "game_design"
+                / "all"
+                / "acceptance.md"
+            )
+            design.write_text("custom acceptance\n", encoding="utf-8")
 
             result = self.run_installer(
                 project,
                 "--skip-agents",
                 "--force-file",
-                "docs/unity_design_sheet.md",
+                "docs/game_design/all/acceptance.md",
             )
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Project-owned files cannot be replaced", result.stderr)
             self.assertEqual(
                 design.read_text(encoding="utf-8"),
-                "custom design\n",
+                "custom acceptance\n",
             )
-            self.assertFalse((project / ".unity-codex-harness").exists())
+            self.assertTrue((project / ".unity-codex-harness").exists())
             self.assertFalse((project / "Artifacts").exists())
 
     def test_install_manifest_records_ownership_and_hashes(self):
@@ -570,6 +598,20 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertIn(
                 "baselineSha256",
                 by_path["docs/unity_design_sheet.md"],
+            )
+            self.assertEqual(
+                by_path["docs/game_design/all/acceptance.md"]["ownership"],
+                "project-owned",
+            )
+            self.assertIn(
+                "baselineSha256",
+                by_path["docs/game_design/all/acceptance.md"],
+            )
+            self.assertEqual(
+                by_path[
+                    "scripts/unity_codex_harness/design_document_set.py"
+                ]["ownership"],
+                "harness-managed",
             )
             self.assertEqual(
                 by_path["docs/unity_harness_requirements.md"]["ownership"],
@@ -938,7 +980,11 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 "--prepare-migration",
             )
 
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(
+                "created game design document migration",
+                result.stdout,
+            )
             self.assertEqual(
                 design.read_text(encoding="utf-8"),
                 "project local design\n",
@@ -988,6 +1034,20 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 baseline.read_bytes(),
                 (ROOT / "docs" / "unity_design_sheet.md").read_bytes(),
             )
+            self.assertTrue(
+                (
+                    migration
+                    / "incoming"
+                    / "docs"
+                    / "game_design"
+                    / "all"
+                    / "acceptance.md"
+                ).is_file()
+            )
+            self.assertIn(
+                "projectDocumentStructure",
+                migration_manifest,
+            )
 
     def test_prepare_migration_supports_legacy_install_without_baseline(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -1002,7 +1062,11 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 "--prepare-migration",
             )
 
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(
+                "created game design document migration",
+                result.stdout,
+            )
             self.assertEqual(
                 design.read_text(encoding="utf-8"),
                 "legacy project design\n",
@@ -1141,6 +1205,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
                     project
                     / "scripts"
                     / "unity_codex_harness"
+                    / "design_document_set.py"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    project
+                    / "scripts"
+                    / "unity_codex_harness"
                     / "validate_design_contract.py"
                 ).is_file()
             )
@@ -1177,6 +1249,27 @@ class InstallerCliRegressionTests(unittest.TestCase):
             self.assertIn(
                 "Validate inherited HREQ entries",
                 result.stdout,
+            )
+            contract_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(
+                        project
+                        / "scripts"
+                        / "unity_codex_harness"
+                        / "validate_design_contract.py"
+                    ),
+                    "--project-root",
+                    str(project),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                contract_result.returncode,
+                0,
+                contract_result.stdout + contract_result.stderr,
             )
             self.assertIn(
                 "Validate milestone design readiness",

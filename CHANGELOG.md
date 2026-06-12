@@ -16,6 +16,8 @@
 - マイルストーン別初期設計対話とdesign readiness検査
 - 機械可読なrelease metadata、互換性matrix、migration policy
 - 再現可能ZIP、release manifest、SHA-256 checksumの生成
+- ゲーム全体・Sceneの独立ACから所有単位別設計、Unity実装までを追跡する
+  `docs/game_design/`文書セットとcontract validator
 
 ### Changed
 
@@ -24,6 +26,8 @@
 - repository-scoped Skillの正本と導入先をCodex標準の
   `.agents/skills/`へ変更
 - 旧`.codex/skills/`の未改変Harness Skillをbackup付きで安全に退役
+- 単一`unity_design_sheet.md`を索引へ変更し、全体、Scene、Prefab、
+  Script/System、Data、UI、Audio、Assetの文書へ分割
 
 ### Migration
 

@@ -6,6 +6,8 @@ from __future__ import annotations
 import ast
 import json
 import re
+import subprocess
+import sys
 import tomllib
 from datetime import date
 from pathlib import Path
@@ -844,8 +846,8 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "Do not edit files",
         "Do not ask the user questions directly",
     ),
-    "docs/unity_design_sheet.md": (
-        "### 初期設計対話",
+    "docs/game_design/all/initial_design.md": (
+        "## 初期設計対話",
         "| 対話Run ID |",
         "| 次の質問 |",
         "| 現在の対話証跡ID |",
@@ -856,8 +858,8 @@ INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT = {
         "Blocking未決事項ID",
         "人間承認済",
         "`再検討`へ戻す",
-        "#### 対話チェックポイント",
-        "#### 対話証跡",
+        "### 対話チェックポイント",
+        "### 対話証跡",
         "非規範記録",
         "| 質問区分 |",
         "| 関連HREQ ID |",
@@ -926,8 +928,11 @@ DESIGN_READINESS_REQUIRED_TEXT = {
         "validate_design_readiness.py",
         "Validate milestone design readiness",
     ),
-    "docs/unity_design_sheet.md": (
+    "docs/game_design/all/open_questions.md": (
         "影響・Blocking対象",
+        "| 決定者 |",
+    ),
+    "docs/game_design/all/cross_cutting.md": (
         "| 領域 | 状態 | 理由・対象範囲 | Package / Service |",
         "| 決定者 |",
     ),
@@ -971,7 +976,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "# Unityハーネス標準実装",
         "`harness-managed`",
         "[Unityハーネス標準・推奨要件](./unity_harness_requirements.md)",
-        "[Unityゲーム個別要件・設計書](./unity_design_sheet.md)",
+        "[Unityゲーム設計文書索引](./unity_design_sheet.md)",
         "## 標準実装の契約",
         "HCAP-VALIDATION-001",
         "HCAP-REGRESSION-001",
@@ -983,6 +988,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "HCAP-INTEGRITY-001",
         "HCAP-DESIGN-BOOTSTRAP-001",
         "HCAP-DESIGN-READINESS-001",
+        "HCAP-DESIGN-TRACEABILITY-001",
         "未承認の改変は`HCAP-INTEGRITY-001`",
     ),
     "docs/unity_harness_requirements.md": (
@@ -990,7 +996,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "# Unityハーネス標準・推奨要件",
         "`harness-managed`",
         "任意の参考ガイドではありません",
-        "[Unityゲーム個別要件・設計書](./unity_design_sheet.md)",
+        "[Unityゲーム設計文書索引](./unity_design_sheet.md)",
         "[Unityハーネス標準実装](./unity_harness_capabilities.md)",
         "## 標準要件の適用契約",
         "`必須標準`",
@@ -1013,38 +1019,70 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         '<a id="domain-classification"></a>',
     ),
     "docs/unity_design_sheet.md": (
-        "UNITY_CODEX_PROJECT_OWNED: EDIT GAME-SPECIFIC DECISIONS IN THIS FILE",
-        "# Unityゲーム個別要件・設計書",
-        "`project-owned`",
-        "[Unityハーネス標準・推奨要件](./unity_harness_requirements.md)",
-        "必須標準が無効になることはありません",
+        "UNITY_CODEX_GAME_DESIGN_INDEX: PROJECT-OWNED",
+        "# Unityゲーム設計文書索引",
+        "`docs/game_design/`",
+        "受け入れ条件 -> 設計項目 -> Unity実装単位 -> Validation Run",
+        "GAME-AC-001",
+        "SCENE-<SCENE-KEY>-AC-001",
+        "all/acceptance.md",
+        "scenes/README.md",
+        "shared/prefabs/README.md",
+        "shared/scripts/README.md",
+        '<a id="game-design-document-tree"></a>',
+        "## 完全な文書階層",
+        "## 階層ごとの意図",
+        "## 配置判断",
+        "## 文書間の参照",
+        "<scene-key>/",
+        "<prefab-key>.md",
+        "<system-key>.md",
+        "要求は複数Scene・ゲーム全体へ影響するか？",
+        "UNITY_CODEX_PROJECT_OWNED: END",
+    ),
+    "docs/game_design/all/standards.md": (
         '<a id="hreq-conformance"></a>',
-        "## 標準要件適合表",
-        "| `継承` |",
-        "| `対象外` |",
-        "| `例外承認` |",
-        "| `未決定` |",
+        "# 標準要件適合",
         "| `HREQ-DESIGN-001` |",
         "| `HREQ-VALIDATION-001` |",
-        "章番号は記入順",
+    ),
+    "docs/game_design/all/project_design.md": (
         '<a id="platform-record"></a>',
-        '<a id="art-profile-record"></a>',
-        '<a id="camera-record"></a>',
-        '<a id="architecture-profile-record"></a>',
-        '<a id="save-decision-record"></a>',
         '<a id="project-structure-record"></a>',
         '<a id="repository-policy-record"></a>',
         '<a id="build-profile-record"></a>',
+    ),
+    "docs/game_design/all/presentation_design.md": (
+        '<a id="art-profile-record"></a>',
+        '<a id="camera-record"></a>',
+    ),
+    "docs/game_design/all/architecture.md": (
+        '<a id="architecture-profile-record"></a>',
+        '<a id="save-decision-record"></a>',
+    ),
+    "docs/game_design/all/cross_cutting.md": (
         '<a id="cross-cutting-record"></a>',
-        "## 13. ゲーム固有の設計項目",
-        "UNITY_CODEX_PROJECT_OWNED: END",
+    ),
+    "docs/game_design/all/acceptance.md": (
+        "UNITY_CODEX_ACCEPTANCE: GAME",
+        "| AC ID | 状態 | 合格条件 | 検証種別 | 検証方法 |",
+        "GAME-AC-001",
+    ),
+    "docs/game_design/scenes/_template/acceptance.md": (
+        "UNITY_CODEX_ACCEPTANCE: SCENE-<SCENE-KEY>",
+        "SCENE-<SCENE-KEY>-AC-001",
+    ),
+    "docs/game_design/scenes/_template/design.md": (
+        "UNITY_CODEX_DESIGN: SCENE-<SCENE-KEY>",
+        "**上流AC:**",
+        "実装マッピング",
     ),
     "AGENTS.md": (
         "`docs/unity_harness_capabilities.md`",
         "`docs/unity_harness_requirements.md`",
         "`docs/unity_design_sheet.md`",
         "inherited, binding",
-        "game-specific requirements, HREQ applicability",
+        "`docs/game_design/` as the source of truth",
         "may not silently weaken an HREQ",
         "validate_design_contract.py",
     ),
@@ -1052,7 +1090,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "## Requirements boundary",
         "Read `docs/unity_harness_capabilities.md`",
         "Read `docs/unity_harness_requirements.md`",
-        "only to `docs/unity_design_sheet.md`",
+        "under `docs/game_design/`",
         "standard-requirement conformance table",
         "`例外承認`",
         "Never copy harness `HCAP-*`, `DEBUG-*`",
@@ -1062,7 +1100,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "`docs/unity_harness_capabilities.md`",
         "`docs/unity_harness_requirements.md`",
         "`docs/unity_design_sheet.md`",
-        "Harness requirements apply even",
+        "game-wide or Scene acceptance rows",
         "validate_design_contract.py",
         "may not silently weaken an HREQ",
     ),
@@ -1075,7 +1113,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "Validate both inherited standards and game-specific ACs",
     ),
     ".agents/skills/report-unity-work/SKILL.md": (
-        "Use `docs/unity_design_sheet.md` for project decisions",
+        "under `docs/game_design/`",
         "`docs/unity_harness_requirements.md` for inherited `HREQ-*` standards",
         "`docs/unity_harness_capabilities.md` for implemented harness",
         "Report affected HREQ IDs",
@@ -1087,7 +1125,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "HREQ適用状態、承認済み例外",
         "個別要件は標準要件を暗黙に弱めない",
         "validate_design_contract.py",
-        "旧`unity_design_sheet.md`に規約とゲーム設計が混在",
+        "ゲーム全体AC / Scene AC",
         "`--prepare-migration`",
     ),
     "README.md": (
@@ -1098,7 +1136,7 @@ DESIGN_DOCUMENT_BOUNDARY_REQUIRED_TEXT = {
         "標準・推奨要件は任意の参考資料ではありません",
         "章番号ではなく`HREQ-*` ID",
         "validate_design_contract.py",
-        "既存内容を自動分割・上書きしません",
+        "自動分割・上書きしません",
         "`--prepare-migration`",
     ),
     "scripts/validate_design_contract.py": (
@@ -1472,6 +1510,27 @@ def validate_design_document_boundaries(root: Path) -> list[str]:
                     f"{relative} -> {forbidden}"
                 )
     return errors
+
+
+def validate_project_design_contract(root: Path) -> list[str]:
+    script = root / "scripts" / "validate_design_contract.py"
+    if not script.is_file():
+        return ["missing design contract validator"]
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--project-root",
+            str(root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return []
+    detail = result.stdout.strip() or result.stderr.strip()
+    return [f"project design contract failed: {detail}"]
 
 
 def validate_harness_integrity_contract(root: Path) -> list[str]:
@@ -2241,6 +2300,7 @@ def main() -> int:
         + validate_validation_run_lifecycle(root)
         + validate_template_regression_suite(root)
         + validate_design_document_boundaries(root)
+        + validate_project_design_contract(root)
         + validate_harness_integrity_contract(root)
         + validate_harness_lock_boundary(root)
         + validate_document_distribution_contract(root)

@@ -18,7 +18,7 @@ use `python3 scripts/validate_repository.py`.
    - `docs/unity_harness_capabilities.md`
    - `HREQ-ART-001` in `docs/unity_harness_requirements.md`
    - the selected profile, affected design items, and ACs in
-     `docs/unity_design_sheet.md`
+     the affected files under `docs/game_design/`
    - `docs/unity_harness_engineering.md`
 2. Resolve `UNITY_PROJECT_ROOT` and inspect existing 2D asset conventions.
 3. Confirm the applicable profile (`Characters`, `Environment`, `Effects`, or `Ui`) is complete and human-approved.

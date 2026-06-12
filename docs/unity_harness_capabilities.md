@@ -11,7 +11,8 @@
 > ゲームごとに選択する要件は
 > [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)、
 > ゲーム固有の決定は
-> [Unityゲーム個別要件・設計書](./unity_design_sheet.md)へ記録します。
+> [Unityゲーム設計文書索引](./unity_design_sheet.md)から辿れる
+> `docs/game_design/`へ記録します。
 
 ## 標準実装の契約
 
@@ -37,6 +38,7 @@
 | `HCAP-INTEGRITY-001` | 実装済み | 導入済みharness-managedファイルの未承認改変を検出して作業を停止する | verifier、Installer check、Skills、CI、回帰テスト | なし |
 | `HCAP-DESIGN-BOOTSTRAP-001` | 実装済み | 初期ゲーム設計をマイルストーン別の対話Phaseで決定し、独立Subagent監査する | `bootstrap-game-design`、対話進捗表、Repository回帰 | なし |
 | `HCAP-DESIGN-READINESS-001` | 実装済み | 対象マイルストーンの設計完成度を機械判定する | readiness CLI、JSON report、Skills、回帰テスト | なし |
+| `HCAP-DESIGN-TRACEABILITY-001` | 実装済み | ゲーム全体・Scene ACから所有単位別設計、Unity実装まで双方向追跡する | 分割文書セット、design contract CLI、Installer migration、Skills | なし |
 | `HCAP-RELEASE-001` | 実装済み・公開tag待ち | Version、互換性、migration、artifact、tag公開を一つのrelease契約として検証する | `harness.release.json`、release builder、GitHub Actions、回帰テスト | `DEBUG-008` |
 
 <a id="hcap-validation-001-validation-run"></a>
@@ -101,6 +103,8 @@
 - project-ownedファイルを通常更新、`--force`、`--force-file`で上書きしない。
 - harness-managed競合は標準実行を停止し、承認された対象だけbackup後に置換する。
 - project-owned template更新は三者比較migration bundleを生成する。
+- 旧単一設計書は自動分割せず、ゲーム全体・Scene ACと所有単位別設計の
+  incoming templateを含むmigration bundleを生成して通常導入を停止する。
 - 既存`AGENTS.md`は保持しつつ、harness-managed Agent Contractへの必須参照を
   Installerと完全性Verifierで検査する。未統合の通常導入は書込み前に停止し、
   `--prepare-migration`は比較bundleを生成して導入未完了で終了する。
@@ -130,7 +134,8 @@
 
 - 本書は標準実装だけを保持する。
 - `unity_harness_requirements.md`はゲームへ適用する標準・推奨要件だけを保持する。
-- `unity_design_sheet.md`はゲーム固有の決定、適用状態、例外、ACだけを保持する。
+- `unity_design_sheet.md`は文書索引だけを保持し、`docs/game_design/`は
+  ゲーム固有のAC、設計、適用状態、例外を所有単位別に保持する。
 - 標準・推奨要件とゲーム個別設計は`HREQ-*` IDで対応付ける。
 - Installerはruntime文書allowlistだけを導入先へ配布し、評価レポートなどの
   source-only開発履歴をmanifestとゲームProjectへ含めない。
@@ -203,13 +208,30 @@ Subagent監査は対話品質を補助するが、人間の製品判断を代替
   Alpha、Beta、Releaseごとの必須深度を適用する。
 - 必須Phaseの人間承認と監査、HREQ解決、主要設計欄、コアループ、
   勝敗・終了、横断機能、期限付き保留、未決事項を検査する。
-- Prototype以降はApproved設計IDと有効AC、入力、Development Build Profile、
-  Save採否を要求する。
+- Concept以降はApproved ACとApproved設計ID、双方向リンクを要求する。
+  Prototype以降は入力、Development Build Profile、Save採否も要求する。
 - Vertical Slice以降は代表Scene、遷移、UI、性能、Build詳細を要求し、
   Alpha以降は実装単位とDraft残存、ReleaseではRelease Build Profileと
   signing・配布経路まで検査する。
 - JSON reportを`Artifacts/DesignReadiness/`へ保存できる。
 - `FAIL`中は初期設計完了、実装開始、受け入れ完了を主張しない。
+
+<a id="hcap-design-traceability-001"></a>
+## HCAP-DESIGN-TRACEABILITY-001 AC起点の分割設計
+
+状態: `実装済み`
+
+- ゲーム全体ACを`docs/game_design/all/acceptance.md`、Scene ACを
+  `docs/game_design/scenes/<scene-key>/acceptance.md`へ記録する。
+- AC IDは`GAME-AC-<NNN>`または`SCENE-<SCENE-KEY>-AC-<NNN>`として、
+  設計IDから独立して先に発行する。
+- 全体、Scene、Prefab、Script/System、Data、UI、Audio、Assetの所有単位で
+  設計文書を分割する。
+- Approved ACとApproved設計の双方向リンク、設計ごとのUnity実装マッピング、
+  ID重複、Scene prefix、検証種別を`validate_design_contract.py`で検査する。
+- `--require-implemented <DESIGN-ID>`はImplemented mappingと実在pathを要求する。
+- readiness CLIは分割文書セットを集約して従来のマイルストーン項目と
+  AC起点traceabilityを同時に検査する。
 
 <a id="hcap-release-001"></a>
 ## HCAP-RELEASE-001 Versioned release

@@ -18,8 +18,8 @@ checks with modified harness code. In the harness source repository, use
 1. Read implemented validation capabilities in
    `docs/unity_harness_capabilities.md`, inherited `HREQ-*` standards in
    `docs/unity_harness_requirements.md`, then read the standard-requirement
-   conformance table, approved exceptions, game-specific design items, and AC
-   rows in `docs/unity_design_sheet.md`.
+   conformance table, approved exceptions, game-specific acceptance rows,
+   design items, and implementation mappings under `docs/game_design/`.
 2. Read validation, artifact, and Definition of Done rules in `docs/unity_harness_engineering.md`.
 3. Resolve `UNITY_PROJECT_ROOT`; verify the Unity project markers instead of guessing.
 4. List changed code, scenes, prefabs, ScriptableObjects, settings, packages, tags, layers, and build configuration.
@@ -38,7 +38,8 @@ checks with modified harness code. In the harness source repository, use
    attributes and object availability, Unity serialization settings, `.meta`
    pairing, ownership, and conflict-resolution evidence.
 9. Run `scripts/unity_codex_harness/validate_design_contract.py` with
-   `--require` for every affected decision or conditional HREQ.
+   `--require` for every affected decision or conditional HREQ and
+   `--require-implemented` for every implemented design ID.
 10. Run `scripts/unity_codex_harness/validate_design_readiness.py` for the
     approved target milestone. Treat a readiness error as a design mismatch,
     not a passing implementation validation.
@@ -48,7 +49,7 @@ checks with modified harness code. In the harness source repository, use
 | Requirement | Source | Verification type | Planned check | Evidence target |
 |---|---|---|---|---|
 | HREQ-... | Harness standard | AUTO:... | ... | ... |
-| MECH-...-AC01 | Game-specific | AUTO:... | ... | ... |
+| GAME-AC-001 | Game-specific | AUTO:... | ... | ... |
 ```
 
 Do not treat an explanatory example or blank template row as a game AC.
@@ -63,7 +64,7 @@ Run:
 python3 .agents/skills/validate-unity-change/scripts/create_validation_run.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --design-id MECH-001 \
-  --ac-id MECH-001-AC01
+  --ac-id GAME-AC-001
 ```
 
 Use the printed directory for this execution. Never reuse or overwrite an earlier run. Store evidence under:
@@ -211,8 +212,8 @@ Record:
 ```markdown
 | AC ID | Result | Evidence / notes |
 |---|---|---|
-| `MECH-001-AC01` | `PASS` | `Tests/EditMode.xml`; test name |
-| `MECH-001-AC02` | `NOT RUN` | Human gameplay review required |
+| `GAME-AC-001` | `PASS` | `Tests/EditMode.xml`; test name |
+| `SCENE-MAIN-AC-001` | `NOT RUN` | Human gameplay review required |
 ```
 
 ## Definition of Done
@@ -248,7 +249,7 @@ Run the complete local path with automated AC IDs only:
 python3 .agents/skills/validate-unity-change/scripts/run_unity_validation.py \
   --project-root "$UNITY_PROJECT_ROOT" \
   --design-id MECH-001 \
-  --ac-id MECH-001-AC01
+  --ac-id GAME-AC-001
 ```
 
 On macOS, the runner resolves the Unity Hub Editor matching

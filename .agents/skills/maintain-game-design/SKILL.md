@@ -1,6 +1,6 @@
 ---
 name: maintain-game-design
-description: Convert human requests, gameplay feedback, and review findings into traceable Unity game-design updates. Use when creating or revising design item IDs, acceptance criteria, verification methods, assumptions, approval gates, or the canonical game design sheet before implementation.
+description: Convert human requests, gameplay feedback, and review findings into acceptance-first, traceable Unity game-design updates. Use when creating or revising game-wide or Scene acceptance criteria, design item IDs, verification methods, assumptions, approval gates, or the canonical game design document set before implementation.
 ---
 
 # Maintain Game Design
@@ -31,13 +31,15 @@ Read these files before editing:
 2. `docs/unity_harness_capabilities.md`
 3. `docs/unity_harness_requirements.md`
 4. `docs/unity_design_sheet.md`
-5. `docs/mcp_and_skills_list.md`
-6. Repository-level Codex instructions and any notes linked from the affected design section
+5. The affected files under `docs/game_design/`
+6. `docs/mcp_and_skills_list.md`
+7. Repository-level Codex instructions and any notes linked from the affected design section
 
-Treat the harness requirements as inherited, binding defaults. Treat the game
-design sheet as the project-owned source of truth for game-specific
-requirements, applicability, and approved exceptions. Do not silently change
-either contract to simplify implementation.
+Treat the harness requirements as inherited, binding defaults. Treat
+`docs/unity_design_sheet.md` as the index and `docs/game_design/` as the
+project-owned source of truth for acceptance criteria, design, applicability,
+and approved exceptions. Do not silently change either contract to simplify
+implementation.
 
 ## Requirements boundary
 
@@ -47,8 +49,12 @@ either contract to simplify implementation.
 - Read `docs/unity_harness_capabilities.md` only to understand what the
   harness already implements and which capability gaps remain. Do not turn
   capability records into game requirements.
-- Write project name, game concept, selected options, design IDs, ACs, and
-  approval records only to `docs/unity_design_sheet.md`.
+- Write project decisions only to the matching project-owned file under
+  `docs/game_design/`.
+- Write game-wide ACs to `docs/game_design/all/acceptance.md`. Write
+  Scene-only ACs to `docs/game_design/scenes/<scene-key>/acceptance.md`.
+- Write design to the smallest owning unit: `all`, Scene, shared Prefab,
+  Script/System, Data, UI, Audio, or Asset.
 - Maintain the standard-requirement conformance table. Use only `継承`,
   `対象外`, `例外承認`, or `未決定`.
 - A game-specific requirement may add detail or become stricter. It may weaken
@@ -68,37 +74,42 @@ either contract to simplify implementation.
 ## Workflow
 
 1. Restate the requested outcome and expected player experience.
-2. Locate related design items, acceptance criteria, implementation notes, and known review findings.
-3. Classify each input as:
+2. Classify the request as game-wide AC, Scene AC, or a split of both. Do not
+   begin by choosing an implementation.
+3. Locate related acceptance criteria, design items, implementation mappings,
+   and known review findings.
+4. Classify each input as:
    - **確定仕様**: already stated or explicitly approved
    - **実装上の決定**: may be chosen without changing player-facing behavior
    - **仮定**: temporary premise needed to continue
    - **要確認**: requires human judgment or approval
-4. Identify contradictions, missing decisions, affected systems, save compatibility, and regression risks.
-5. Identify every affected `HREQ-*` standard requirement and check its row in
+5. Identify contradictions, missing decisions, affected systems, save compatibility, and regression risks.
+6. Identify every affected `HREQ-*` standard requirement and check its row in
    the standard-requirement conformance table.
-6. Run `validate_design_contract.py` for structure and require each HREQ that
+7. Draft or revise the upstream AC first. Obtain approval before marking it
+   `Approved`.
+8. Create or revise the design item that satisfies the AC, record `上流AC`,
+   and add a planned Unity implementation mapping.
+9. Run `validate_design_contract.py` for structure and require each HREQ that
    must be resolved before the requested work.
-7. If the change claims or preserves milestone readiness, run
+10. If the change claims or preserves milestone readiness, run
    `validate_design_readiness.py --milestone <TargetMilestone>` and treat any
    error as a design blocker.
-8. Check the cross-cutting adoption matrix for affected services, data, online,
+11. Check the cross-cutting adoption matrix for affected services, data, online,
    monetization, accessibility, localization, performance, diagnostics, UGC,
    and XR concerns.
-9. Check the active `Small`, `Standard`, or `Large` architecture profile,
+12. Check the active `Small`, `Standard`, or `Large` architecture profile,
    its recorded reason, and migration triggers. Do not infer `Standard` as the
    default or add future-scale abstractions without an observed need.
-10. For saved fields, stable IDs, account state, or cloud synchronization, check
+13. For saved fields, stable IDs, account state, or cloud synchronization, check
    `HREQ-SAVE-001`, supported schemas, fixtures, recovery, downgrade, and conflict
    rules before approving a change.
-11. For large assets, scenes, prefabs, project settings, or repository policy,
+14. For large assets, scenes, prefabs, project settings, or repository policy,
    check `HREQ-REPO-001`, LFS criteria, serialization, merge, ownership, and
    history-migration decisions.
-12. Update the smallest coherent project-owned section in
-   `docs/unity_design_sheet.md`.
-13. Add or revise game-specific design item IDs and acceptance criteria.
-14. Separate changes that require approval from changes safe to implement immediately.
-15. Report the affected HREQ IDs, edited sections, unresolved questions, and the next implementable unit.
+15. Separate changes that require approval from changes safe to implement immediately.
+16. Report the affected AC IDs, design IDs, HREQ IDs, edited documents,
+    unresolved questions, and the next implementable unit.
 
 ## Architecture profile gate
 
@@ -156,25 +167,41 @@ either contract to simplify implementation.
 - Use only domains defined in the harness requirements unless no existing domain fits.
 - Never change or reuse an issued ID. Mark retired items as `廃止`.
 - Split independent behaviors into separate design items.
-- Use `<DesignId>-AC<NN>` for acceptance criteria.
+- Use `GAME-AC-<NNN>` for game-wide acceptance criteria.
+- Use `SCENE-<SCENE-KEY>-AC-<NNN>` for Scene acceptance criteria.
 - Never renumber or reuse issued AC IDs. Mark obsolete criteria as `廃止`.
+- An `Approved` AC must link to at least one design ID. An `Approved` design
+  item must link back to at least one `Approved` upstream AC.
+- Keep AC wording free of implementation choices. Put Unity paths, types, and
+  hierarchy decisions in the design item's implementation mapping.
 - Do not add IDs to explanatory text or examples that do not require implementation or verification.
 
-Use this design-item form:
+Use this acceptance form first:
+
+```markdown
+| AC ID | 状態 | 合格条件 | 検証種別 | 検証方法 | 承認者・日付 | 関連設計ID | 旧AC ID |
+|---|---|---|---|---|---|---|---|
+| `GAME-AC-001` | Approved | 一つの観察可能な結果 | `AUTO:PLAY` | 実行するテスト | 承認者 2026-06-12 | `MECH-001` | `なし` |
+```
+
+Then use this design-item form in the owning document:
 
 ```markdown
 ### MECH-001: 行動として判定できる短い名称
 
+**状態:** Approved
+
+**上流AC:** `GAME-AC-001`
+
 **仕様**
 
-プレイヤーから観察できる振る舞い、判断、または制約を書く。
+ACを満たすルール、責務、Unity上の構成を書く。
 
-#### 受け入れ条件
+#### 実装マッピング
 
-| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
-|---|---|---|---|---|
-| `MECH-001-AC01` | `有効` | `AUTO:EDIT` | 一つの観察可能な結果 | 実行するテストまたは検査 |
-| `MECH-001-AC02` | `有効` | `MANUAL:PLAY` | 人間が判断する体験 | Scene、操作、観点 |
+| Unity単位 | Path | Symbol / Hierarchy | 状態 |
+|---|---|---|---|
+| Script | `Assets/Game/...` | `Game.Feature.Type` | Planned |
 ```
 
 Use only these verification types: `AUTO:STATIC`, `AUTO:EDIT`, `AUTO:PLAY`, `AUTO:ASSET`, `AUTO:BUILD`, `MANUAL:EDITOR`, `MANUAL:PLAY`.
@@ -185,7 +212,8 @@ Use only these verification types: `AUTO:STATIC`, `AUTO:EDIT`, `AUTO:PLAY`, `AUT
 - Include concrete input, action, value, and result where possible.
 - Make pass/fail binary; avoid words such as 「正常」「適切」「いい感じ」.
 - Describe externally observable behavior unless structure itself is the requirement.
-- Keep execution results out of the design sheet. Record `PASS`, `FAIL`, `BLOCKED`, or `NOT RUN` in validation reports instead.
+- Keep execution results out of the AC and design documents. Record `PASS`,
+  `FAIL`, `BLOCKED`, or `NOT RUN` in validation reports instead.
 - Assign subjective judgments to `MANUAL:PLAY` and specify the scene, play path, and review lens.
 
 ## Review-to-design conversion

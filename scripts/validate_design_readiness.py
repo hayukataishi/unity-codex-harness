@@ -6,10 +6,21 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from design_document_set import (
+    AC_ID_RE,
+    acceptance_tables,
+    design_item_blocks as document_design_item_blocks,
+    load_document_set,
+)
 from validate_design_contract import (
     PROJECT_REQUIREMENT_IDS,
     parse_conformance_rows,
@@ -237,7 +248,7 @@ def parse_args() -> argparse.Namespace:
         "--project-root",
         type=Path,
         default=Path.cwd(),
-        help="Unity project root containing docs/unity_design_sheet.md",
+        help="Unity project root containing docs/game_design/",
     )
     parser.add_argument(
         "--milestone",
@@ -462,11 +473,11 @@ def validate_phases(
 
 def validate_hreqs(
     milestone: str,
-    design_sheet: Path,
+    project_root: Path,
     text: str,
     errors: list[str],
 ) -> None:
-    errors.extend(validate_contract(design_sheet))
+    errors.extend(validate_contract(project_root))
     rows, _ = parse_conformance_rows(text)
     for requirement_id in sorted(HREQ_REQUIREMENTS[milestone]):
         row = rows.get(requirement_id)
@@ -570,20 +581,6 @@ def validate_core_design(
                     f"no complete {section} row for Vertical Slice or later"
                 )
 
-    if MILESTONE_INDEX[milestone] >= MILESTONE_INDEX["Alpha"]:
-        table_requirements = (
-            ("Prefab", ("Prefab", "責務", "Root Component", "必須参照", "Owner")),
-            (
-                "Component・Script",
-                ("型", "責務", "依存", "Lifecycle", "対応する設計ID"),
-            ),
-        )
-        for section, columns in table_requirements:
-            table = table_for(tables, section, set(columns))
-            if not complete_rows(table, columns):
-                errors.append(f"no complete {section} row for Alpha or later")
-
-
 def validate_save(
     milestone: str,
     tables: list[MarkdownTable],
@@ -680,7 +677,7 @@ def validate_cross_cutting(
                     )
                     is None
                     or re.search(
-                        r"\b[A-Z][A-Z0-9]*-\d{3}-AC\d{2}\b",
+                        AC_ID_RE,
                         row[index["設計ID・AC"]],
                     )
                     is None
@@ -817,28 +814,22 @@ def validate_open_questions(
                     )
 
 
-def design_item_blocks(text: str) -> list[tuple[str, str]]:
-    pattern = re.compile(
-        r"^###\s+`?([A-Z][A-Z0-9]*-\d{3})`?:\s+(.+?)\s*$",
-        re.MULTILINE,
-    )
-    matches = list(pattern.finditer(text))
-    blocks = []
-    for index, match in enumerate(matches):
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        blocks.append((match.group(1), text[match.end():end]))
-    return blocks
-
-
 def validate_design_items(
     milestone: str,
-    text: str,
+    documents,
     errors: list[str],
 ) -> None:
-    if MILESTONE_INDEX[milestone] < MILESTONE_INDEX["Prototype"]:
-        return
+    approved_ac_count = 0
+    for table in acceptance_tables(documents):
+        state_index = table.headers.index("状態")
+        approved_ac_count += sum(
+            row[state_index] == "Approved" for row in table.rows
+        )
+    if approved_ac_count == 0:
+        errors.append(f"{milestone} requires an Approved acceptance criterion")
+
     approved_count = 0
-    for design_id, block in design_item_blocks(text):
+    for _, design_id, block in document_design_item_blocks(documents):
         state_match = re.search(
             r"^\*\*状態:\*\*\s*(Draft|Approved|廃止)\s*$",
             block,
@@ -861,42 +852,8 @@ def validate_design_items(
         )
         if spec_match is None or is_placeholder(spec_match.group(1)):
             errors.append(f"approved design item lacks specification: {design_id}")
-        ac_tables = parse_tables(block)
-        ac_table = next(
-            (
-                table
-                for table in ac_tables
-                if {"AC ID", "状態", "検証種別", "合格条件", "検証方法"}.issubset(
-                    table.headers
-                )
-            ),
-            None,
-        )
-        active_count = 0
-        if ac_table is not None:
-            index = {name: ac_table.headers.index(name) for name in ac_table.headers}
-            for row in ac_table.rows:
-                if row[index["状態"]] != "有効":
-                    continue
-                active_count += 1
-                ac_id = row[index["AC ID"]]
-                if re.fullmatch(rf"{re.escape(design_id)}-AC\d{{2}}", ac_id) is None:
-                    errors.append(
-                        f"invalid acceptance-criterion ID: {design_id} -> {ac_id}"
-                    )
-                verification = row[index["検証種別"]]
-                if verification not in VALID_VERIFICATION_TYPES:
-                    errors.append(
-                        f"invalid verification type: {ac_id} -> {verification}"
-                    )
-                if is_placeholder(row[index["合格条件"]]):
-                    errors.append(f"acceptance condition unresolved: {ac_id}")
-                if is_placeholder(row[index["検証方法"]]):
-                    errors.append(f"acceptance method unresolved: {ac_id}")
-        if active_count == 0:
-            errors.append(f"approved design item has no active AC: {design_id}")
     if approved_count == 0:
-        errors.append("Prototype or later requires an Approved design item")
+        errors.append(f"{milestone} requires an Approved design item")
 
 
 def validate_release_profiles(
@@ -941,19 +898,22 @@ def determine_milestone(
 
 
 def validate_readiness(
-    design_sheet: Path,
+    project_root_or_index: Path,
     requested_milestone: str | None = None,
 ) -> dict[str, object]:
     errors: list[str] = []
     warnings: list[str] = []
-    if not design_sheet.is_file():
+    try:
+        documents = load_document_set(project_root_or_index)
+    except ValueError as error:
         return {
             "status": "FAIL",
             "milestone": requested_milestone,
-            "errors": [f"missing game design sheet: {design_sheet}"],
+            "errors": [str(error)],
             "warnings": [],
         }
-    text = design_sheet.read_text(encoding="utf-8")
+    errors.extend(documents.errors)
+    text = documents.text
     tables = parse_tables(text)
     milestone, milestone_errors = determine_milestone(
         requested_milestone,
@@ -963,12 +923,12 @@ def validate_readiness(
     if milestone is not None:
         validate_session(milestone, tables, errors)
         validate_phases(milestone, tables, errors)
-        validate_hreqs(milestone, design_sheet, text, errors)
+        validate_hreqs(milestone, documents.project_root, text, errors)
         validate_core_design(milestone, text, tables, errors)
         validate_save(milestone, tables, errors)
         validate_cross_cutting(milestone, tables, errors)
         validate_open_questions(milestone, tables, errors, warnings)
-        validate_design_items(milestone, text, errors)
+        validate_design_items(milestone, documents, errors)
         validate_release_profiles(milestone, tables, errors)
     return {
         "status": "PASS" if not errors else "FAIL",
@@ -994,7 +954,7 @@ def main() -> int:
     args = parse_args()
     project_root = args.project_root.resolve()
     report = validate_readiness(
-        project_root / "docs" / "unity_design_sheet.md",
+        project_root,
         requested_milestone=args.milestone,
     )
     destination = output_path(project_root, args.output)

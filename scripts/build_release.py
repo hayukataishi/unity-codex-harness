@@ -39,6 +39,7 @@ ARCHIVE_FILES = (
 ARCHIVE_TREES = (
     Path(".codex/agents"),
     Path(".agents/skills"),
+    Path("docs/game_design"),
     Path("scripts"),
     Path("templates/unity"),
 )

@@ -16,7 +16,8 @@ changed. In the harness source repository, use
 ## Define the review
 
 1. Read the relevant project-owned design items and active ACs in
-   `docs/unity_design_sheet.md`, plus applicable inherited `HREQ-*` standards
+   the relevant AC and design files under `docs/game_design/`, plus applicable
+   inherited `HREQ-*` standards
    in `docs/unity_harness_requirements.md` and evidence capabilities in
    `docs/unity_harness_capabilities.md`.
 2. Specify:

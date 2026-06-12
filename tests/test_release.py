@@ -129,6 +129,14 @@ class ReleaseContractTests(unittest.TestCase):
                 prefix + "docs/unity_harness_release.md",
                 names,
             )
+            self.assertIn(
+                prefix + "docs/game_design/all/acceptance.md",
+                names,
+            )
+            self.assertIn(
+                prefix + "docs/game_design/scenes/_template/design.md",
+                names,
+            )
             self.assertNotIn(
                 prefix
                 + "docs/unity_harness_evaluation_2026-06-08.md",

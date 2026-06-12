@@ -129,7 +129,7 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 ### 横断機能採否ゲート
 
-新規ゲームでは企画確定から機能実装へ進む前に、[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)を読み、[ゲーム設計書の採否記録](./unity_design_sheet.md#cross-cutting-record)を初回レビューする。既存ゲームでは、変更対象に関係する行を作業開始時に確認する。
+新規ゲームでは企画確定から機能実装へ進む前に、[横断機能採否ゲート](./unity_harness_requirements.md#cross-cutting-gate)を読み、[ゲーム設計の採否記録](./game_design/all/cross_cutting.md#hreq-cross-001-横断機能採否)を初回レビューする。既存ゲームでは、変更対象に関係する行を作業開始時に確認する。
 
 - 全領域を`採用`、`不採用`、`保留`のいずれかへ分類する。空欄を不採用と解釈しない。
 - `採用`領域は設計ID・AC ID、Package / Service、データ分類、対象地域・年齢・Store制約、検証方法を必要な範囲で記録する。
@@ -145,7 +145,7 @@ Unityバージョンと対象プラットフォームはプロジェクト固有
 
 ### アーキテクチャプロファイル決定ゲート
 
-新規ゲームは機能実装前に、[HREQ-ARCH-001](./unity_harness_requirements.md#architecture-profile-gate)の`Small`、`Standard`、`Large`から現在の制約を満たす最小のプロファイルを選び、[ゲーム側の選択記録](./unity_design_sheet.md#architecture-profile-record)へ理由と移行条件を記録する。`Standard`や4層構造を暗黙の既定値にしない。
+新規ゲームは機能実装前に、[HREQ-ARCH-001](./unity_harness_requirements.md#architecture-profile-gate)の`Small`、`Standard`、`Large`から現在の制約を満たす最小のプロファイルを選び、[ゲーム側の選択記録](./game_design/all/architecture.md#hreq-arch-001-アーキテクチャプロファイル)へ理由と移行条件を記録する。`Standard`や4層構造を暗黙の既定値にしない。
 
 - `Small`ではUnity既定Assemblyまたは単一Runtime asmdef、直接参照、手動Composition、局所的なイベントを許容し、DI Container、Manager群、Event Busを要求しない。
 - `Standard`ではRuntime / Editor / Testsを必要な範囲で分離し、実在するFeature境界、Pure C#ロジック、Composition Root、依存方向を明示する。
@@ -160,7 +160,7 @@ Profile変更はアーキテクチャ変更として人間の承認を得る。�
 
 ### セーブデータ耐障害性・互換性ゲート
 
-進行、設定、Unlock、所持品、永続ID、Cloud Saveへ影響する実装は、[HREQ-SAVE-001](./unity_harness_requirements.md#save-001)と[ゲーム側の適用記録](./unity_design_sheet.md#save-decision-record)を先に確認する。
+進行、設定、Unlock、所持品、永続ID、Cloud Saveへ影響する実装は、[HREQ-SAVE-001](./unity_harness_requirements.md#save-001)と[ゲーム側の適用記録](./game_design/all/architecture.md#hreq-save-001-セーブ互換性と復旧)を先に確認する。
 
 - Primary Saveを直接truncateして上書きしない。Tempへの書込み、flush / close、再読込検証、Primary置換、Backup保持を一つのCommit手順として設計する。
 - `PlayerPrefs`は消失しても進行を失わない端末設定へ限定する。Serialization、暗号化、Integrity、Backupは別の責務として扱う。
@@ -177,7 +177,7 @@ Save形式、対応可能な最古Version、downgrade、Cloud conflict、鍵管�
 
 ### Git・大容量アセット・Unity Merge決定ゲート
 
-大容量Asset、Scene、Prefab、ProjectSettings、`.gitattributes`、Git LFS、Branch運用へ影響する作業は、[HREQ-REPO-001](./unity_harness_requirements.md#project-002)と[ゲーム側の適用記録](./unity_design_sheet.md#repository-policy-record)を確認する。
+大容量Asset、Scene、Prefab、ProjectSettings、`.gitattributes`、Git LFS、Branch運用へ影響する作業は、[HREQ-REPO-001](./unity_harness_requirements.md#project-002)と[ゲーム側の適用記録](./game_design/all/project_design.md#hreq-repo-001-repositoryasset運用)を確認する。
 
 - `main / develop / feature/*`を固定形にしない。Default branch、Branch寿命、Required CI、Review、Merge方式、Release / hotfix経路を実際のTeamとRelease方式から選ぶ。
 - LFSは拡張子一律で決めず、Path、実測size、変更頻度、Merge可否、Hosting quota、CI / Build machine対応から判断する。`.png`は自動的なLFS対象ではない。
@@ -197,7 +197,7 @@ Codexは既存のBranch、LFS pattern、Merge driver、Serialization mode、Asse
 Unity 6プロジェクトでは、`Assets`以下へ保存したBuild Profileアセットをビルド構成の正とする。Build ProfilesウィンドウのPlatform profileや、Editorで最後に選択していた状態だけに依存してビルドしない。
 
 - 対象プラットフォームごとにDevelopmentとReleaseを作成し、継続的な受け入れ確認が必要ならQAを追加する。
-- Profileアセットと`.meta`をVersion Controlへ含め、保存場所と命名は[HREQ-BUILD-001](./unity_harness_requirements.md#build-001)と[ゲーム側の適用記録](./unity_design_sheet.md#build-profile-record)に従う。
+- Profileアセットと`.meta`をVersion Controlへ含め、保存場所と命名は[HREQ-BUILD-001](./unity_harness_requirements.md#build-001)と[ゲーム側の適用記録](./game_design/all/project_design.md#hreq-build-001-build-profile)に従う。
 - 各Profileで`Override Global Scene List`を有効にし、ビルド対象Sceneと順序を明示する。
 - Build Profileの`Scripting Defines`は既存のProject / Player Settings定義へ追加される。Profile固有の排他的シンボルを設計書へ記録する。
 - `Customize player settings`はProfile間で異なる値だけに使用し、共通値はグローバルPlayer Settingsで管理する。
@@ -427,15 +427,19 @@ OpenAI Codex
 
 ### 6.1 トレーサビリティ
 
-各機能は、可能な限り以下を相互に追跡可能にする。
+各機能は、次の上流から下流への順序と双方向リンクを保つ。
 
 ```text
-設計項目ID
-  ├─ 実装クラス / Scene / Prefab / ScriptableObject
-  ├─ EditModeテスト
-  ├─ PlayModeテスト
-  └─ 人間向けゲームレビュー項目
+ゲーム全体AC / Scene AC
+  └─ 設計項目ID
+       └─ 実装クラス / Scene / Prefab / ScriptableObject / Setting
+            ├─ EditMode / PlayMode / Asset / Build検証
+            └─ 人間向けゲームレビュー
 ```
+
+ユーザー要求を実装案へ直接変換しない。まずゲーム全体またはSceneの
+受け入れ条件として記録し、その条件を満たす設計をUnityの所有単位に合わせて
+`docs/game_design/`へ配置してから実装する。
 
 #### 設計項目IDの正式形式
 
@@ -473,20 +477,26 @@ SAVE-001
 
 ### 6.2 受け入れ条件
 
-各設計項目には、実装完了を判定できる受け入れ条件を付ける。正式なMarkdown形式と検証種別は[受け入れ条件の記述形式](./unity_harness_requirements.md#acceptance-criteria-format)を使用し、実際のACはゲーム設計書へ記録する。
+受け入れ条件は設計項目から独立した上流文書として先に定義する。正式な
+Markdown形式と検証種別は
+[受け入れ条件の記述形式](./unity_harness_requirements.md#acceptance-criteria-format)
+を使用する。
 
 受け入れ条件IDは次の形式とする。
 
 ```text
-<設計項目ID>-AC<NN>
+GAME-AC-<NNN>
+SCENE-<SCENE-KEY>-AC-<NNN>
 ```
 
-例：`MECH-001-AC01`
+例: `GAME-AC-001`、`SCENE-TITLE-AC-001`
 
 運用原則：
 
 - 各条件は一つの観察可能な結果を表し、合否を二択で判定できるようにする。
 - 自動検証と人間による確認を検証種別で明示する。
+- `Approved` ACは一つ以上の設計IDを参照し、設計項目は同じAC IDを
+  `上流AC`として参照する。
 - 設計書では条件の完了チェックを付けない。実行結果は作業レポートでAC IDごとに`PASS`、`FAIL`、`BLOCKED`、`NOT RUN`として記録する。
 - `PASS`には実行したテスト、ログ、スクリーンショットなどの証拠を対応付ける。
 - `MANUAL:PLAY`および`MANUAL:EDITOR`は、Codexが確認手順と証拠を準備し、最終的な合否を人間が判断する。
@@ -497,9 +507,9 @@ SAVE-001
 ```markdown
 | AC ID | 結果 | 証拠・備考 |
 |---|---|---|
-| `MECH-001-AC01` | `PASS` | `ExperienceTests.AddsEnemyReward`、`Artifacts/ValidationRuns/<RunId>/Evidence/MECH001AC01` |
-| `MECH-001-AC02` | `FAIL` | HUD更新が次フレームまで反映されない |
-| `MECH-001-AC03` | `NOT RUN` | 人間によるプレイ確認待ち |
+| `GAME-AC-001` | `PASS` | `ExperienceTests.AddsEnemyReward`、`Artifacts/ValidationRuns/<RunId>/Evidence/GAMEAC001` |
+| `GAME-AC-002` | `FAIL` | HUD更新が次フレームまで反映されない |
+| `SCENE-MAIN-AC-001` | `NOT RUN` | 人間によるプレイ確認待ち |
 ```
 
 ### 6.3 整合性ゲート

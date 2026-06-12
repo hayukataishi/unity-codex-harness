@@ -21,12 +21,13 @@ sidecar. In the harness source repository, use
    - `docs/unity_harness_capabilities.md`
    - `docs/unity_harness_requirements.md`
    - `docs/unity_design_sheet.md`
+   - the affected acceptance and design files under `docs/game_design/`
    - `docs/mcp_and_skills_list.md`
    - repository-level instructions
 2. Resolve `UNITY_PROJECT_ROOT` from user context or Unity MCP. Verify `Assets/`, `Packages/`, and `ProjectSettings/ProjectVersion.txt`. Never store a machine-specific path in shared files.
-3. Read the exact game-specific design item, active AC IDs, and every affected
-   `HREQ-*`. Harness requirements apply even when the game sheet does not repeat
-   their text.
+3. Read the exact game-specific design item, its `上流AC`, the corresponding
+   game-wide or Scene acceptance rows, planned implementation mappings, and
+   every affected `HREQ-*`.
 4. Run `scripts/unity_codex_harness/validate_design_contract.py` and pass each
    affected decision or conditional HREQ with `--require`. Stop on `未決定`,
    an undocumented exclusion, or an unapproved exception.
@@ -54,7 +55,8 @@ sidecar. In the harness source repository, use
 
 ## Plan the smallest change
 
-- Map each AC ID to an implementation location and verification method.
+- Confirm that each AC ID maps to the approved design item and that the design
+  item maps to the Unity locations being changed.
 - Reuse existing project patterns before introducing abstractions.
 - Identify serialized-field, GUID, save-data, input, scene-flow, and platform risks.
 - Limit one work unit to one clear purpose.
@@ -147,7 +149,11 @@ sidecar. In the harness source repository, use
 2. Check Console errors and warnings caused by the change.
 3. Save modified scenes and assets.
 4. Inspect the diff for unrelated changes, broken `.meta` files, generated files, and secrets.
-5. Invoke `$validate-unity-change` for the applicable static, EditMode, PlayMode, asset, and build checks.
+5. Update the design item's implementation mapping to the final project-relative
+   paths and `Implemented` state.
+6. Run `validate_design_contract.py --require-implemented <DESIGN-ID>`.
+7. Invoke `$validate-unity-change` for the applicable static, EditMode,
+   PlayMode, asset, and build checks.
 6. Invoke `$report-unity-work` to summarize implementation, evidence, manual review, assumptions, and risks.
 
 Do not claim completion while any active AC is `FAIL`, `BLOCKED`, or `NOT RUN`. If only manual criteria remain, describe the result as an implementation candidate awaiting human review.

@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = (
-    ROOT
-    / "scripts"
-    / "validate_design_contract.py"
-)
+SCRIPT = ROOT / "scripts" / "validate_design_contract.py"
 
 
 def load_module():
@@ -26,54 +23,41 @@ contract = load_module()
 
 
 class DesignContractTests(unittest.TestCase):
-    def write_sheet(self, root: Path, rows: list[str]) -> Path:
-        sheet = root / "docs" / "unity_design_sheet.md"
-        sheet.parent.mkdir(parents=True)
-        sheet.write_text("\n".join(rows) + "\n", encoding="utf-8")
-        return sheet
+    def create_document_set(self, root: Path) -> Path:
+        docs = root / "docs"
+        docs.mkdir(parents=True)
+        shutil.copy2(ROOT / "docs" / "unity_design_sheet.md", docs)
+        shutil.copytree(ROOT / "docs" / "game_design", docs / "game_design")
+        return root
 
-    def valid_rows(self) -> list[str]:
-        return [
-            "| HREQ ID | 適用状態 | 決定 | 影響・代替策 | 承認者・日付 |",
-            "|---|---|---|---|---|",
-            *[
-                f"| `{requirement_id}` | 継承 | standard | なし | initial |"
-                for requirement_id in contract.PROJECT_REQUIREMENT_IDS
-            ],
-        ]
+    def standards_path(self, root: Path) -> Path:
+        return root / "docs" / "game_design" / "all" / "standards.md"
 
     def test_repository_design_sheet_has_complete_contract(self):
-        errors = contract.validate_contract(
-            ROOT / "docs" / "unity_design_sheet.md"
-        )
-
+        errors = contract.validate_contract(ROOT)
         self.assertEqual(errors, [])
 
     def test_missing_requirement_row_fails(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            rows = self.valid_rows()
-            rows = [
-                row for row in rows if "HREQ-SAVE-001" not in row
-            ]
-            sheet = self.write_sheet(Path(temporary_directory), rows)
+            root = self.create_document_set(Path(temporary_directory))
+            path = self.standards_path(root)
+            text = "\n".join(
+                line
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if "HREQ-SAVE-001" not in line
+            )
+            path.write_text(text + "\n", encoding="utf-8")
 
-            errors = contract.validate_contract(sheet)
+            errors = contract.validate_contract(root)
 
             self.assertIn("missing HREQ row: HREQ-SAVE-001", errors)
 
     def test_required_unresolved_requirement_fails(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            rows = [
-                row.replace(
-                    "| `HREQ-ARCH-001` | 継承 |",
-                    "| `HREQ-ARCH-001` | 未決定 |",
-                )
-                for row in self.valid_rows()
-            ]
-            sheet = self.write_sheet(Path(temporary_directory), rows)
+            root = self.create_document_set(Path(temporary_directory))
 
             errors = contract.validate_contract(
-                sheet,
+                root,
                 required_resolved={"HREQ-ARCH-001"},
             )
 
@@ -84,30 +68,115 @@ class DesignContractTests(unittest.TestCase):
 
     def test_approved_exception_requires_reason_mitigation_and_approval(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            rows = [
-                row.replace(
-                    "| `HREQ-BUILD-001` | 継承 | standard | なし | initial |",
-                    "| `HREQ-BUILD-001` | 例外承認 | 未決定 | 未決定 | 未決定 |",
-                )
-                for row in self.valid_rows()
-            ]
-            sheet = self.write_sheet(Path(temporary_directory), rows)
+            root = self.create_document_set(Path(temporary_directory))
+            path = self.standards_path(root)
+            text = path.read_text(encoding="utf-8").replace(
+                "| `HREQ-BUILD-001` | 未決定 | Player buildとBuild Profile採否を決める | `未決定` | `未決定` |",
+                "| `HREQ-BUILD-001` | 例外承認 | 未決定 | 未決定 | 未決定 |",
+            )
+            path.write_text(text, encoding="utf-8")
 
-            errors = contract.validate_contract(sheet)
+            errors = contract.validate_contract(root)
 
-            self.assertEqual(
+            self.assertIn(
+                "approved exception requires a reason: HREQ-BUILD-001",
                 errors,
-                [
-                    "approved exception requires a reason: HREQ-BUILD-001",
-                    (
-                        "approved exception requires impact and mitigation: "
-                        "HREQ-BUILD-001"
-                    ),
-                    (
-                        "approved exception requires approver and date: "
-                        "HREQ-BUILD-001"
-                    ),
-                ],
+            )
+            self.assertIn(
+                "approved exception requires impact and mitigation: HREQ-BUILD-001",
+                errors,
+            )
+            self.assertIn(
+                "approved exception requires approver and date: HREQ-BUILD-001",
+                errors,
+            )
+
+    def test_approved_ac_and_design_require_reciprocal_links(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = self.create_document_set(Path(temporary_directory))
+            acceptance = (
+                root / "docs" / "game_design" / "all" / "acceptance.md"
+            )
+            acceptance.write_text(
+                acceptance.read_text(encoding="utf-8").replace(
+                    "| `GAME-AC-001` | Draft | `未決定` | `MANUAL:PLAY` | `未決定` | `未決定` | `未決定` | `なし` |",
+                    "| `GAME-AC-001` | Approved | Player wins | `AUTO:PLAY` | PlayMode test | Owner 2026-06-12 | `MECH-001` | `なし` |",
+                ),
+                encoding="utf-8",
+            )
+            design = root / "docs" / "game_design" / "all" / "game_design.md"
+            design.write_text(
+                design.read_text(encoding="utf-8").replace(
+                    "### `<DOMAIN>-<NNN>`: `<短い名称>`",
+                    "### MECH-001: Win condition",
+                ).replace(
+                    "**状態:** Draft / Approved / 廃止",
+                    "**状態:** Approved",
+                ).replace(
+                    "**上流AC:** `GAME-AC-001`",
+                    "**上流AC:** `GAME-AC-002`",
+                ).replace(
+                    "`未決定`\n\n**依存・影響**",
+                    "Reach the goal.\n\n**依存・影響**",
+                    1,
+                ).replace(
+                    "| Script / Prefab / Scene / Setting | `Assets/...` | `未決定` | Planned / Implemented / 廃止 |",
+                    "| Script | `Assets/Game/Goal.cs` | `Game.Goal` | Planned |",
+                ),
+                encoding="utf-8",
+            )
+
+            errors = contract.validate_contract(root)
+
+            self.assertIn(
+                "design references unknown upstream AC: MECH-001 -> GAME-AC-002",
+                errors,
+            )
+            self.assertIn(
+                "design/AC link is not reciprocal: MECH-001 -> GAME-AC-001",
+                errors,
+            )
+
+    def test_require_implemented_checks_mapping_path(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = self.create_document_set(Path(temporary_directory))
+            acceptance = (
+                root / "docs" / "game_design" / "all" / "acceptance.md"
+            )
+            acceptance.write_text(
+                acceptance.read_text(encoding="utf-8").replace(
+                    "| `GAME-AC-001` | Draft | `未決定` | `MANUAL:PLAY` | `未決定` | `未決定` | `未決定` | `なし` |",
+                    "| `GAME-AC-001` | Approved | Player wins | `AUTO:PLAY` | PlayMode test | Owner 2026-06-12 | `MECH-001` | `なし` |",
+                ),
+                encoding="utf-8",
+            )
+            design = root / "docs" / "game_design" / "all" / "game_design.md"
+            design.write_text(
+                design.read_text(encoding="utf-8").replace(
+                    "### `<DOMAIN>-<NNN>`: `<短い名称>`",
+                    "### MECH-001: Win condition",
+                ).replace(
+                    "**状態:** Draft / Approved / 廃止",
+                    "**状態:** Approved",
+                ).replace(
+                    "`未決定`\n\n**依存・影響**",
+                    "Reach the goal.\n\n**依存・影響**",
+                    1,
+                ).replace(
+                    "| Script / Prefab / Scene / Setting | `Assets/...` | `未決定` | Planned / Implemented / 廃止 |",
+                    "| Script | `Assets/Game/Goal.cs` | `Game.Goal` | Implemented |",
+                ),
+                encoding="utf-8",
+            )
+
+            errors = contract.validate_contract(
+                root,
+                require_implemented={"MECH-001"},
+            )
+
+            self.assertIn(
+                "implemented mapping path does not exist: MECH-001 -> Assets/Game/Goal.cs",
+                errors,
             )
 
 

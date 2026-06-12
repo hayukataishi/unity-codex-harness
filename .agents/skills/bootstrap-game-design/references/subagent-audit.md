@@ -5,7 +5,8 @@ conversation.
 
 ## Inputs
 
-- current `docs/unity_design_sheet.md`
+- current `docs/unity_design_sheet.md` index and affected documents under
+  `docs/game_design/`
 - applicable excerpts from `docs/unity_harness_requirements.md`
 - one active phase from `interview-phases.md`
 - dialogue evidence for the active phase, including the question, shown

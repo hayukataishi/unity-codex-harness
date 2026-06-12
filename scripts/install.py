@@ -29,6 +29,9 @@ AGENTS_CONTRACT_MARKER = (
 HARNESS_LOCK_PATH = Path("harness.lock.json")
 HARNESS_OVERRIDES_PATH = Path("harness.overrides.json")
 HARNESS_RELEASE_PATH = Path("harness.release.json")
+PROJECT_DESIGN_ROOT = Path("docs/game_design")
+DESIGN_INDEX_PATH = Path("docs/unity_design_sheet.md")
+DESIGN_INDEX_MARKER = "<!-- UNITY_CODEX_GAME_DESIGN_INDEX: PROJECT-OWNED -->"
 DISTRIBUTED_DOC_PATHS = (
     Path("docs/mcp_and_skills_list.md"),
     Path("docs/unity_design_sheet.md"),
@@ -217,6 +220,7 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
     mappings = [
         (repository_root / ".codex" / "agents", Path(".codex/agents")),
         (repository_root / ".agents" / "skills", Path(".agents/skills")),
+        (repository_root / PROJECT_DESIGN_ROOT, PROJECT_DESIGN_ROOT),
         (repository_root / "templates" / "unity", Path(".")),
     ]
     files: list[InstallSource] = []
@@ -253,6 +257,15 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
                 ownership=OWNERSHIP_PROJECT,
             )
         )
+    files.append(
+        InstallSource(
+            source=repository_root / "scripts" / "design_document_set.py",
+            relative=Path(
+                "scripts/unity_codex_harness/design_document_set.py"
+            ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
     files.append(
         InstallSource(
             source=repository_root / "harness.lock.json",
@@ -318,7 +331,11 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
 
 
 def ownership_for(relative: Path) -> str:
-    if relative in PROJECT_OWNED_PATHS:
+    if (
+        relative in PROJECT_OWNED_PATHS
+        or relative == PROJECT_DESIGN_ROOT
+        or PROJECT_DESIGN_ROOT in relative.parents
+    ):
         return OWNERSHIP_PROJECT
     return OWNERSHIP_HARNESS
 
@@ -373,6 +390,82 @@ def prepare_agents_contract_migration(
     assert migration_root is not None
     copy_if_changed(
         agents_source.source,
+        baseline,
+        dry_run=dry_run,
+    )
+    return migration_root
+
+
+def design_index_status(project_root: Path) -> tuple[bool, str]:
+    index = project_root / DESIGN_INDEX_PATH
+    if not index.exists():
+        return True, "game design index does not exist yet"
+    if not index.is_file():
+        return False, f"{DESIGN_INDEX_PATH.as_posix()} is not a file"
+    if DESIGN_INDEX_MARKER not in index.read_text(encoding="utf-8"):
+        return False, "legacy single-file game design sheet detected"
+    return True, "game design document-set index is active"
+
+
+def prepare_design_document_migration(
+    project_root: Path,
+    index_source: InstallSource,
+    design_sources: list[InstallSource],
+    *,
+    dry_run: bool,
+) -> Path:
+    destination = project_root / DESIGN_INDEX_PATH
+    baseline = project_root / BASELINE_ROOT / DESIGN_INDEX_PATH
+    if baseline.is_file():
+        base = baseline
+        base_kind = "recorded-template"
+    else:
+        base = destination
+        base_kind = "legacy-local-snapshot"
+    operation_id = next_operation_id(project_root)
+    migration_root = create_migration_bundle(
+        project_root,
+        [
+            ProjectTemplateChange(
+                item=index_source,
+                baseline=base,
+                destination=destination,
+                base_kind=base_kind,
+            )
+        ],
+        operation_id,
+        dry_run=dry_run,
+        instruction=(
+            "Review the legacy design sheet, then move game-wide acceptance "
+            "criteria into docs/game_design/all/acceptance.md and scene-only "
+            "criteria into each scenes/<scene-key>/acceptance.md. Move design "
+            "decisions into the matching all, scene, or shared design file. "
+            "Assign new GAME-AC-### or SCENE-<KEY>-AC-### IDs, preserve the "
+            "old design-derived AC ID in 旧AC ID, and make every design item "
+            "reference its upstream AC. Replace the local index only after "
+            "the split document set has been reviewed."
+        ),
+        manifest_extra={
+            "projectDocumentStructure": {
+                "root": PROJECT_DESIGN_ROOT.as_posix(),
+                "incomingTemplates": [
+                    item.relative.as_posix() for item in design_sources
+                ],
+                "traceability": (
+                    "acceptance criterion -> design item -> "
+                    "Unity implementation mapping"
+                ),
+            }
+        },
+    )
+    assert migration_root is not None
+    if not dry_run:
+        for item in design_sources:
+            incoming = migration_root / "incoming" / item.relative
+            incoming.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item.source, incoming)
+    copy_if_changed(
+        index_source.source,
         baseline,
         dry_run=dry_run,
     )
@@ -1319,6 +1412,71 @@ def main() -> int:
                     "AGENTS.md contract reference, then rerun the installer."
                 )
                 return 1
+    design_ok, design_detail = design_index_status(project_root)
+    if not design_ok:
+        index_path = project_root / DESIGN_INDEX_PATH
+        if not index_path.is_file():
+            raise SystemExit(
+                "Installation stopped before writing because the game design "
+                f"index is invalid: {design_detail}"
+            )
+        if not args.prepare_migration:
+            raise SystemExit(
+                "Installation stopped before writing because a legacy "
+                "single-file game design sheet is present.\n"
+                "Rerun with --prepare-migration to create a reviewed bundle "
+                "containing the legacy sheet and the incoming split "
+                "acceptance/design document set."
+            )
+        tracked = tracked_local_only_paths(project_root)
+        if tracked:
+            preview = "\n".join(f"  - {path}" for path in tracked[:10])
+            suffix = "\n  - ..." if len(tracked) > 10 else ""
+            raise SystemExit(
+                "Migration stopped because harness local-only paths contain "
+                f"files already tracked by Git:\n{preview}{suffix}\n"
+                "Remove them from the Git index, then rerun."
+            )
+        try:
+            gitignore_action, gitignore_text = plan_gitignore_update(
+                project_root
+            )
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        write_gitignore(
+            project_root,
+            gitignore_text,
+            dry_run=args.dry_run,
+        )
+        index_source = next(
+            item for item in files if item.relative == DESIGN_INDEX_PATH
+        )
+        design_sources = [
+            item
+            for item in files
+            if item.relative == PROJECT_DESIGN_ROOT
+            or PROJECT_DESIGN_ROOT in item.relative.parents
+        ]
+        migration_root = prepare_design_document_migration(
+            project_root,
+            index_source,
+            design_sources,
+            dry_run=args.dry_run,
+        )
+        action_prefix = "would " if args.dry_run else ""
+        if gitignore_action != "unchanged":
+            print(f"{action_prefix}{gitignore_action}: .gitignore")
+        prefix = "would create" if args.dry_run else "created"
+        print(
+            f"{prefix} game design document migration: "
+            f"{migration_root.relative_to(project_root).as_posix()}"
+        )
+        print(
+            "Installation remains incomplete: split and review acceptance "
+            "criteria and design documents, activate the new index, then "
+            "rerun the installer."
+        )
+        return 1
     force_paths = selected_force_paths(files, args.force_file)
     lock_source = next(
         item for item in files if item.relative == HARNESS_LOCK_PATH

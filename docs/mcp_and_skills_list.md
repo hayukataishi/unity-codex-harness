@@ -66,7 +66,7 @@ Unity Editor内で対応可能な操作は、原則としてUnity MCPを使う�
 4. 確定、提案、仮定、要確認、対象外を分離し、無回答や推奨を自動確定しない。
 5. 質問を`標準推奨`、`ゲーム個別`、`両方`へ分類し、関連HREQ IDを証跡へ残す。
 6. マイルストーン別の必須深度を使い、現時点で不要な判断は責任者と期限付きで保留する。
-7. 各Phaseの進捗、Blocking未決事項、関連設計ID、人間承認、監査状態と、非規範な対話証跡を設計書へ記録する。
+7. 各Phaseの進捗、Blocking未決事項、関連AC・設計ID、人間承認、監査状態と、非規範な対話証跡を`docs/game_design/`へ記録する。
 8. ユーザーがSubagent利用を明示した場合、公式Project Custom Agentの`game_design_auditor`に設計書と対話証跡から漏れ、矛盾、誘導、未説明トレードオフを独立監査させる。
 9. `validate_design_readiness.py`で必須Phase、設計欄、HREQ、未決事項、
    横断機能、設計ID・AC、監査、承認を機械判定する。
@@ -87,12 +87,12 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 1. 導入済みゲームでは`verify_harness_integrity.py`を実行し、失敗中は設計作業を開始しない。
 2. [Unityハーネス標準実装](./unity_harness_capabilities.md)で利用可能な能力と既知の不足を読む。
 3. [Unityハーネス標準・推奨要件](./unity_harness_requirements.md)で継承される`HREQ-*`と品質ゲートを読む。
-4. [Unityゲーム個別要件・設計書](./unity_design_sheet.md)で適用状態、例外、ゲーム固有要件、承認状態を読む。
-5. 要求を「確定仕様・実装上の決定・仮定・要確認」に分類する。
-6. 影響する設計項目と横断機能採否マトリクスを特定する。
+4. [Unityゲーム設計文書索引](./unity_design_sheet.md)と`docs/game_design/`で適用状態、例外、AC、設計、承認状態を読む。
+5. 要求をゲーム全体AC、Scene AC、実装上の決定、仮定、要確認へ分類する。
+6. ACを先に記録・承認し、影響する設計項目と横断機能採否マトリクスを特定する。
 7. 関連HREQの`未決定`、対象外理由、例外承認を検査する。
-8. 採用領域の設計項目ID、受け入れ条件、依存、データ考慮を設計書だけへ追加・更新する。
-9. 標準要件との矛盾と、人間の承認が必要な変更を分離する。
+8. 所有単位別の設計項目へ上流ACとUnity実装マッピングを追加・更新する。
+9. AC、設計、実装の双方向整合と、人間の承認が必要な変更を分離する。
 
 **持たせるもの**
 
@@ -187,7 +187,7 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 
 **主な処理**
 
-1. [2Dアートプロファイルの規則](./unity_harness_requirements.md#art-profile-gate)と[ゲーム側の採用記録](./unity_design_sheet.md#art-profile-record)を確認する。
+1. [2Dアートプロファイルの規則](./unity_harness_requirements.md#art-profile-gate)と[ゲーム側の採用記録](./game_design/all/presentation_design.md#hreq-art-001-2dアートプロファイル)を確認する。
 2. 必要なアセット仕様を設計書から抽出する。
 3. agent-sprite-forgeで画像を生成する。
 4. ファイル名と配置先をプロジェクト規約へ合わせる。
@@ -276,13 +276,17 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
    ├─ unity_harness_capabilities.md
    ├─ unity_harness_requirements.md
    ├─ unity_design_sheet.md
+   ├─ game_design/
+   │  ├─ all/
+   │  ├─ scenes/
+   │  └─ shared/
    └─ mcp_and_skills_list.md
 ```
 
 `.agents/skills/`はrepository-scoped Codex Skillの標準配置である。
 `.codex/agents/`はProject Custom Agent用であり、Skill配置とは分けて扱う。
 
-`unity_harness_capabilities.md`はハーネスが標準実装している能力、`unity_harness_requirements.md`は導入先へ適用する必須標準と対話で決める推奨要件であり、通常のゲーム制作では変更しない。`unity_design_sheet.md`は配布先ゲームが所有し、HREQ適用状態、個別要件、例外、設計項目ID、AC、承認履歴を記入する。
+`unity_harness_capabilities.md`はハーネスが標準実装している能力、`unity_harness_requirements.md`は導入先へ適用する必須標準と対話で決める推奨要件であり、通常のゲーム制作では変更しない。`unity_design_sheet.md`は配布先ゲーム所有の索引で、実際のAC、HREQ適用状態、例外、設計項目、実装マッピング、承認履歴は`docs/game_design/`へ記入する。
 
 ただし、実運用では以下の3つから開始してもよい。
 
@@ -298,7 +302,7 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 ## 次に決めること
 
 - [x] 設計項目IDの正式な形式 — `<DOMAIN>-<NNN>`、発行後は変更・再利用しない
-- [x] 受け入れ条件のMarkdown形式 — AC表、`<設計項目ID>-AC<NN>`、検証種別と合格条件を明記
+- [x] 受け入れ条件のMarkdown形式 — ゲーム全体・Scene AC表、独立AC ID、検証種別、合格条件、関連設計IDを明記
 - [x] Unityプロジェクトのパス解決方針 — 固定せず、作業開始時に調査・検証する
 - [x] Unityバージョンと対象プラットフォームの決定プロセス — 既存は検出、新規は互換性調査後に人間が承認
 - [x] プロジェクトの命名規則 — 英語ASCII、意味を優先したPascalCase/camelCase、永続IDは`lower-kebab-case`

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -117,7 +118,18 @@ class DesignReadinessTests(unittest.TestCase):
                 "### メカニクス一覧",
                 "| 設計ID | 状態 | メカニクス | 入力・開始条件 | ルール | 結果・報酬 |",
                 "|---|---|---|---|---|---|",
-                "| `MECH-001` | Draft | Move | Select a tile | Move once | Board changes |",
+                "| `MECH-001` | Approved | Move | Select a tile | Move once | Board changes |",
+                "### MECH-001: Move",
+                "**状態:** Approved",
+                "**上流AC:** `GAME-AC-001`",
+                "**仕様**",
+                "Selecting a tile moves the player once.",
+                "**依存・影響**",
+                "Board state.",
+                "#### 実装マッピング",
+                "| Unity単位 | Path | Symbol / Hierarchy | 状態 |",
+                "|---|---|---|---|",
+                "| Script | `Assets/Game/Move.cs` | `Game.Move` | Planned |",
                 "## 12. 横断機能採否",
                 "### HREQ-CROSS-001: 横断機能採否",
                 "| 領域 | 状態 | 理由・対象範囲 | Package / Service | データ・規制・安全性 | 設計ID・AC | 決定者 | 再評価条件・期限 |",
@@ -133,19 +145,39 @@ class DesignReadinessTests(unittest.TestCase):
         )
 
     def write_project(self, root: Path, text: str) -> Path:
-        sheet = root / "docs" / "unity_design_sheet.md"
-        sheet.parent.mkdir(parents=True)
-        sheet.write_text(text, encoding="utf-8")
-        return sheet
+        docs = root / "docs"
+        docs.mkdir(parents=True)
+        shutil.copy2(ROOT / "docs" / "unity_design_sheet.md", docs)
+        shutil.copytree(ROOT / "docs" / "game_design", docs / "game_design")
+        for path in (docs / "game_design" / "all").glob("*.md"):
+            path.write_text("", encoding="utf-8")
+        (docs / "game_design" / "all" / "acceptance.md").write_text(
+            "\n".join(
+                [
+                    "<!-- UNITY_CODEX_ACCEPTANCE: GAME -->",
+                    "# ゲーム全体受け入れ条件",
+                    "| AC ID | 状態 | 合格条件 | 検証種別 | 検証方法 | 承認者・日付 | 関連設計ID | 旧AC ID |",
+                    "|---|---|---|---|---|---|---|---|",
+                    "| `GAME-AC-001` | Approved | Player can move | `AUTO:PLAY` | PlayMode test | Owner 2026-06-11 | `MECH-001` | `なし` |",
+                ]
+                + [""]
+            ),
+            encoding="utf-8",
+        )
+        (docs / "game_design" / "all" / "game_design.md").write_text(
+            text,
+            encoding="utf-8",
+        )
+        return root
 
     def test_complete_concept_passes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            sheet = self.write_project(
+            project = self.write_project(
                 Path(temporary_directory),
                 self.concept_sheet(),
             )
 
-            report = readiness.validate_readiness(sheet, "Concept")
+            report = readiness.validate_readiness(project, "Concept")
 
             self.assertEqual(report["status"], "PASS", report["errors"])
 
@@ -155,9 +187,9 @@ class DesignReadinessTests(unittest.TestCase):
                 "| `PHASE-03` | Topic | 必須 | 人間承認済 |",
                 "| `PHASE-03` | Topic | 必須 | 対話中 |",
             )
-            sheet = self.write_project(Path(temporary_directory), text)
+            project = self.write_project(Path(temporary_directory), text)
 
-            report = readiness.validate_readiness(sheet, "Concept")
+            report = readiness.validate_readiness(project, "Concept")
 
             self.assertIn(
                 "required phase is not human-approved: PHASE-03 -> 対話中",
@@ -170,9 +202,9 @@ class DesignReadinessTests(unittest.TestCase):
                 "| `Q-001` | 未解決 / 解決済 / 対象外 | 要確認 / 仮定 | `未決定` | `未決定` | `未決定` | `未決定` |",
                 "| `Q-010` | 未解決 | 要確認 | Decide loop | PHASE-03 | Owner | Concept |",
             )
-            sheet = self.write_project(Path(temporary_directory), text)
+            project = self.write_project(Path(temporary_directory), text)
 
-            report = readiness.validate_readiness(sheet, "Concept")
+            report = readiness.validate_readiness(project, "Concept")
 
             self.assertIn(
                 "open question blocks required phase: Q-010 -> PHASE-03",
@@ -184,18 +216,19 @@ class DesignReadinessTests(unittest.TestCase):
             )
 
     def test_prototype_requires_approved_design_item(self):
-        errors: list[str] = []
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            text = self.concept_sheet().replace(
+                "**状態:** Approved",
+                "**状態:** Draft",
+            )
+            project = self.write_project(Path(temporary_directory), text)
 
-        readiness.validate_design_items(
-            "Prototype",
-            "### `MECH-001`: Move\n\n**状態:** Draft\n",
-            errors,
-        )
+            report = readiness.validate_readiness(project, "Prototype")
 
-        self.assertIn(
-            "Prototype or later requires an Approved design item",
-            errors,
-        )
+            self.assertIn(
+                "Prototype requires an Approved design item",
+                report["errors"],
+            )
 
     def test_mandatory_hreq_cannot_be_target_excluded(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -203,9 +236,9 @@ class DesignReadinessTests(unittest.TestCase):
                 "| `HREQ-DESIGN-001` | 継承 | decision | なし |",
                 "| `HREQ-DESIGN-001` | 対象外 | reason | なし |",
             )
-            sheet = self.write_project(Path(temporary_directory), text)
+            project = self.write_project(Path(temporary_directory), text)
 
-            report = readiness.validate_readiness(sheet, "Concept")
+            report = readiness.validate_readiness(project, "Concept")
 
             self.assertIn(
                 "mandatory HREQ cannot be target-excluded: HREQ-DESIGN-001",

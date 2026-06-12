@@ -8,7 +8,9 @@
 > 必須標準と、ユーザーとの対話で採否・方式を決める推奨要件を定義する
 > `harness-managed`文書です。任意の参考ガイドではありません。
 >
-> ゲーム固有の要件、採用結果、例外は[Unityゲーム個別要件・設計書](./unity_design_sheet.md)へ記録します。個別要件は標準要件を暗黙に上書きできません。
+> ゲーム固有の受け入れ条件、設計、採用結果、例外は
+> [Unityゲーム設計文書索引](./unity_design_sheet.md)から辿れる
+> `docs/game_design/`へ記録します。個別要件は標準要件を暗黙に上書きできません。
 >
 > Installer、Skills、fixture、CI、回帰テストとして実装済みの能力は
 > [Unityハーネス標準実装](./unity_harness_capabilities.md)へ分離しています。
@@ -17,7 +19,7 @@
 |---|---|
 | **文書種別** | ハーネス標準・推奨要件 |
 | **要件ID** | `HREQ-<AREA>-<NNN>` |
-| **ゲーム固有の要件・適用記録** | `docs/unity_design_sheet.md` |
+| **ゲーム固有のAC・設計・適用記録** | `docs/game_design/` |
 | **Installer ownership** | `harness-managed` |
 | **通常のゲーム作業** | 読み取り、適合確認 |
 | **変更条件** | 明示的なハーネス要件変更 |
@@ -37,16 +39,16 @@
 
 | HREQ ID | 適用 | 標準要件 | 詳細 | ゲーム側記録・実装 |
 |---|---|---|---|---|
-| `HREQ-DESIGN-001` | 必須標準 | 設計ID、AC、検証種別で要件を追跡する | [設計項目ID](#design-item-id) | ゲーム設計書全体 |
-| `HREQ-PLATFORM-001` | 決定必須 | 正確なUnity version、対象Platform、制約を確定する | [Platform gate](./unity_harness_engineering.md#platform-gate) | [適用記録](./unity_design_sheet.md#platform-record) |
-| `HREQ-PROJECT-001` | 必須標準 | 命名、配置、asmdef、`.meta`、GUIDの安全規則を守る | [命名規則](#naming-rules) | [適用記録](./unity_design_sheet.md#project-structure-record) |
-| `HREQ-ART-001` | 条件付き推奨 | 2D制作前にArt ProfileとImport条件を承認する | [Art Profile](#art-profile-gate) | [適用記録](./unity_design_sheet.md#art-profile-record) |
-| `HREQ-CAMERA-001` | 条件付き推奨 | Unity 6でCinemachineを採用する場合は3.x APIを基準にする | [Camera requirement](#graphics-001) | [適用記録](./unity_design_sheet.md#camera-record) |
-| `HREQ-ARCH-001` | 決定必須 | 現在の規模に合う最小Architecture Profileを選ぶ | [Architecture requirement](#architecture-profile-gate) | [適用記録](./unity_design_sheet.md#architecture-profile-record) |
-| `HREQ-SAVE-001` | 条件付き推奨 | 進行保存に破損復旧、Backup、Schema migrationを備える | [Save requirement](#save-001) | [適用記録](./unity_design_sheet.md#save-decision-record) |
-| `HREQ-REPO-001` | 決定必須 | Repository、LFS、Serialization、Merge、Ownerを決める | [Repository requirement](#project-002) | [適用記録](./unity_design_sheet.md#repository-policy-record) |
-| `HREQ-BUILD-001` | 条件付き推奨 | Unity 6のPlayer buildは保存済みBuild Profileを正とする | [Build requirement](#build-001) | [適用記録](./unity_design_sheet.md#build-profile-record) |
-| `HREQ-CROSS-001` | 決定必須 | 横断機能を採用・不採用・保留へ分類する | [Cross-cutting requirement](#cross-cutting-gate) | [適用記録](./unity_design_sheet.md#cross-cutting-record) |
+| `HREQ-DESIGN-001` | 必須標準 | 独立ACから設計ID、Unity実装単位、検証証拠まで追跡する | [受け入れ条件](#acceptance-criteria-format) | `docs/game_design/`全体 |
+| `HREQ-PLATFORM-001` | 決定必須 | 正確なUnity version、対象Platform、制約を確定する | [Platform gate](./unity_harness_engineering.md#platform-gate) | `docs/game_design/all/project_design.md` |
+| `HREQ-PROJECT-001` | 必須標準 | 命名、配置、asmdef、`.meta`、GUIDの安全規則を守る | [命名規則](#naming-rules) | `docs/game_design/all/project_design.md` |
+| `HREQ-ART-001` | 条件付き推奨 | 2D制作前にArt ProfileとImport条件を承認する | [Art Profile](#art-profile-gate) | `docs/game_design/all/presentation_design.md` |
+| `HREQ-CAMERA-001` | 条件付き推奨 | Unity 6でCinemachineを採用する場合は3.x APIを基準にする | [Camera requirement](#graphics-001) | `docs/game_design/all/presentation_design.md` |
+| `HREQ-ARCH-001` | 決定必須 | 現在の規模に合う最小Architecture Profileを選ぶ | [Architecture requirement](#architecture-profile-gate) | `docs/game_design/all/architecture.md` |
+| `HREQ-SAVE-001` | 条件付き推奨 | 進行保存に破損復旧、Backup、Schema migrationを備える | [Save requirement](#save-001) | `docs/game_design/all/architecture.md` |
+| `HREQ-REPO-001` | 決定必須 | Repository、LFS、Serialization、Merge、Ownerを決める | [Repository requirement](#project-002) | `docs/game_design/all/project_design.md` |
+| `HREQ-BUILD-001` | 条件付き推奨 | Unity 6のPlayer buildは保存済みBuild Profileを正とする | [Build requirement](#build-001) | `docs/game_design/all/project_design.md` |
+| `HREQ-CROSS-001` | 決定必須 | 横断機能を採用・不採用・保留へ分類する | [Cross-cutting requirement](#cross-cutting-gate) | `docs/game_design/all/cross_cutting.md` |
 | `HREQ-VALIDATION-001` | 必須標準 | 受け入れ結果は完結したValidation Runと実在証拠で判定する | [標準実装](./unity_harness_capabilities.md#hcap-validation-001-validation-run) | Skills・Validation Run |
 
 以降には標準要件の詳細、選択肢、記述例を含む。例や空欄自体はゲーム要件ではないが、`HREQ-*`で指定された必須規則と品質ゲートは適合対象である。
@@ -74,7 +76,8 @@
 <a id="design-item-id"></a>
 ## 🆔 設計項目ID
 
-実装・テスト・ゲームレビューへ追跡する必要がある確定仕様には、`<DOMAIN>-<NNN>`形式のIDを付ける。
+承認済みACを解決し、実装・テスト・ゲームレビューへ追跡する設計判断には、
+`<DOMAIN>-<NNN>`形式のIDを付ける。
 
 ```markdown
 ### MECH-001: 敵を倒して経験値を獲得する
@@ -121,30 +124,47 @@
 
 ### 受け入れ条件の記述形式
 
-設計項目ごとに、仕様本文の直後へ次の表を置く。
+受け入れ条件は設計より先に、ゲーム全体またはSceneのAC正本へ記録する。
+ゲーム全体ACは`docs/game_design/all/acceptance.md`、Scene ACは
+`docs/game_design/scenes/<scene-key>/acceptance.md`へ置く。
 
 ```markdown
-### MECH-001: 敵を倒して経験値を獲得する
-
-**仕様**
-
-敵を倒したプレイヤーへ、敵データに設定された経験値を加算する。
-
-#### 受け入れ条件
-
-| AC ID | 状態 | 検証種別 | 合格条件 | 検証方法 |
-|---|---|---|---|---|
-| `MECH-001-AC01` | `有効` | `AUTO:EDIT` | 経験値10の敵を倒すと、プレイヤーの経験値が10増加する | EditModeテスト |
-| `MECH-001-AC02` | `有効` | `AUTO:PLAY` | 敵撃破時に経験値表示が更新される | PlayModeテスト |
-| `MECH-001-AC03` | `有効` | `MANUAL:PLAY` | 通常プレイで撃破から表示更新までを確認できる | 指定Sceneで人間がプレイ確認 |
+| AC ID | 状態 | 合格条件 | 検証種別 | 検証方法 | 承認者・日付 | 関連設計ID | 旧AC ID |
+|---|---|---|---|---|---|---|---|
+| `GAME-AC-001` | Approved | 敵を倒すと対応する経験値がプレイヤーへ加算される | `AUTO:PLAY` | 敵撃破PlayModeテスト | 山田 2026-06-12 | `MECH-001` | `なし` |
 ```
 
 #### AC ID
 
-- 形式は`<設計項目ID>-AC<NN>`とする。例：`MECH-001-AC01`
-- `NN`は設計項目ごとに`01`から採番する。
+- ゲーム全体は`GAME-AC-<NNN>`とする。例: `GAME-AC-001`
+- Scene固有は`SCENE-<SCENE-KEY>-AC-<NNN>`とする。例:
+  `SCENE-TITLE-AC-001`
+- `NNN`はスコープごとに`001`から採番する。
 - 発行済みAC IDは変更・再利用しない。
 - 不要になった条件は削除せず、状態を`廃止`にする。
+- 旧`<設計項目ID>-AC<NN>`から移行する場合は、新IDを発行して`旧AC ID`へ残す。
+
+#### 設計と実装の対応
+
+承認済み設計項目は、一つ以上の承認済み上流ACとUnity実装単位を記録する。
+
+```markdown
+### MECH-001: 敵撃破報酬
+
+**状態:** Approved
+
+**上流AC:** `GAME-AC-001`
+
+**仕様**
+
+敵データの経験値を撃破したプレイヤーへ一度だけ加算する。
+
+#### 実装マッピング
+
+| Unity単位 | Path | Symbol / Hierarchy | 状態 |
+|---|---|---|---|
+| Script | `Assets/Game/Runtime/Combat/ExperienceReward.cs` | `Game.Combat.ExperienceReward` | Implemented |
+```
 
 #### 検証種別
 
@@ -166,7 +186,8 @@
 - 「正常に動く」「適切」「いい感じ」など、判定基準が不明な表現を使わない。
 - 人間の感覚判断が必要な条件は`MANUAL:PLAY`とし、確認するScene、操作、観点を検証方法へ書く。
 - 設計書の表は合格条件の定義であり、実行結果ではないためチェックボックスにしない。実行結果は作業レポートへ記録する。
-- 確定仕様では、`有効`な条件の検証種別と検証方法を空欄にしない。
+- `Approved` ACでは、検証種別、検証方法、承認者、関連設計IDを空欄にしない。
+- AC側の`関連設計ID`と設計側の`上流AC`は双方向に一致させる。
 
 ---
 

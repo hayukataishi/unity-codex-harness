@@ -69,11 +69,15 @@ Compatibility band外へ更新する場合は、release metadata、fixture、
 3. 新しいHarnessから`python3 scripts/install.py <PROJECT> --dry-run`を実行する。
 4. 旧project-owned `harness.lock.json`に差分がある場合は
    `--prepare-migration`で標準pinとoverrideを分離する。
-5. harness-managed競合は差分を確認し、承認したpathだけ
+5. 旧`docs/unity_design_sheet.md`が単一設計書の場合は
+   `--prepare-migration`で旧Sheetとincoming `docs/game_design/`を出力する。
+   ゲーム全体・Scene ACを先に分離し、所有単位別設計から上流ACを参照して、
+   旧AC IDを移行欄へ残す。自動分割は行わない。
+6. harness-managed競合は差分を確認し、承認したpathだけ
    `--force-file <PATH>`で更新する。
-6. project-owned template更新はmigration bundleから必要な変更だけを統合する。
-7. `python3 scripts/install.py <PROJECT> --check`を実行する。
-8. install manifestの`harness.release`が`0.1.0`、`releaseTag`が`v0.1.0`
+7. project-owned template更新はmigration bundleから必要な変更だけを統合する。
+8. `python3 scripts/install.py <PROJECT> --check`を実行する。
+9. install manifestの`harness.release`が`0.1.0`、`releaseTag`が`v0.1.0`
    であることを確認する。
 
 旧版で配布されたsource-only評価レポートは、旧manifestのsource hashと
@@ -85,6 +89,10 @@ Compatibility band外へ更新する場合は、release metadata、fixture、
 manifest不整合がある場合は、重複Skillを残したまま続行せず書き込み前に停止する。
 旧配置のproject-owned外部Skillは自動移動せず、上流と内容を確認して
 `.agents/skills/`へ手動移行し、旧コピーを除去してからInstallerを再実行する。
+
+旧AC形式`<DesignId>-AC<NN>`はそのまま新規発行に使わず、
+`GAME-AC-<NNN>`または`SCENE-<SCENE-KEY>-AC-<NNN>`を発行し、
+`旧AC ID`列へ対応を保存する。
 
 ## Release artifact verification
 
