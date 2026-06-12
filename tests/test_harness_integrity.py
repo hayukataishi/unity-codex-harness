@@ -178,6 +178,43 @@ class HarnessIntegrityTests(unittest.TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("install manifest SHA-256 mismatch", errors[0])
 
+    def test_manifest_release_identity_must_match_release_contract(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            manifest = project / integrity.MANIFEST_PATH
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            data["harness"]["release"] = "9.9.9"
+            manifest.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            self.rewrite_manifest_sidecar(project)
+
+            errors = integrity.validate_integrity(project)
+
+            self.assertIn(
+                "install manifest harness.release does not match "
+                "harness.release.json",
+                errors,
+            )
+
+    def test_modified_release_contract_fails(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            release = project / integrity.RELEASE_PATH
+            release.write_text('{"version":"9.9.9"}\n', encoding="utf-8")
+
+            errors = integrity.validate_integrity(project)
+
+            self.assertTrue(
+                any(
+                    "harness-managed SHA-256 mismatch: "
+                    "harness.release.json" in error
+                    for error in errors
+                ),
+                errors,
+            )
+
     def test_unsafe_manifest_path_fails_even_with_updated_sidecar(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))

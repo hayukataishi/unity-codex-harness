@@ -25,12 +25,17 @@ OCI_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PACKAGE_REQUIREMENT_RE = re.compile(r"^(?:~=|==|!=|>=|<=|>|<)\S+$")
 VALID_RESULTS = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
 EXPECTED_DISTRIBUTED_DOC_PATHS = {
     "docs/mcp_and_skills_list.md",
     "docs/unity_design_sheet.md",
     "docs/unity_harness_agent_contract.md",
     "docs/unity_harness_capabilities.md",
     "docs/unity_harness_engineering.md",
+    "docs/unity_harness_release.md",
     "docs/unity_harness_requirements.md",
 }
 EXPECTED_SOURCE_ONLY_DOC_PATHS = {
@@ -698,6 +703,73 @@ DOCUMENT_DISTRIBUTION_REQUIRED_TEXT = {
     "tests/test_validation_scripts.py": (
         "docs/unity_harness_evaluation_2026-06-08.md",
         "self.assertNotIn",
+    ),
+}
+
+RELEASE_CONTRACT_REQUIRED_TEXT = {
+    "README.md": (
+        "## Versioned release",
+        "harness.release.json",
+        "scripts/build_release.py",
+        "SHA256SUMS",
+    ),
+    "CHANGELOG.md": (
+        "## [0.1.0] - 2026-06-12",
+        "Semantic Versioning",
+        "### Migration",
+    ),
+    "docs/unity_harness_release.md": (
+        "UNITY_CODEX_HARNESS_RELEASE",
+        "| Harness version | `0.1.0` |",
+        "| Git tag | `v0.1.0` |",
+        "Compatibility matrix",
+        '<a id="migration-policy"></a>',
+        '<a id="v010-migration"></a>',
+    ),
+    "docs/releases/v0.1.0.md": (
+        "# Unity Codex Harness v0.1.0",
+        "## Compatibility",
+        "## Migration",
+        "## Known limitations",
+    ),
+    "docs/unity_harness_engineering.md": (
+        '<a id="harness-release-policy"></a>',
+        "Harness versioned release方針",
+        "releaseManifestSha256",
+        "deterministic ZIP",
+    ),
+    "docs/unity_harness_capabilities.md": (
+        "HCAP-RELEASE-001",
+        "DEBUG-008-AC04",
+        "実装済み・v0.1.0公開tag待ち",
+    ),
+    "scripts/install.py": (
+        "HARNESS_RELEASE_PATH",
+        '"releaseTag": release_tag',
+        '"releaseManifestSha256": release_manifest_hash',
+    ),
+    "scripts/verify_harness_integrity.py": (
+        'RELEASE_PATH = Path("harness.release.json")',
+        "releaseManifestSha256",
+        "harness.releaseTag",
+    ),
+    "scripts/build_release.py": (
+        "FIXED_ZIP_TIMESTAMP",
+        "SHA256SUMS",
+        "release-manifest.json",
+        "source-only evaluation report must not be archived",
+    ),
+    ".github/workflows/release-harness.yml": (
+        '"v[0-9]+.[0-9]+.[0-9]+"',
+        'python3 scripts/build_release.py --check --tag "${GITHUB_REF_NAME}"',
+        "gh release create",
+        "sha256sum --check SHA256SUMS",
+    ),
+    "tests/test_release.py": (
+        "class ReleaseContractTests",
+        "test_release_archive_is_deterministic",
+        "test_release_archive_contains_runtime_and_excludes_source_history",
+        "test_rejects_tag_mismatch",
     ),
 }
 
@@ -1529,6 +1601,135 @@ def validate_document_distribution_contract(root: Path) -> list[str]:
     return errors
 
 
+def validate_release_contract(root: Path) -> list[str]:
+    errors: list[str] = []
+    for relative, required_values in RELEASE_CONTRACT_REQUIRED_TEXT.items():
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing release contract file: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in required_values:
+            if required not in text:
+                errors.append(
+                    f"missing release contract: {relative} -> {required}"
+                )
+
+    release_path = root / "harness.release.json"
+    lock_path = root / "harness.lock.json"
+    if not release_path.is_file() or not lock_path.is_file():
+        return errors
+    try:
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        errors.append(f"invalid release contract JSON: {error}")
+        return errors
+    if not isinstance(release, dict):
+        errors.append("harness.release.json root must be an object")
+        return errors
+    if not isinstance(lock, dict):
+        errors.append("harness.lock.json root must be an object")
+        return errors
+
+    if release.get("schemaVersion") != 1:
+        errors.append("harness.release.json schemaVersion must be 1")
+    if release.get("name") != "unity-codex-harness":
+        errors.append("harness.release.json name is invalid")
+    version = release.get("version")
+    if not isinstance(version, str) or not SEMVER_RE.fullmatch(version):
+        errors.append("harness.release.json version must be Semantic Version")
+        version = "INVALID"
+    if version == "UNRELEASED":
+        errors.append("harness.release.json must not be UNRELEASED")
+    if release.get("tag") != f"v{version}":
+        errors.append("harness.release.json tag must match version")
+    if release.get("releasedAt") != "2026-06-12":
+        errors.append("harness.release.json releasedAt is invalid")
+    if release.get("installManifestSchema") != 2:
+        errors.append("harness.release.json installManifestSchema must be 2")
+    if release.get("releaseNotes") != "docs/releases/v0.1.0.md":
+        errors.append("harness.release.json releaseNotes is invalid")
+
+    artifact = release.get("artifact")
+    if not isinstance(artifact, dict):
+        errors.append("harness.release.json artifact must be an object")
+    else:
+        if artifact.get("archive") != f"unity-codex-harness-{version}.zip":
+            errors.append("release artifact archive does not match version")
+        if artifact.get("manifest") != "release-manifest.json":
+            errors.append("release artifact manifest is invalid")
+        if artifact.get("checksums") != "SHA256SUMS":
+            errors.append("release artifact checksums is invalid")
+
+    compatibility = release.get("compatibility")
+    if not isinstance(compatibility, dict):
+        errors.append("release compatibility must be an object")
+    else:
+        codex = compatibility.get("codex")
+        unity = compatibility.get("unity")
+        python = compatibility.get("python")
+        if not isinstance(codex, dict) or (
+            codex.get("compatibilityBand") != "0.137.x"
+            or codex.get("tested") != ["0.137.0"]
+            or codex.get("cli") != "PASS"
+            or codex.get("ide") != "NOT RUN"
+            or codex.get("app") != "NOT RUN"
+        ):
+            errors.append("release Codex compatibility matrix is invalid")
+        if not isinstance(unity, dict) or (
+            unity.get("compatibilityBand") != "6000.4.x"
+            or unity.get("tested") != ["6000.4.10f1"]
+            or unity.get("fixture") != "PASS"
+        ):
+            errors.append("release Unity compatibility matrix is invalid")
+        if python != {"minimum": "3.11", "ci": "3.11"}:
+            errors.append("release Python compatibility matrix is invalid")
+
+    migration = release.get("migration")
+    if not isinstance(migration, dict) or (
+        migration.get("supportedFrom") != ["UNRELEASED"]
+        or migration.get("policy")
+        != "docs/unity_harness_release.md#migration-policy"
+        or migration.get("guide")
+        != "docs/unity_harness_release.md#v010-migration"
+    ):
+        errors.append("release migration contract is invalid")
+
+    harness = lock.get("harness")
+    if not isinstance(harness, dict):
+        errors.append("harness.lock.json harness must be an object")
+    else:
+        if harness.get("release") != version:
+            errors.append(
+                "harness.lock.json release must match harness.release.json"
+            )
+        unity = (
+            compatibility.get("unity")
+            if isinstance(compatibility, dict)
+            else None
+        )
+        tested = unity.get("tested") if isinstance(unity, dict) else []
+        if harness.get("unityFixtureVersion") not in tested:
+            errors.append(
+                "harness.lock.json Unity fixture is not release-tested"
+            )
+        python = (
+            compatibility.get("python")
+            if isinstance(compatibility, dict)
+            else None
+        )
+        if harness.get("python") != python:
+            errors.append(
+                "harness.lock.json Python contract does not match release"
+            )
+    if lock.get("updatedAt") != release.get("releasedAt"):
+        errors.append(
+            "harness.lock.json updatedAt must match release date"
+        )
+    return errors
+
+
 def validate_initial_design_dialogue(root: Path) -> list[str]:
     errors: list[str] = []
     for relative, required_values in INITIAL_DESIGN_DIALOGUE_REQUIRED_TEXT.items():
@@ -2035,6 +2236,7 @@ def main() -> int:
         + validate_harness_integrity_contract(root)
         + validate_harness_lock_boundary(root)
         + validate_document_distribution_contract(root)
+        + validate_release_contract(root)
         + validate_initial_design_dialogue(root)
         + validate_design_readiness_contract(root)
         + validate_harness_lock(root)

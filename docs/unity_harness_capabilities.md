@@ -37,6 +37,7 @@
 | `HCAP-INTEGRITY-001` | 実装済み | 導入済みharness-managedファイルの未承認改変を検出して作業を停止する | verifier、Installer check、Skills、CI、回帰テスト | なし |
 | `HCAP-DESIGN-BOOTSTRAP-001` | 実装済み | 初期ゲーム設計をマイルストーン別の対話Phaseで決定し、独立Subagent監査する | `bootstrap-game-design`、対話進捗表、Repository回帰 | なし |
 | `HCAP-DESIGN-READINESS-001` | 実装済み | 対象マイルストーンの設計完成度を機械判定する | readiness CLI、JSON report、Skills、回帰テスト | なし |
+| `HCAP-RELEASE-001` | 実装済み・公開tag待ち | Version、互換性、migration、artifact、tag公開を一つのrelease契約として検証する | `harness.release.json`、release builder、GitHub Actions、回帰テスト | `DEBUG-008` |
 
 <a id="hcap-validation-001-validation-run"></a>
 ## HCAP-VALIDATION-001 Validation Run
@@ -209,3 +210,35 @@ Subagent監査は対話品質を補助するが、人間の製品判断を代替
   signing・配布経路まで検査する。
 - JSON reportを`Artifacts/DesignReadiness/`へ保存できる。
 - `FAIL`中は初期設計完了、実装開始、受け入れ完了を主張しない。
+
+<a id="hcap-release-001"></a>
+## HCAP-RELEASE-001 Versioned release
+
+状態: `実装済み・v0.1.0公開tag待ち`
+
+- `harness.release.json`をversion、tag、release date、install manifest schema、
+  Codex / Unity / Python互換性、artifact名、migration参照の機械可読な正本とする。
+- `harness.lock.json`のrelease、Unity fixture、Python条件をrelease metadataと
+  一致させ、Repository validatorでdriftを拒否する。
+- Installerはrelease metadataとrelease契約文書をharness-managedで配布し、
+  install manifestへversion、tag、release metadata SHA-256を記録する。
+- 完全性Verifierはinstall manifest、配布済みrelease metadata、source hashの
+  不一致を拒否する。
+- `scripts/build_release.py`はruntime配布物だけを固定timestamp、sorted path、
+  固定permissionでZIP化し、`release-manifest.json`と`SHA256SUMS`を生成する。
+- source-only評価履歴、tests、fixture、Workflowはrelease ZIPへ含めない。
+- `.github/workflows/release-harness.yml`は`v<SemVer>` tagとmetadataの一致、
+  Repository検証、全Python回帰、構文検査、checksum検証後にだけ
+  GitHub Releaseを作成する。
+- compatibility matrixの`PASS`はtested exact versionだけを表し、同じbandの
+  未検証patch versionを自動的に検証済みとしない。
+- SemVer、project-owned保護、backup、三者比較、downgrade非自動化を
+  migration policyとして公開する。
+
+受け入れ契約: `DEBUG-008-AC01`、`DEBUG-008-AC02`、
+`DEBUG-008-AC03`、`DEBUG-008-AC04`
+
+公開状態:
+
+- `v0.1.0`に対応する契約とartifact生成はローカル検証可能
+- Git tag作成とGitHub Release公開はcommit後の外部操作のため`NOT RUN`

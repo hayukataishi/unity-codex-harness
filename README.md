@@ -9,14 +9,41 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 - `docs/unity_harness_agent_contract.md`: Codexへ常時適用する必須作業契約
 - `docs/unity_harness_capabilities.md`: ハーネスとして標準実装済みの能力
 - `docs/unity_harness_requirements.md`: 導入先へ適用する標準・推奨要件
+- `docs/unity_harness_release.md`: 現行版の互換性とmigration policy
 - `docs/unity_design_sheet.md`: 配布先ゲームの個別要件・適用・例外記録
 - `docs/mcp_and_skills_list.md`: Unity MCPとSkillsの責務
 - `docs/unity_harness_evaluation_2026-06-08.md`: ハーネス開発用の
   source-only評価履歴。導入先ゲームへコピーしません
 - `harness.lock.json`: ハーネス管理の標準pinと検証環境
 - `harness.overrides.json`: ゲーム側が承認した外部依存override
+- `harness.release.json`: version、tag、互換性、artifactの機械可読な正本
+- `CHANGELOG.md`: 公開版ごとの変更履歴
 - `AGENTS.md`: Codexが最初に読むリポジトリ指示
 - `scripts/install.py`: 既存Unityプロジェクトへの安全な導入スクリプト
+
+## Versioned release
+
+現行Harness契約は`0.1.0`、対応Git tagは`v0.1.0`です。
+導入済みProjectでは`harness.release.json`と
+`.unity-codex-harness/install-manifest.json`にversion、tag、
+release metadataのSHA-256を記録します。`main`のclone時刻やbranch名を
+導入版の識別子にはしません。
+
+GitHub Release公開後は、`unity-codex-harness-0.1.0.zip`、
+`release-manifest.json`、`SHA256SUMS`を同じreleaseから取得し、
+checksumを検証してから使用します。互換性matrixと更新手順は
+[Release契約](docs/unity_harness_release.md)、
+版ごとの変更は[CHANGELOG](CHANGELOG.md)を参照してください。
+
+release候補をローカルで検査・生成するコマンド:
+
+```bash
+python3 scripts/build_release.py --check --tag v0.1.0
+python3 scripts/build_release.py \
+  --output Artifacts/Releases/v0.1.0
+cd Artifacts/Releases/v0.1.0
+shasum -a 256 -c SHA256SUMS
+```
 
 ## Unityプロジェクトへの導入
 
@@ -25,7 +52,8 @@ Unityゲーム開発で、OpenAI Codexが設計・実装・検証・報告を一
 次の`/path/to/YourUnityProject`を、対象ゲームのUnityプロジェクトルートへ置き換えて実行します。パスに空白がある場合に備えて、引用符で囲むことを推奨します。
 
 ```bash
-git clone https://github.com/hayukataishi/unity-codex-harness.git
+git clone --branch v0.1.0 --depth 1 \
+  https://github.com/hayukataishi/unity-codex-harness.git
 cd unity-codex-harness
 
 # 変更予定を確認
@@ -66,10 +94,11 @@ Windows: C:\Users\your-name\UnityProjects\MyGame
 
 ### 手順1: ハーネスを取得する
 
-Unityプロジェクトとは別の場所へ、このリポジトリをcloneします。
+Unityプロジェクトとは別の場所へ、使用するversionのtagを指定してcloneします。
 
 ```bash
-git clone https://github.com/hayukataishi/unity-codex-harness.git
+git clone --branch v0.1.0 --depth 1 \
+  https://github.com/hayukataishi/unity-codex-harness.git
 cd unity-codex-harness
 ```
 
@@ -109,10 +138,12 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 ├─ docs/
 │  ├─ unity_harness_capabilities.md              ハーネス管理の標準実装
 │  ├─ unity_harness_agent_contract.md             Codexの必須作業契約
+│  ├─ unity_harness_release.md                    互換性・migration policy
 │  ├─ unity_harness_requirements.md              ハーネス管理の標準・推奨要件
 │  └─ unity_design_sheet.md                     ゲーム側所有の個別要件
 ├─ harness.lock.json                           ハーネス管理の標準pin
 ├─ harness.overrides.json                      ゲーム側の承認済みoverride
+├─ harness.release.json                        Harness version・tag・互換性
 ├─ ProjectSettings/
 │  └─ UnityCodexHarnessAssetValidation.json    ゲーム固有の資産検査設定
 ├─ scripts/unity_codex_harness/
@@ -328,11 +359,13 @@ python3 scripts/install.py "/path/to/YourUnityProject"
 
 ### ハーネスを更新する
 
-ハーネス側を更新した後、最初にdry-runで差分を確認します。
+更新先releaseのtagまたはchecksum検証済みartifactへ切り替えた後、
+最初にdry-runで差分を確認します。
 
 ```bash
 cd "/path/to/unity-codex-harness"
-git pull
+git fetch --tags
+git checkout v0.1.0
 python3 scripts/install.py "/path/to/YourUnityProject" --dry-run
 ```
 
@@ -399,7 +432,7 @@ backupから戻す場合は`BackupManifest.json`で対象とhashを確認し、`
 
 ### 手動導入
 
-自動インストーラーを利用できない場合は、`.codex/skills/`と`templates/unity/`の内容に加え、`docs/`から`mcp_and_skills_list.md`、`unity_design_sheet.md`、`unity_harness_agent_contract.md`、`unity_harness_capabilities.md`、`unity_harness_engineering.md`、`unity_harness_requirements.md`だけをUnityプロジェクトルートへコピーします。source-onlyの`docs/unity_harness_evaluation_2026-06-08.md`はコピーしません。さらに`harness.lock.json`、`harness.overrides.json`、必要に応じて`AGENTS.md`を配置します。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
+自動インストーラーを利用できない場合は、`.codex/skills/`と`templates/unity/`の内容に加え、`docs/`から`mcp_and_skills_list.md`、`unity_design_sheet.md`、`unity_harness_agent_contract.md`、`unity_harness_capabilities.md`、`unity_harness_engineering.md`、`unity_harness_release.md`、`unity_harness_requirements.md`だけをUnityプロジェクトルートへコピーします。source-onlyの`docs/unity_harness_evaluation_2026-06-08.md`はコピーしません。さらに`harness.lock.json`、`harness.overrides.json`、`harness.release.json`、必要に応じて`AGENTS.md`を配置します。既存`AGENTS.md`を保持する場合も、上記のAgent Contract参照を追加してください。ルートの`.gitignore`へ`/Artifacts/`も追加してください。Skills内の参照パスはこの配置を前提にしています。
 
 手動導入ではinstall manifest、所有区分、baseline、backup、migration bundleが生成されないため、継続更新には推奨しません。
 
@@ -554,6 +587,12 @@ cp -R .codex/external/agent-sprite-forge/skills/generate2dmap \
 python3 scripts/validate_repository.py
 ```
 
+release metadata、tag、互換性、migration記録を検査:
+
+```bash
+python3 scripts/build_release.py --check --tag v0.1.0
+```
+
 ハーネステンプレート自身のInstaller、preflight、Validation Run、文書規約を回帰検証:
 
 ```bash
@@ -647,6 +686,10 @@ fixtureにはRuntime / Editor / EditMode / PlayMode asmdef、保存済みPrefab�
 - `Unity 6.4 Fixture`: GameCIでfixtureのEditMode / PlayModeと資産検査回帰テストを実行し、結果をArtifactへ保存
 
 `tests/fixtures/`と`.github/workflows/`は`install.py`のコピー対象ではないため、導入先ゲームには入りません。導入先ゲームでは、コピーされた`.codex/skills/validate-unity-change/`のローカル検証スクリプトを利用し、ゲーム固有のCIは対象プラットフォームやライセンス方針に合わせて別途定義します。
+
+`.github/workflows/release-harness.yml`は`v<SemVer>` tagだけを受け付け、
+release契約、Repository検証、全Python回帰、構文検査、checksum検証に成功した
+場合だけGitHub ReleaseへZIP、manifest、`SHA256SUMS`を公開します。
 
 Unity `6000.4.10f1`は維持し、GameCI imageを次へ固定しています。
 

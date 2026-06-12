@@ -42,6 +42,11 @@ Unityゲーム開発において、人間がゲームの方向性と品質判断
 - **MCP・Skill一覧**：利用可能な能力、用途、使用条件、制限事項を定義する。
 - **`harness.lock.json`**：ハーネスの検証環境、外部ツールの標準固定参照、公式根拠、実行確認状態を定義する`harness-managed`ファイル。
 - **`harness.overrides.json`**：ゲーム側が承認した外部依存の標準pinとの差分だけを定義する`project-owned`ファイル。
+- **`harness.release.json`**：Harness version、Git tag、互換性matrix、
+  artifact名、migration参照を定義する`harness-managed` release正本。
+- **Release契約**：導入済みProjectで現在版の互換性と移行方針を説明する
+  `harness-managed`文書。
+- **`CHANGELOG.md`**：公開版ごとの変更履歴を保持するsource-only文書。
 - **評価レポート**：ハーネス自身の再評価、改善履歴、検証記録を保持する
   source-only文書。導入先ゲームのruntime契約ではなく、Installerで配布しない。
 - **ソースコードとUnityアセット**：設計を実行可能な形で表現する。
@@ -216,6 +221,41 @@ Unity 6プロジェクトでは、`Assets`以下へ保存したBuild Profileア�
 - image availabilityの`PASS`は、Unity License、Editor起動、EditMode、PlayMode、Artifact生成の成功を意味しない。リモートUnity jobは別の`remoteExecution`状態として記録する。
 - Unity Licenseの内容、Unity accountのemail、password、serialをlock、Workflow、Log、Artifactへ保存しない。GitHub Actions Secretsからのみ渡す。
 - Unity version、GameCI image version、test runner、runner OSを変更する場合は、lock、Workflow、存在確認、Python回帰、Unity fixtureを同じ変更で再検証する。
+
+<a id="harness-release-policy"></a>
+### Harness versioned release方針
+
+Harnessの公開単位はGit branchやclone時刻ではなく、
+`harness.release.json`で定義したSemantic Versionと対応Git tagとする。
+
+- versionは`MAJOR.MINOR.PATCH`、tagは`vMAJOR.MINOR.PATCH`とし、両者の
+  不一致をrelease前に拒否する。
+- compatibility matrixへCodex、Unity、Pythonのband、tested exact version、
+  `PASS / NOT RUN`を記録する。band内の未検証versionを暗黙に`PASS`としない。
+- `harness.lock.json`のrelease、Unity fixture、Python条件はrelease metadataと
+  一致させる。
+- Installerは`harness.release.json`と`docs/unity_harness_release.md`を
+  harness-managedで配布し、install manifestへ`release`、`releaseTag`、
+  `releaseManifestSha256`を記録する。
+- Release artifactはInstaller実行に必要なruntime sourceだけを含む
+  deterministic ZIPとし、source-only評価履歴、tests、fixture、Workflowを
+  含めない。
+- GitHub ReleaseへZIP、`release-manifest.json`、`SHA256SUMS`を添付する。
+- tag公開Workflowはmetadataとのtag一致、Repository validator、全Python回帰、
+  Python構文、artifact checksumがすべて成功した場合だけ公開する。
+- release候補のUnity、Codex surface、外部依存に`NOT RUN`がある場合は
+  compatibility matrixへ残し、実行済みと表現しない。
+
+Migration policy:
+
+- `PATCH`は互換修正、`MINOR`は移行可能な能力追加、`MAJOR`は自動互換を
+  維持できない契約変更に使用する。
+- `0.x`でも破壊的変更を黙って配布せず、対応移行元とmigration guideを付ける。
+- project-ownedを自動上書きせず、template変更は三者比較、
+  harness-managed競合はbackup付き明示承認とする。
+- downgradeは自動化せず、backup復元と対象releaseの完全性再検証を要求する。
+- release tagは対象commitが確定し、release metadataとchangelogを含む全検証が
+  完了した後に作成する。未コミットworktreeへtagを付けない。
 
 ---
 
@@ -549,7 +589,7 @@ Installerは導入対象を次の2種類へ分け、`.unity-codex-harness/instal
 
 更新規則:
 
-- `docs/`はdirectory全体をコピーせず、ゲーム作業に必要な6文書を
+- `docs/`はdirectory全体をコピーせず、ゲーム作業に必要なruntime文書を
   runtime文書allowlistで明示する。評価レポートなどの開発履歴はsource-onlyとする。
 - 旧版が評価レポートをharness-managedとして配布済みの場合、旧manifestと
   sidecarを検証し、実ファイルが旧source hashと一致する場合だけbackup後に

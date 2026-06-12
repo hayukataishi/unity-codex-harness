@@ -13,6 +13,7 @@ from typing import Any
 
 MANIFEST_PATH = Path(".unity-codex-harness/install-manifest.json")
 MANIFEST_HASH_PATH = Path(".unity-codex-harness/install-manifest.sha256")
+RELEASE_PATH = Path("harness.release.json")
 AGENTS_PATH = Path("AGENTS.md")
 AGENTS_CONTRACT_PATH = Path("docs/unity_harness_agent_contract.md")
 AGENTS_CONTRACT_MARKER = (
@@ -131,6 +132,7 @@ def validate_integrity(project_root: Path) -> list[str]:
 
     managed_paths: set[Path] = set()
     all_paths: set[Path] = set()
+    source_hashes: dict[Path, str] = {}
     agents_contract_required = False
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
@@ -164,6 +166,7 @@ def validate_integrity(project_root: Path) -> list[str]:
                 f"{source_hash!r}"
             )
             continue
+        source_hashes[relative] = source_hash
         if ownership != OWNERSHIP_HARNESS:
             continue
 
@@ -189,6 +192,47 @@ def validate_integrity(project_root: Path) -> list[str]:
 
     if not managed_paths:
         errors.append("install manifest contains no harness-managed files")
+
+    harness = manifest.get("harness")
+    if not isinstance(harness, dict):
+        errors.append("install manifest harness must be an object")
+    else:
+        release_path = project_root / RELEASE_PATH
+        release_hash = source_hashes.get(RELEASE_PATH)
+        if release_hash is None:
+            errors.append(
+                "install manifest must record harness.release.json"
+            )
+        elif harness.get("releaseManifestSha256") != release_hash:
+            errors.append(
+                "install manifest releaseManifestSha256 must match the "
+                "harness.release.json source SHA-256"
+            )
+        if release_path.is_file() and not release_path.is_symlink():
+            try:
+                release = json.loads(
+                    release_path.read_text(encoding="utf-8")
+                )
+            except json.JSONDecodeError as error:
+                errors.append(f"invalid harness.release.json: {error}")
+            else:
+                if not isinstance(release, dict):
+                    errors.append(
+                        "harness.release.json root must be an object"
+                    )
+                else:
+                    version = release.get("version")
+                    tag = release.get("tag")
+                    if harness.get("release") != version:
+                        errors.append(
+                            "install manifest harness.release does not match "
+                            "harness.release.json"
+                        )
+                    if harness.get("releaseTag") != tag:
+                        errors.append(
+                            "install manifest harness.releaseTag does not "
+                            "match harness.release.json"
+                        )
 
     if agents_contract_required:
         agents_path = project_root / AGENTS_PATH

@@ -1790,11 +1790,13 @@ harness-managedとして各ゲームへ導入する。実行に必要な標準�
 評価記録の配布範囲を分けるべきである。
 2026-06-11にSection 15.11の対応を実施した。
 
-#### P1-4: versioned releaseがない
+#### P1-4: versioned releaseがない（実装済み・公開tag待ち）
 
 `harness.release`は`UNRELEASED`で、Git tag、changelog、対応Codex version、
 Unity version帯、migration policyの公開単位がない。導入済みProjectが
 「どのHarness契約で動くか」を安定して説明できない。
+2026-06-12にSection 15.12のrelease契約と公開Workflowを実装した。
+`v0.1.0` tag作成とGitHub Release公開は未実行である。
 
 #### P1-5: 自動検査範囲がまだ限定的
 
@@ -1923,7 +1925,7 @@ MCP、Build、CIのセットアップを扱える個人またはチームであ�
 
 実装:
 
-- Installerの`docs/`全体列挙を廃止し、ゲーム作業に必要な6文書を
+- Installerの`docs/`全体列挙を廃止し、ゲーム作業に必要なruntime文書を
   `DISTRIBUTED_DOC_PATHS`で明示
 - `docs/unity_harness_evaluation_2026-06-08.md`を
   `SOURCE_ONLY_DOC_PATHS`へ分類
@@ -1934,7 +1936,7 @@ MCP、Build、CIのセットアップを扱える個人またはチームであ�
   全書込み前に停止し、自動削除しない
 - Repository validatorがallowlist、source-only list、重複、対象file存在、
   回帰契約を検査
-- 手動導入手順も`docs/`全体コピーから6文書の明示コピーへ変更
+- 手動導入手順も`docs/`全体コピーからruntime文書の明示コピーへ変更
 
 `DEBUG-007-AC06`:
 
@@ -1954,3 +1956,64 @@ MCP、Build、CIのセットアップを扱える個人またはチームであ�
   validation runnerを変更していないため
 
 この対応により、評価履歴が導入先ゲームの標準契約として増殖する経路を閉じた。
+
+### 15.12 P1-4 Versioned release対応結果
+
+Harnessの版、互換性、移行、artifact、tag公開を一つの検証可能な契約へ統合した。
+
+実装:
+
+- `harness.release.json`を`0.1.0`、`v0.1.0`、release date、
+  install manifest schema、artifact名、互換性matrix、migration参照の正本にした
+- `harness.lock.json`のHarness releaseを`UNRELEASED`から`0.1.0`へ変更し、
+  Unity fixtureとPython条件をrelease metadataと照合
+- Codex CLI `0.137.0`、Unity `6000.4.10f1`をtested exact versionとして記録し、
+  Codex IDE / Appを`NOT RUN`のまま公開
+- `CHANGELOG.md`、version別release notes、SemVer policy、
+  `UNRELEASED`版からのmigration guideを追加
+- Installerが`harness.release.json`とrelease契約文書をharness-managedで配布し、
+  install manifestへrelease、releaseTag、release metadata SHA-256を記録
+- 完全性Verifierがinstall manifestと配布済みrelease metadataの不一致を拒否
+- `scripts/build_release.py`が固定timestamp、sorted path、固定permissionで
+  deterministic ZIP、`release-manifest.json`、`SHA256SUMS`を生成
+- release ZIPからsource-only評価履歴、tests、fixture、Workflowを除外
+- `v<SemVer>` tagとmetadataの一致、Repository検証、全Python回帰、
+  構文検査、checksum検証後だけ公開するGitHub Actionsを追加
+- Repository validatorとrelease回帰がmetadata、lock、文書、Installer、
+  Workflow、archive内容を検査
+
+`DEBUG-008`:
+
+| AC ID | 結果 | 証拠・備考 |
+|---|---|---|
+| `DEBUG-008-AC01` | `PASS` | SemVer、tag、release date、Codex / Unity / Python互換性、lock一致、migration参照を検査 |
+| `DEBUG-008-AC02` | `PASS` | Installerがversion、tag、release metadata SHA-256を記録し、Verifierが不一致を拒否 |
+| `DEBUG-008-AC03` | `PASS` | 2回生成したZIPのSHA-256一致、manifest、checksum、配布対象と除外対象を回帰確認 |
+| `DEBUG-008-AC04` | `PASS` | tag不一致を拒否し、tag WorkflowがRepository回帰とchecksum成功後だけGitHub Releaseを作成する契約を確認 |
+
+検証:
+
+- `python3 scripts/validate_repository.py`: `PASS`
+- `python3 scripts/build_release.py --check --tag v0.1.0`: `PASS`
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`:
+  169 tests `PASS`
+- 全Python scriptとtestの`py_compile`: `PASS`
+- GitHub Actions Workflow YAML parse: `PASS`
+- `unity-codex-harness-0.1.0.zip`と`release-manifest.json`の
+  `SHA256SUMS`検証: `PASS`
+- Unity fixture: `NOT RUN`
+  - Unity C#、asset、scene、prefab、ProjectSettings、validation runnerの変更なし
+  - release metadataには直近のtested exact Unity `6000.4.10f1`を記録し、
+    今回未実行のremote Unity jobを成功扱いしていない
+
+公開状態:
+
+- `v0.1.0` release artifact生成とchecksum検証: `PASS`
+- Git tag `v0.1.0`作成: `NOT RUN`
+- GitHub Release公開: `NOT RUN`
+- 理由: 本作業は未コミットworktree上の実装と検証であり、未確定commitへtagを
+  作成・pushしないrelease policyに従った
+
+この段階で導入済みProjectはHarness契約版を安定して説明できる。
+P1-4の外部公開完了は、変更commit後に`v0.1.0` tagをpushし、
+release Workflowが成功した時点とする。

@@ -1389,6 +1389,50 @@ class DocumentDistributionTests(unittest.TestCase):
             )
 
 
+class ReleaseContractDocumentationTests(unittest.TestCase):
+    def create_contract_root(self, root: Path) -> None:
+        for relative, required_values in (
+            repository_validator.RELEASE_CONTRACT_REQUIRED_TEXT.items()
+        ):
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(required_values), encoding="utf-8")
+        for relative in ("harness.release.json", "harness.lock.json"):
+            source = ROOT / relative
+            destination = root / relative
+            destination.write_text(
+                source.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+    def test_repository_release_contract_is_valid(self):
+        self.assertEqual(
+            repository_validator.validate_release_contract(ROOT),
+            [],
+        )
+
+    def test_rejects_release_tag_mismatch(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_contract_root(root)
+            release_path = root / "harness.release.json"
+            release = json.loads(
+                release_path.read_text(encoding="utf-8")
+            )
+            release["tag"] = "v9.9.9"
+            release_path.write_text(
+                json.dumps(release),
+                encoding="utf-8",
+            )
+
+            errors = repository_validator.validate_release_contract(root)
+
+            self.assertIn(
+                "harness.release.json tag must match version",
+                errors,
+            )
+
+
 class InstallerSourceTests(unittest.TestCase):
     def test_maps_unity_template_into_project_paths(self):
         installer = load_module(
@@ -1440,6 +1484,11 @@ class InstallerSourceTests(unittest.TestCase):
         )
         self.assertIn("harness.lock.json", relative_paths)
         self.assertIn("harness.overrides.json", relative_paths)
+        self.assertIn("harness.release.json", relative_paths)
+        self.assertIn(
+            "docs/unity_harness_release.md",
+            relative_paths,
+        )
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
             relative_paths,

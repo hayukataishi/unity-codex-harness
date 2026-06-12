@@ -28,12 +28,14 @@ AGENTS_CONTRACT_MARKER = (
 )
 HARNESS_LOCK_PATH = Path("harness.lock.json")
 HARNESS_OVERRIDES_PATH = Path("harness.overrides.json")
+HARNESS_RELEASE_PATH = Path("harness.release.json")
 DISTRIBUTED_DOC_PATHS = (
     Path("docs/mcp_and_skills_list.md"),
     Path("docs/unity_design_sheet.md"),
     Path("docs/unity_harness_agent_contract.md"),
     Path("docs/unity_harness_capabilities.md"),
     Path("docs/unity_harness_engineering.md"),
+    Path("docs/unity_harness_release.md"),
     Path("docs/unity_harness_requirements.md"),
 )
 SOURCE_ONLY_DOC_PATHS = (
@@ -231,6 +233,13 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             source=repository_root / "harness.overrides.json",
             relative=HARNESS_OVERRIDES_PATH,
             ownership=OWNERSHIP_PROJECT,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=repository_root / HARNESS_RELEASE_PATH,
+            relative=HARNESS_RELEASE_PATH,
+            ownership=OWNERSHIP_HARNESS,
         )
     )
     files.append(
@@ -865,13 +874,31 @@ def plan_project_templates(
     return baseline_updates, migration_changes, update_notices
 
 
-def harness_release(repository_root: Path) -> tuple[str, str]:
+def harness_release(
+    repository_root: Path,
+) -> tuple[str, str, str, str]:
+    release_path = repository_root / HARNESS_RELEASE_PATH
+    release = json.loads(release_path.read_text(encoding="utf-8"))
+    version = release.get("version")
+    tag = release.get("tag")
+    if not isinstance(version, str) or tag != f"v{version}":
+        raise SystemExit(
+            "Invalid harness.release.json: tag must equal v plus version."
+        )
     lock = json.loads(
         (repository_root / "harness.lock.json").read_text(encoding="utf-8")
     )
     harness = lock.get("harness", {})
-    return str(harness.get("release", "UNKNOWN")), str(
-        lock.get("updatedAt", "UNKNOWN")
+    if harness.get("release") != version:
+        raise SystemExit(
+            "Invalid release contract: harness.lock.json release does not "
+            "match harness.release.json."
+        )
+    return (
+        version,
+        tag,
+        sha256_file(release_path),
+        str(lock.get("updatedAt", "UNKNOWN")),
     )
 
 
@@ -880,7 +907,12 @@ def install_manifest(
     project_root: Path,
     files: list[InstallSource],
 ) -> dict[str, object]:
-    release, lock_updated_at = harness_release(repository_root)
+    (
+        release,
+        release_tag,
+        release_manifest_hash,
+        lock_updated_at,
+    ) = harness_release(repository_root)
     entries = []
     for item in files:
         entry = {
@@ -897,6 +929,8 @@ def install_manifest(
         "schemaVersion": 2,
         "harness": {
             "release": release,
+            "releaseTag": release_tag,
+            "releaseManifestSha256": release_manifest_hash,
             "lockUpdatedAt": lock_updated_at,
         },
         "exclusiveManagedRoots": [

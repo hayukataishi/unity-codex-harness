@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-06-10",
+  "updatedAt": "2026-06-12",
   "harness": {
-    "release": "UNRELEASED",
+    "release": "0.1.0",
     "unityFixtureVersion": "6000.4.10f1",
     "python": {
       "minimum": "3.11",

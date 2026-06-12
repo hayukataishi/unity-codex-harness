@@ -471,6 +471,18 @@ class InstallerCliRegressionTests(unittest.TestCase):
                 ).read_text(encoding="utf-8")
             )
             self.assertEqual(manifest["schemaVersion"], 2)
+            release_hash = hashlib.sha256(
+                (ROOT / "harness.release.json").read_bytes()
+            ).hexdigest()
+            self.assertEqual(manifest["harness"]["release"], "0.1.0")
+            self.assertEqual(
+                manifest["harness"]["releaseTag"],
+                "v0.1.0",
+            )
+            self.assertEqual(
+                manifest["harness"]["releaseManifestSha256"],
+                release_hash,
+            )
             self.assertIn(
                 "scripts/unity_codex_harness",
                 manifest["exclusiveManagedRoots"],
@@ -514,6 +526,14 @@ class InstallerCliRegressionTests(unittest.TestCase):
             )
             self.assertEqual(
                 by_path["harness.lock.json"]["ownership"],
+                "harness-managed",
+            )
+            self.assertEqual(
+                by_path["harness.release.json"]["ownership"],
+                "harness-managed",
+            )
+            self.assertEqual(
+                by_path["docs/unity_harness_release.md"]["ownership"],
                 "harness-managed",
             )
             self.assertEqual(
