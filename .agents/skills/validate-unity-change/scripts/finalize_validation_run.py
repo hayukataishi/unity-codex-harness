@@ -22,6 +22,7 @@ MANIFEST_SCHEMA_VERSION = 2
 RESULTS_SCHEMA_VERSION = 1
 MANIFEST_NAME = "RunManifest.json"
 MANIFEST_HASH_NAME = "RunManifest.sha256"
+EVIDENCE_PATH_PREFIX = "Artifacts/"
 
 
 def aggregate_result(results: list[str]) -> str:
@@ -100,6 +101,97 @@ def validate_checks(value: Any) -> list[dict[str, Any]]:
     return checks
 
 
+def evidence_path_from(value: Any, label: str) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        path = value.get("path")
+        notes = value.get("notes")
+        if path is not None and (
+            not isinstance(path, str) or not path.strip()
+        ):
+            raise ValueError(f"{label}.path must be a non-empty string")
+        if notes is not None and not isinstance(notes, str):
+            raise ValueError(f"{label}.notes must be a string")
+        unknown = sorted(set(value) - {"path", "notes"})
+        if unknown:
+            raise ValueError(
+                f"{label} has unknown field(s): {', '.join(unknown)}"
+            )
+        return path
+    raise ValueError(f"{label} must be a string or an object")
+
+
+def iter_evidence_values(value: Any, label: str) -> list[Any]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        values: list[Any] = []
+        for index, item in enumerate(value):
+            values.extend(iter_evidence_values(item, f"{label}[{index}]"))
+        return values
+    if isinstance(value, (str, dict)):
+        return [value]
+    raise ValueError(f"{label} must be a string, object, or array")
+
+
+def validate_evidence_value(
+    project_root: Path,
+    run_dir: Path,
+    value: Any,
+    label: str,
+) -> None:
+    path = evidence_path_from(value, label)
+    if not path:
+        return
+    if not path.startswith(EVIDENCE_PATH_PREFIX):
+        return
+    if any(separator in path for separator in (";", "\n", "\r", "\t")):
+        raise ValueError(
+            f"{label} mixes an artifact path with notes. Use "
+            '{"path": "Artifacts/...", "notes": "..."} instead.'
+        )
+    evidence_path = (project_root / path).resolve()
+    try:
+        evidence_path.relative_to(run_dir)
+    except ValueError as error:
+        raise ValueError(f"{label} must be inside {run_dir}") from error
+    if not evidence_path.exists():
+        raise ValueError(f"{label} does not exist: {path}")
+
+
+def validate_evidence_references(
+    project_root: Path,
+    run_dir: Path,
+    checks: list[dict[str, Any]],
+    acceptance: list[dict[str, Any]],
+) -> None:
+    for index, check in enumerate(checks):
+        for value in iter_evidence_values(
+            check.get("evidence"),
+            f"checks[{index}].evidence",
+        ):
+            validate_evidence_value(
+                project_root,
+                run_dir,
+                value,
+                f"checks[{index}].evidence",
+            )
+    for index, criterion in enumerate(acceptance):
+        for value_index, value in enumerate(
+            iter_evidence_values(
+                criterion.get("evidence"),
+                f"acceptanceCriteria[{index}].evidence",
+            )
+        ):
+            validate_evidence_value(
+                project_root,
+                run_dir,
+                value,
+                f"acceptanceCriteria[{index}].evidence[{value_index}]",
+            )
+
+
 def validate_commands(value: Any) -> list[dict[str, Any]]:
     if value is None:
         return []
@@ -130,11 +222,9 @@ def acceptance_results(
     default_result: str,
     checks: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    evidence = [
-        check.get("evidence", "")
-        for check in checks
-        if isinstance(check.get("evidence"), str) and check.get("evidence")
-    ]
+    evidence: list[Any] = []
+    for check in checks:
+        evidence.extend(iter_evidence_values(check.get("evidence"), "checks.evidence"))
     provided_by_id: dict[str, dict[str, Any]] = {}
     if provided is not None:
         if not isinstance(provided, list):
@@ -175,7 +265,19 @@ def acceptance_results(
 
 
 def render_cell(value: Any) -> str:
+    if isinstance(value, dict):
+        path = value.get("path")
+        notes = value.get("notes")
+        if path and notes:
+            value = f"{path} ({notes})"
+        else:
+            value = path or notes or ""
     return str(value or "").replace("\n", " ").replace("|", "\\|")
+
+
+def render_evidence(value: Any) -> str:
+    values = iter_evidence_values(value, "evidence")
+    return "; ".join(render_cell(item) for item in values if item)
 
 
 def finalize_run(
@@ -233,6 +335,7 @@ def finalize_run(
         check_result,
         checks,
     )
+    validate_evidence_references(project_root, run_dir, checks, acceptance)
     overall = aggregate_result(
         [check_result] + [criterion["result"] for criterion in acceptance]
     )
@@ -278,13 +381,7 @@ def finalize_run(
     ]
     if acceptance:
         for criterion in acceptance:
-            criterion_evidence = criterion.get("evidence", [])
-            if isinstance(criterion_evidence, list):
-                evidence_text = "; ".join(
-                    render_cell(value) for value in criterion_evidence if value
-                )
-            else:
-                evidence_text = render_cell(criterion_evidence)
+            evidence_text = render_evidence(criterion.get("evidence", []))
             report_lines.append(
                 f"| `{render_cell(criterion['id'])}` | "
                 f"`{criterion['result']}` | "
@@ -306,7 +403,7 @@ def finalize_run(
         report_lines.append(
             f"| {render_cell(check.get('name', 'Unknown'))} | "
             f"`{check.get('result', 'FAIL')}` | "
-            f"{render_cell(check.get('evidence') or check.get('notes'))} |"
+            f"{render_evidence(check.get('evidence')) or render_cell(check.get('notes'))} |"
         )
 
     report_lines.extend(["", "## Risks and blockers", ""])

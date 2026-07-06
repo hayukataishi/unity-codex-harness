@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -205,6 +206,84 @@ def run_command(command: list[str], timeout: int) -> int:
         return 127
 
 
+def write_unity_lockfile_diagnostic(
+    project_root: Path,
+    run_relative: str,
+) -> str | None:
+    lockfile = project_root / "Temp" / "UnityLockfile"
+    if not lockfile.exists():
+        return None
+    try:
+        stat = lockfile.stat()
+    except OSError:
+        return None
+    diagnostic_relative = f"{run_relative}/Logs/UnityLockfile.json"
+    diagnostic_path = project_root / diagnostic_relative
+    diagnostic = {
+        "status": "BLOCKED",
+        "reason": (
+            "Temp/UnityLockfile existed before Unity batchmode validation "
+            "started"
+        ),
+        "lockfile": "Temp/UnityLockfile",
+        "sizeBytes": stat.st_size,
+        "modifiedAtUtc": datetime.fromtimestamp(
+            stat.st_mtime,
+            timezone.utc,
+        ).isoformat().replace("+00:00", "Z"),
+    }
+    diagnostic_path.write_text(
+        json.dumps(diagnostic, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return diagnostic_relative
+
+
+def finalize_and_verify(
+    scripts_dir: Path,
+    project_root: Path,
+    run_dir: Path,
+    run_relative: str,
+    results_relative: str,
+) -> int:
+    finalize_command = [
+        sys.executable,
+        str(scripts_dir / "finalize_validation_run.py"),
+        "--project-root",
+        str(project_root),
+        "--run-dir",
+        run_relative,
+        "--results",
+        results_relative,
+    ]
+    completed = subprocess.run(finalize_command, check=False)
+    if not (run_dir / "RunManifest.sha256").is_file():
+        subprocess.run(
+            [
+                sys.executable,
+                str(scripts_dir / "finalize_validation_run.py"),
+                "--project-root",
+                str(project_root),
+                "--run-dir",
+                run_relative,
+                "--blocked-reason",
+                f"Validation finalizer failed with exit code {completed.returncode}",
+            ],
+            check=False,
+        )
+    verify_command = [
+        sys.executable,
+        str(scripts_dir / "verify_validation_run.py"),
+        "--project-root",
+        str(project_root),
+        "--run-dir",
+        run_relative,
+    ]
+    verified = subprocess.run(verify_command, check=False)
+    print(run_relative)
+    return completed.returncode if verified.returncode == 0 else 1
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-root", required=True)
@@ -335,6 +414,59 @@ def main() -> int:
             [(preflight_path, preflight_relative)],
         )
     )
+
+    lockfile_relative = write_unity_lockfile_diagnostic(
+        project_root,
+        run_relative,
+    )
+    if lockfile_relative is not None:
+        lockfile_path = project_root / lockfile_relative
+        lock_notes = (
+            "Same-project Unity lock detected before batchmode validation. "
+            "Close the active Editor, or confirm the lock is stale before "
+            "removing it and rerunning."
+        )
+        checks.append(
+            add_evidence(
+                {
+                    "name": "Unity project lock",
+                    "result": "BLOCKED",
+                    "notes": lock_notes,
+                },
+                [(lockfile_path, lockfile_relative)],
+            )
+        )
+        for check_name in ("Compile", "EditMode", "PlayMode", "Asset validation"):
+            checks.append(
+                add_evidence(
+                    {
+                        "name": check_name,
+                        "result": "BLOCKED",
+                        "notes": lock_notes,
+                    },
+                    [(lockfile_path, lockfile_relative)],
+                )
+            )
+        results_path.write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "commands": commands,
+                    "checks": checks,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return finalize_and_verify(
+            scripts_dir,
+            project_root,
+            run_dir,
+            run_relative,
+            results_relative,
+        )
 
     edit_result_relative = f"{run_relative}/Tests/EditMode.xml"
     edit_log_relative = f"{run_relative}/Logs/EditMode.log"
@@ -525,42 +657,13 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
-    finalize_command = [
-        sys.executable,
-        str(scripts_dir / "finalize_validation_run.py"),
-        "--project-root",
-        str(project_root),
-        "--run-dir",
+    return finalize_and_verify(
+        scripts_dir,
+        project_root,
+        run_dir,
         run_relative,
-        "--results",
         results_relative,
-    ]
-    completed = subprocess.run(finalize_command, check=False)
-    if not (run_dir / "RunManifest.sha256").is_file():
-        subprocess.run(
-            [
-                sys.executable,
-                str(scripts_dir / "finalize_validation_run.py"),
-                "--project-root",
-                str(project_root),
-                "--run-dir",
-                run_relative,
-                "--blocked-reason",
-                f"Validation finalizer failed with exit code {completed.returncode}",
-            ],
-            check=False,
-        )
-    verify_command = [
-        sys.executable,
-        str(scripts_dir / "verify_validation_run.py"),
-        "--project-root",
-        str(project_root),
-        "--run-dir",
-        run_relative,
-    ]
-    verified = subprocess.run(verify_command, check=False)
-    print(run_relative)
-    return completed.returncode if verified.returncode == 0 else 1
+    )
 
 
 if __name__ == "__main__":

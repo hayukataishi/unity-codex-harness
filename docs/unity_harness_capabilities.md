@@ -31,7 +31,7 @@
 | `HCAP-VALIDATION-001` | 実装済み | Validation Runを終端状態と検証可能な証拠で完結させる | `validate-unity-change`、Validation Run scripts、回帰テスト | `DEBUG-001` |
 | `HCAP-REGRESSION-001` | 実装済み | ハーネステンプレート自身をPython回帰テストする | `tests/`、Repository job | `DEBUG-002` |
 | `HCAP-FIXTURE-001` | 実装済み | Unity 6.4 fixtureでEditor APIとserializationを検証する | `tests/fixtures/UnityValidationFixture/` | `DEBUG-003` |
-| `HCAP-EXTERNAL-001` | 実装済み | 外部MCP・Skillを同梱せず固定参照から診断・導入する | `harness.lock.json`、依存診断CLI | `DEBUG-004` |
+| `HCAP-EXTERNAL-001` | 実装済み | 外部MCP・Skillを同梱せず固定参照から診断・導入する | `harness.lock.json`、依存診断CLI、`extract_imagegen_result.py` | `DEBUG-004` |
 | `HCAP-INSTALL-001` | 実装済み | ゲーム所有ファイルを保護して導入・更新する | Installer、manifest、backup、migration bundle | `DEBUG-005` |
 | `HCAP-CI-001` | 一部BLOCKED | GameCI runnerとUnity imageを固定して可用性を検査する | Workflow、image検査CLI。remote Unity jobはLicense Secret待ち | `DEBUG-006` |
 | `HCAP-DOCS-001` | 実装済み | 標準実装、標準・推奨要件、ゲーム個別設計の所有境界を検査する | Repository validator、Installer回帰 | `DEBUG-007` |
@@ -48,7 +48,11 @@
   finalize後の`COMPLETED`へ一方向に遷移する。
 - `FAIL`、`BLOCKED`、`NOT RUN`を含むRunを`PASS`にしない。
 - Unity、License、timeout、Process起動の障害を製品コード失敗と区別する。
+- batchmode起動前に同一Projectの`Temp/UnityLockfile`を検出した場合は、
+  Unityを起動せず診断JSONを証拠に`BLOCKED`で閉じる。
 - 実在する成果物だけを証拠登録し、サイズとSHA-256を検証する。
+- `evidence`は文字列pathまたは`{"path": "...", "notes": "..."}`
+  形式を受け取り、pathとメモを混在させたArtifact文字列を封印前に拒否する。
 - 完了済みRunは上書きせず、追加検証は新しいRunで行う。
 
 実装:
@@ -90,6 +94,8 @@
 - `harness.lock.json`は`harness-managed`として固定commit、導入参照、license情報を記録し、完全性検査で標準pinのdriftを検出する。
 - `harness.overrides.json`は`project-owned`として、承認情報付きのゲーム固有差分だけを記録する。
 - 診断CLIは標準pinとoverrideを合成し、不足・版違い・不正overrideを検出するが、外部依存を変更しない。
+- `extract_imagegen_result.py`はCodex transcript内の`image_gen`完了イベントから
+  指定call idのPNGを復元し、外部Skillをvendorせず生成物ハンドオフを安定化する。
 - MCPがない場合、Editor serializationを必要とする作業をUnity YAML直接編集へ縮退しない。
 
 受け入れ契約: `DEBUG-004-AC01`から`DEBUG-004-AC04`、

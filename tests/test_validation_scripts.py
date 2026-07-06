@@ -349,6 +349,126 @@ class ValidationRunLifecycleTests(unittest.TestCase):
             errors = verify_run.verify_run(project, run_dir)
             self.assertIn("RunManifest.json SHA-256 mismatch", errors)
 
+    def test_run_accepts_structured_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            run_relative = self.create_validation_run(project)
+            run_dir = project / run_relative
+            evidence_relative = f"{run_relative}/Evidence/DEBUG001AC01/Notes.md"
+            evidence_path = project / evidence_relative
+            evidence_path.parent.mkdir(parents=True)
+            evidence_path.write_text("structured evidence\n", encoding="utf-8")
+            results_relative = f"{run_relative}/Logs/ValidationResults.json"
+            results_path = project / results_relative
+            results_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "checks": [
+                            {
+                                "name": "Manual",
+                                "result": "PASS",
+                                "evidence": {
+                                    "path": evidence_relative,
+                                    "notes": "human-readable context",
+                                },
+                            }
+                        ],
+                        "acceptanceCriteria": [
+                            {
+                                "id": "DEBUG-001-AC01",
+                                "result": "PASS",
+                                "evidence": [
+                                    {
+                                        "path": evidence_relative,
+                                        "notes": "confirmed manually",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            finalized = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "finalize_validation_run.py"),
+                    "--project-root",
+                    str(project),
+                    "--run-dir",
+                    run_relative,
+                    "--results",
+                    results_relative,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(finalized.returncode, 0, finalized.stderr)
+            manifest = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(verify_run.evidence_values(manifest), [
+                evidence_relative,
+                evidence_relative,
+            ])
+            self.assertEqual(verify_run.verify_run(project, run_dir), [])
+            report = (run_dir / "Report.md").read_text(encoding="utf-8")
+            self.assertIn("confirmed manually", report)
+
+    def test_finalize_rejects_evidence_path_mixed_with_notes(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            run_relative = self.create_validation_run(project)
+            run_dir = project / run_relative
+            evidence_relative = f"{run_relative}/Tests/EditMode.xml"
+            evidence_path = project / evidence_relative
+            evidence_path.parent.mkdir(parents=True, exist_ok=True)
+            evidence_path.write_text("<test-run />\n", encoding="utf-8")
+            results_relative = f"{run_relative}/Logs/ValidationResults.json"
+            results_path = project / results_relative
+            results_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "checks": [
+                            {
+                                "name": "EditMode",
+                                "result": "PASS",
+                                "evidence": f"{evidence_relative}; 1/1 passed",
+                            }
+                        ],
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            finalized = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "finalize_validation_run.py"),
+                    "--project-root",
+                    str(project),
+                    "--run-dir",
+                    run_relative,
+                    "--results",
+                    results_relative,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertNotEqual(finalized.returncode, 0)
+            self.assertIn("mixes an artifact path with notes", finalized.stderr)
+
     def test_unfinished_run_can_be_closed_as_blocked(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project = self.create_project(Path(temporary_directory))
@@ -462,6 +582,59 @@ class ValidationRunLifecycleTests(unittest.TestCase):
                     for value in evidence
                 ),
                 evidence,
+            )
+            self.assertEqual(verify_run.verify_run(project, run_dir), [])
+
+    def test_runner_blocks_before_batchmode_when_project_lock_exists(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = self.create_project(Path(temporary_directory))
+            lockfile = project / "Temp" / "UnityLockfile"
+            lockfile.parent.mkdir()
+            lockfile.write_text("active editor\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "run_unity_validation.py"),
+                    "--project-root",
+                    str(project),
+                    "--unity-editor",
+                    sys.executable,
+                    "--design-id",
+                    "DEBUG-001",
+                    "--ac-id",
+                    "DEBUG-001-AC01",
+                    "--timeout-seconds",
+                    "5",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            run_relative = completed.stdout.strip().splitlines()[-1]
+            run_dir = project / run_relative
+            manifest = json.loads(
+                (run_dir / "RunManifest.json").read_text(encoding="utf-8")
+            )
+            checks = {
+                check["name"]: check
+                for check in manifest["checks"]
+            }
+
+            self.assertEqual(manifest["state"], "COMPLETED")
+            self.assertEqual(manifest["result"], "BLOCKED")
+            self.assertEqual(
+                [command["name"] for command in manifest["commands"]],
+                ["Preflight"],
+            )
+            self.assertEqual(checks["Unity project lock"]["result"], "BLOCKED")
+            self.assertEqual(checks["Compile"]["result"], "BLOCKED")
+            self.assertEqual(checks["EditMode"]["result"], "BLOCKED")
+            self.assertIn(
+                "UnityLockfile.json",
+                checks["Unity project lock"]["evidence"],
             )
             self.assertEqual(verify_run.verify_run(project, run_dir), [])
 
@@ -1491,6 +1664,10 @@ class InstallerSourceTests(unittest.TestCase):
         )
         self.assertIn(
             "scripts/unity_codex_harness/check_external_dependencies.py",
+            relative_paths,
+        )
+        self.assertIn(
+            "scripts/unity_codex_harness/extract_imagegen_result.py",
             relative_paths,
         )
         self.assertIn(

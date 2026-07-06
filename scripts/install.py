@@ -302,6 +302,15 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
     )
     files.append(
         InstallSource(
+            source=repository_root / "scripts" / "extract_imagegen_result.py",
+            relative=Path(
+                "scripts/unity_codex_harness/extract_imagegen_result.py"
+            ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
+    files.append(
+        InstallSource(
             source=repository_root / "scripts" / "validate_design_contract.py",
             relative=Path(
                 "scripts/unity_codex_harness/validate_design_contract.py"

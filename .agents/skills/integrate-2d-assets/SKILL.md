@@ -29,10 +29,17 @@ If the profile gate is incomplete, stop before mass generation, final atlas cons
 ## Prepare the source asset
 
 - Use agent-sprite-forge for image generation when available and requested; do not duplicate its image-generation workflow in this skill.
+- If the built-in `image_gen` result is visible in the transcript but no PNG was
+  written to disk, recover it with
+  `python3 scripts/unity_codex_harness/extract_imagegen_result.py --session-jsonl <session.jsonl> --call-id <call-id> --output <raw.png>` before any Unity import or deterministic post-processing.
 - Preserve an original source copy or reproducible generation record outside Unity-imported derivatives.
 - Record generator/tool, prompt or source reference, date, license, and manual edits in the project’s approved provenance location.
 - Reject secrets, personal data, unclear third-party ownership, and incompatible licenses.
 - Verify transparent padding, color mode, dimensions, frame count, ordering, and alpha edges before import.
+- For generated character sprites, keep an approved idle or reference image and
+  reject candidates that drift in silhouette, palette, component placement, or
+  bounding boxes. Regenerate from the prompt/reference rather than repainting a
+  failed candidate unless the design explicitly approves manual art edits.
 
 ## Name and place
 

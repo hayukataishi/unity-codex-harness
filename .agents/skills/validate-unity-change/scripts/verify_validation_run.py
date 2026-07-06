@@ -28,19 +28,25 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def append_evidence_value(values: list[str], value: Any) -> None:
+    if isinstance(value, str):
+        values.append(value)
+    elif isinstance(value, dict) and isinstance(value.get("path"), str):
+        values.append(value["path"])
+    elif isinstance(value, list):
+        for item in value:
+            append_evidence_value(values, item)
+
+
 def evidence_values(manifest: dict[str, Any]) -> list[str]:
     values: list[str] = []
     for check in manifest.get("checks", []):
-        if isinstance(check, dict) and isinstance(check.get("evidence"), str):
-            values.append(check["evidence"])
+        if isinstance(check, dict):
+            append_evidence_value(values, check.get("evidence"))
     for criterion in manifest.get("acceptanceCriteria", []):
         if not isinstance(criterion, dict):
             continue
-        evidence = criterion.get("evidence", [])
-        if isinstance(evidence, str):
-            values.append(evidence)
-        elif isinstance(evidence, list):
-            values.extend(value for value in evidence if isinstance(value, str))
+        append_evidence_value(values, criterion.get("evidence", []))
     return values
 
 

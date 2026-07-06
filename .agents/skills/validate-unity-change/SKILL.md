@@ -102,10 +102,16 @@ separately when Unity-facing behavior can be affected.
    - Do not infer `PASS` only because the log has no `error CSxxxx`. Require a
      valid Unity-generated test result or another explicit compile-completion
      artifact from the same run.
+   - If `Temp/UnityLockfile` exists before batchmode validation, treat the run
+     as `BLOCKED` and use the lock diagnostic evidence instead of launching a
+     competing Unity process.
    - Classify license initialization, Editor launch, process timeout, and
      execution-permission failures as `BLOCKED` with the available log.
    - Record only evidence files that exist. Never add an expected but missing
      XML or JSON path to a Check or AC.
+   - When a Check or AC needs both an artifact path and human context, record
+     evidence as `{"path": "Artifacts/...", "notes": "..."}`. Do not append
+     notes to the path string.
 3. **EditMode**
    - Run affected tests first, then the broader relevant suite.
    - Save NUnit-compatible XML to `Tests/EditMode.xml`.

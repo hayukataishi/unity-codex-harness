@@ -806,11 +806,13 @@ ProjectSettings/UnityCodexHarnessAssetValidation.json
 
 - `run_unity_validation.py`はCheck結果を書き出した後に`finalize_validation_run.py`を実行し、続けて`verify_validation_run.py`で完成状態とハッシュを検証する。
 - Compileは`error CSxxxx`がないことだけで`PASS`にしない。新しいRun内にUnityが生成した有効なNUnit XMLがあり、Compiler Errorがない場合にcompile完了を証明する。
+- batchmode検証を起動する前に同一Projectの`Temp/UnityLockfile`が存在する場合は、同じProjectを開いているEditorまたは未確認のstale lockとして扱い、Unityを起動せず診断JSONを残して`BLOCKED`にする。
 - Unity License、Editor起動、Process timeout、実行権限などで期待するXMLまたはJSONが生成されなかった場合は、製品コードの失敗と区別して理由付き`BLOCKED`にする。
-- CheckとACの`evidence`へは実在する成果物だけを登録する。期待したXMLまたはJSONが未生成の場合は、存在するUnity Logを証拠にし、未生成pathを記録しない。
+- CheckとACの`evidence`へは実在する成果物だけを登録する。期待したXMLまたはJSONが未生成の場合は、存在するUnity Logを証拠にし、未生成pathを記録しない。成果物pathへ説明を足す場合は`{"path": "Artifacts/...", "notes": "..."}`形式を使い、path文字列へメモを連結しない。
 - 手動作成したRunは、機械可読な結果JSONを`--results`へ渡してfinalizeする。
 - Unity Editor、ライセンス、外部SDK、人間レビュー待ちなどで継続不能になったRunは放置せず、`--blocked-reason "<理由>"`で`BLOCKED`として完了させる。
 - finalizerは宣言済みAC以外の結果、不正な結果値、Run外のresults path、空のCheck一覧を拒否する。
+- finalizerはArtifact証拠pathがRun内に存在することを封印前に検査し、pathとnotesが混在した文字列を拒否する。
 - finalizerは`RunManifest.json`と`Report.md`を確定し、成果物の相対パス、サイズ、SHA-256と`RunManifest.sha256`を生成する。
 - `COMPLETED`になったRunの再finalizeと上書きを禁止する。証拠を追加・修正する必要がある場合は新しいRunを作成する。
 - `verify_validation_run.py`はManifest sidecar hash、Check・AC証拠パス、成果物の存在・サイズ・SHA-256、未記録ファイル、schema、状態、日時を検査する。

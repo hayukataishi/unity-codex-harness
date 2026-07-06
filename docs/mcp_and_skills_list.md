@@ -15,6 +15,9 @@
 - 標準の固定参照、commit固定URL、license名、固定参照のlicense URLは`harness.lock.json`を正とし、ゲーム固有pinは`harness.overrides.json`との差分合成結果を正とする。
 - 利用者は上流licenseを確認し、READMEの手順で明示的に導入する。ライセンス確認は法的助言を代替しない。
 - 導入先では`python3 scripts/unity_codex_harness/check_external_dependencies.py --project-root .`を実行し、Package、checkout commit、Skill配置を確認する。
+- 外部Skillが利用する`image_gen`結果がファイル化されなかった場合は、Codex
+  transcriptから`python3 scripts/unity_codex_harness/extract_imagegen_result.py`
+  でPNGを復元してから、外部SkillまたはUnity import手順へ渡す。
 - `.codex/external/`と外部SkillコピーはGit管理外とする。Unity Packageの`manifest.json`と`packages-lock.json`は再現性情報としてGit管理する。
 - 静的診断の`PASS`はUnity MCPのServer、Codex connector、Editor接続を証明しない。実接続は別のsmoke testと証拠Runで確認する。
 
