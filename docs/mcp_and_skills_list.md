@@ -182,6 +182,18 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 
 ---
 
+#### `manage-harness-feedback`
+
+**目的:** Harness 自体の不具合・改善要望を導入先で蓄積し、Harness側へ未取り込み分だけ集約する。
+
+- `record` / `list` / `export` で project-owned のfeedback原本を管理する。
+- `import --dry-run` / `import` で複数プロジェクト・JSON bundleを受領する。
+- 永続IDとSHA-256で重複をスキップし、内容の衝突を検出する。
+- [feedback契約](./unity_harness_feedback.md)に保存先・Git管理・再実行手順を定義する。
+- ゲームの仕様変更は `maintain-game-design` を使う。
+
+---
+
 ### 優先度B：2D制作を始める前に必要
 
 #### 5. `integrate-2d-assets`
@@ -269,6 +281,7 @@ Subagentは設計書を編集せず、ユーザーへ直接質問せず、承認
 │  └─ skills/
 │     ├─ bootstrap-game-design/
 │     ├─ maintain-game-design/
+│     ├─ manage-harness-feedback/
 │     ├─ implement-unity-feature/
 │     ├─ validate-unity-change/
 │     ├─ report-unity-work/

@@ -3,6 +3,14 @@
 このファイルはUnity Codex Harnessの公開版ごとの変更を記録する。
 版番号は[Semantic Versioning 2.0.0](https://semver.org/)に従う。
 
+## [Unreleased]
+
+### Added
+
+- `manage-harness-feedback` Skill と記録・一覧・export・import CLI
+- 導入先のproject-owned feedback原本と、永続ID・SHA-256による重複取り込み防止
+- 複数プロジェクト・JSON bundle、dry-run、衝突検出、中断後の再実行
+
 ## [0.1.0] - 2026-06-12
 
 初回versioned release。

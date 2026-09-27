@@ -66,6 +66,8 @@ Before Unity design, implementation, validation, or gameplay-review work, read:
 5. Use `$validate-unity-change` after code, asset, scene, prefab, or settings changes.
 6. Use `$review-gameplay` for player-facing observation and evidence collection.
 7. Use `$report-unity-work` for the final human-reviewable report.
+8. Use `$manage-harness-feedback` for harness feedback recording and deduplicated
+   import. See `docs/unity_harness_feedback.md` for the storage contract.
 
 ## Initial-design orchestration
 

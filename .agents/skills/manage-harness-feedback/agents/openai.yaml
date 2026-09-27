@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Harness Feedback"
+  short_description: "Harnessへの改善要望を蓄積し未取り込み分だけ安全に集約"
+  default_prompt: "Use $manage-harness-feedback to record harness feedback or import unseen feedback from the specified projects."

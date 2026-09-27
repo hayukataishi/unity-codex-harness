@@ -37,6 +37,7 @@ EXPECTED_DISTRIBUTED_DOC_PATHS = {
     "docs/unity_harness_agent_contract.md",
     "docs/unity_harness_capabilities.md",
     "docs/unity_harness_engineering.md",
+    "docs/unity_harness_feedback.md",
     "docs/unity_harness_release.md",
     "docs/unity_harness_requirements.md",
 }

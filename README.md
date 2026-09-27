@@ -68,6 +68,26 @@ Unity template、runtime文書、Installer、ownership manifestを同じ更新�
 - [Agent Skills](https://developers.openai.com/codex/skills/)
 - [Build a plugin](https://developers.openai.com/codex/plugins/build/)
 
+## 導入先のfeedbackをHarnessへ取り込む
+
+導入先で `$manage-harness-feedback` に「この問題をHarnessのfeedbackとして記録して」
+と依頼すると、`.unity-codex-harness/feedback/` に蓄積します。
+この機能がない導入済みプロジェクトは、まず更新済みcheckoutのInstallerで更新してください。
+
+Harness側では次を実行します。
+
+```bash
+python3 scripts/harness_feedback.py import --harness-root . \
+  --source /path/to/YourUnityProject --dry-run
+python3 scripts/harness_feedback.py import --harness-root . \
+  --source /path/to/YourUnityProject
+```
+
+取り込み済みのID・内容は自動でスキップします。別マシンからはJSON bundleで
+受け渡せます。原本と `feedback/imported/` の受領台帳をGitで保持すると、clone後も
+同じ判定を引き継げます。記録・書き出しの手順は
+[Harness feedback](docs/unity_harness_feedback.md)を参照してください。
+
 ## Unityプロジェクトへの導入
 
 ### 最短手順

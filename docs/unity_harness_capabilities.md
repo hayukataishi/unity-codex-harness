@@ -40,6 +40,22 @@
 | `HCAP-DESIGN-READINESS-001` | 実装済み | 対象マイルストーンの設計完成度を機械判定する | readiness CLI、JSON report、Skills、回帰テスト | なし |
 | `HCAP-DESIGN-TRACEABILITY-001` | 実装済み | ゲーム全体・Scene ACから所有単位別設計、Unity実装まで双方向追跡する | 分割文書セット、design contract CLI、Installer migration、Skills | なし |
 | `HCAP-RELEASE-001` | 実装済み・公開tag待ち | Version、互換性、migration、artifact、tag公開を一つのrelease契約として検証する | `harness.release.json`、release builder、GitHub Actions、回帰テスト | `DEBUG-008` |
+| `HCAP-FEEDBACK-001` | 実装済み | 導入先のHarness feedbackを蓄積し、未取り込み分だけ集約する | `manage-harness-feedback`、feedback CLI、Installer・重複排除回帰 | なし |
+
+<a id="hcap-feedback-001"></a>
+## HCAP-FEEDBACK-001 導入先feedbackの回収
+
+- 導入先の `.unity-codex-harness/feedback/` に project-owned の記録を蓄積する。
+- Harness 側の `feedback/imported/` に原本・SHA-256・受領日時を保存し、
+  projectId / feedbackId で取り込み済みを判定する。同一内容はスキップする。
+- 同一IDの内容変更・破損は拒否し、dry-run と取り込みで元データを変更しない。
+- 明示した複数プロジェクトまたは JSON bundle を入力でき、中断後も再実行できる。
+- 取り込み台帳は source-only とし、Installer・release ZIPへ含めない。
+- 受領は改善案の採用・修正完了を意味しない。
+
+受け入れ契約: `HCAP-FEEDBACK-001-AC01` から `HCAP-FEEDBACK-001-AC05`。
+手順・schema・保存契約は [Harness feedback](./unity_harness_feedback.md)、
+回帰テストは `tests/test_harness_feedback.py`。
 
 <a id="hcap-validation-001-validation-run"></a>
 ## HCAP-VALIDATION-001 Validation Run

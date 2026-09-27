@@ -38,6 +38,7 @@ DISTRIBUTED_DOC_PATHS = (
     Path("docs/unity_harness_agent_contract.md"),
     Path("docs/unity_harness_capabilities.md"),
     Path("docs/unity_harness_engineering.md"),
+    Path("docs/unity_harness_feedback.md"),
     Path("docs/unity_harness_release.md"),
     Path("docs/unity_harness_requirements.md"),
 )
@@ -50,6 +51,7 @@ HARNESS_SKILL_NAMES = (
     "implement-unity-feature",
     "integrate-2d-assets",
     "maintain-game-design",
+    "manage-harness-feedback",
     "report-unity-work",
     "review-gameplay",
     "validate-unity-change",
@@ -333,6 +335,13 @@ def source_files(repository_root: Path, skip_agents: bool) -> list[InstallSource
             relative=Path(
                 "scripts/unity_codex_harness/verify_harness_integrity.py"
             ),
+            ownership=OWNERSHIP_HARNESS,
+        )
+    )
+    files.append(
+        InstallSource(
+            source=repository_root / "scripts" / "harness_feedback.py",
+            relative=Path("scripts/unity_codex_harness/harness_feedback.py"),
             ownership=OWNERSHIP_HARNESS,
         )
     )

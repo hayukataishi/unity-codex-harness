@@ -658,6 +658,17 @@ python3 scripts/unity_codex_harness/verify_harness_integrity.py \
 - 標準実装の`HCAP-*`、内部受け入れ契約の`DEBUG-*`、標準・推奨要件の本文はゲーム側sheetへ複製しない。
 - 移行完了は人間がゲーム固有設計の欠落がないことをレビューしてから承認する。
 
+### 導入先からのHarness feedback
+
+Harness 自体への改善要望は `$manage-harness-feedback` と
+[feedback契約](./unity_harness_feedback.md)を使う。
+`.unity-codex-harness/feedback/` はゲーム側所有の追記データであり、
+専有管理root・Installer配布物には含めない。Harness側の
+`feedback/imported/` は原本を含む受領台帳としてGit管理し、配布しない。
+取り込みは明示した入力だけを読み、送信元を変更しない。同一ID・内容はスキップし、
+同一IDの内容変更は上書きせず停止する。ゲーム個別のレビューやHREQ例外承認を
+このfeedbackで代用せず、取り込みだけで改善案を自動実装しない。
+
 ### 外部ツールの再現性
 
 Unity Package Managerへ直接含めないMCP、Codex Skill、生成ツールも`harness.lock.json`で管理する。

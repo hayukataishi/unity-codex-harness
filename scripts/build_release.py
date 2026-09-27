@@ -33,6 +33,7 @@ ARCHIVE_FILES = (
     Path("docs/unity_harness_agent_contract.md"),
     Path("docs/unity_harness_capabilities.md"),
     Path("docs/unity_harness_engineering.md"),
+    Path("docs/unity_harness_feedback.md"),
     Path("docs/unity_harness_release.md"),
     Path("docs/unity_harness_requirements.md"),
 )
